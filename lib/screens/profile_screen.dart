@@ -492,10 +492,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildSmartPriceTracker(BuildContext context, List<Receipt> receipts) {
     // Sık alınan ürünleri hesapla
     final Map<String, int> productCounts = {};
+    final List<String> allRawNames = [];
     for (var receipt in receipts) {
       for (var item in receipt.items) {
+        allRawNames.add(item.name);
         final name = _databaseService.normalizeProductName(item.name).trim();
-        if (name.length > 2) {
+        if (name.length >= 2) {
           productCounts[name] = (productCounts[name] ?? 0) + 1;
         }
       }
@@ -504,11 +506,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final sortedProducts = productCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     
-    final allProducts = sortedProducts.map((e) => e.key).toList();
-    final previewProducts = allProducts.take(3).toList();
+    final allNormalizedProducts = sortedProducts.map((e) => e.key).toList();
+    final previewProducts = allNormalizedProducts.take(3).toList();
 
     return GestureDetector(
-      onTap: () => _showAllProductsScreen(context, allProducts, receipts),
+      onTap: () => _showAllProductsScreen(context, allRawNames, receipts),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -572,10 +574,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 runSpacing: 10,
                 children: previewProducts.map((product) => _buildProductTag(context, product, receipts)).toList(),
               ),
-            if (allProducts.length > 3) ...[
+            if (allNormalizedProducts.length > 3) ...[
               const SizedBox(height: 12),
               Text(
-                '+${allProducts.length - 3} ürün daha',
+                '+${allNormalizedProducts.length - 3} ürün daha',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[600],
@@ -627,13 +629,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _showDetailedProductHistory(BuildContext context, String productName, List<Receipt> allReceipts) async {
+    final targetName = productName.trim().toLowerCase();
+    
     final history = allReceipts.expand((r) => r.items.map((i) => {
       'date': r.date,
       'price': i.price,
       'merchant': r.merchantName,
       'name': i.name,
-      'normalized_name': _databaseService.normalizeProductName(i.name)
-    })).where((i) => (i['normalized_name'] as String).toLowerCase() == productName.toLowerCase()).toList();
+      'normalized_name': _databaseService.normalizeProductName(i.name).trim().toLowerCase()
+    })).where((i) {
+      final iName = (i['name'] as String).trim().toLowerCase();
+      final iNormalized = (i['normalized_name'] as String);
+      return iNormalized == targetName || iName == targetName;
+    }).toList();
     
     history.sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
 
@@ -734,11 +742,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
 
-  void _showAllProductsScreen(BuildContext context, List<String> allProducts, List<Receipt> receipts) async {
+  void _showAllProductsScreen(BuildContext context, List<String> allRawNames, List<Receipt> receipts) async {
     final selectedProduct = await Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (context) => ProductListScreen(allProducts: allProducts, receipts: receipts),
+        builder: (context) => ProductListScreen(allProducts: allRawNames, receipts: receipts),
       ),
     );
     

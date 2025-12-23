@@ -3,8 +3,8 @@ import 'package:fismatik/l10n/generated/app_localizations.dart';
 import 'package:intl/intl.dart';
 import '../core/app_theme.dart';
 import '../models/receipt_model.dart';
-import '../services/product_normalization_service.dart';
-import '../services/supabase_database_service.dart';
+import 'package:fismatik/services/product_normalization_service.dart';
+import 'package:fismatik/services/supabase_database_service.dart';
 import 'profile_screen.dart';
 
 class ProductListScreen extends StatefulWidget {
@@ -36,13 +36,18 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
   Future<void> _loadUserPreference() async {
     try {
-      final mode = await _dbService.getUserPriceComparisonMode();
-      if (mounted) {
-        setState(() {
-          _viewMode = mode;
-          _isLoadingPreference = false;
-        });
-      }
+      // Load both preference and global mappings
+      await Future.wait([
+        _dbService.getUserPriceComparisonMode(),
+        _dbService.loadGlobalProductMappings(),
+      ]).then((results) {
+        if (mounted) {
+          setState(() {
+            _viewMode = results[0] as String;
+            _isLoadingPreference = false;
+          });
+        }
+      });
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -88,11 +93,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   List<String> _getFilteredBrandProducts() {
-    var products = widget.allProducts;
+    // Show RAW names in Brand view, only filtered by search/category
+    var products = widget.allProducts.toSet().toList();
     
     if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
       products = products
-          .where((p) => p.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .where((p) => p.toLowerCase().contains(query))
           .toList();
     }
     
@@ -100,6 +107,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       products = products.where((p) => _getCategoryForProduct(p) == _selectedCategory).toList();
     }
     
+    products.sort((a, b) => a.compareTo(b));
     return products;
   }
 
@@ -126,7 +134,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
       
       for (final receipt in widget.receipts) {
         for (final item in receipt.items) {
-          if (brandVariants.contains(item.name)) {
+          // [FIX] Compare using normalized names to count prices correctly for a generic group
+          final itemNormalized = _dbService.normalizeProductName(item.name);
+          if (brandVariants.contains(itemNormalized) || brandVariants.contains(item.name)) {
             prices.add(item.price);
             markets.add(receipt.merchantName);
           }
@@ -159,22 +169,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }
 
     return genericProducts;
-  }
-
-  String _getCategoryForProduct(String productName) {
-    final lower = productName.toLowerCase();
-    if (lower.contains('süt') || lower.contains('ayran') || lower.contains('yoğurt') || lower.contains('peynir')) {
-      return 'Süt Ürünleri';
-    } else if (lower.contains('ekmek') || lower.contains('poğaça') || lower.contains('simit')) {
-      return 'Fırın';
-    } else if (lower.contains('su') || lower.contains('kola') || lower.contains('meyve suyu') || lower.contains('çay')) {
-      return 'İçecekler';
-    } else if (lower.contains('deterjan') || lower.contains('sabun') || lower.contains('şampuan')) {
-      return 'Temizlik';
-    } else if (lower.contains('çikolata') || lower.contains('gofret') || lower.contains('bisküvi')) {
-      return 'Atıştırmalık';
-    }
-    return 'Diğer';
   }
 
   List<String> get _categories {
@@ -465,16 +459,28 @@ class _ProductListScreenState extends State<ProductListScreen> {
     );
   }
 
+  String _getCategoryForProduct(String productName) {
+    final mapping = _dbService.getNormalizedData(productName);
+    if (mapping.category != null) return mapping.category!;
+    return _dbService.guessCategoryFromName(productName);
+  }
+
   IconData _getCategoryIcon(String category) {
     switch (category) {
-      case 'Süt Ürünleri':
-        return Icons.local_drink;
-      case 'Fırın':
-        return Icons.bakery_dining;
-      case 'İçecekler':
-        return Icons.local_cafe;
-      case 'Temizlik':
-        return Icons.cleaning_services;
+      case 'Market':
+        return Icons.shopping_cart;
+      case 'Akaryakıt':
+        return Icons.local_gas_station;
+      case 'Yeme-İçme':
+        return Icons.restaurant;
+      case 'Giyim':
+        return Icons.checkroom;
+      case 'Teknoloji':
+        return Icons.computer;
+      case 'Sağlık':
+        return Icons.local_hospital;
+      case 'Ev Eşyası':
+        return Icons.kitchen;
       case 'Atıştırmalık':
         return Icons.cookie;
       default:
