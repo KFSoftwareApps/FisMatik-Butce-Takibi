@@ -17,6 +17,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // [NEW]
 import '../services/usage_guard.dart'; // [NEW]
 import 'package:fismatik/services/product_normalization_service.dart';
+import '../models/membership_model.dart';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
