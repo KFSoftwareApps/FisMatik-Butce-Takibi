@@ -1268,6 +1268,60 @@ abstract class AppLocalizations {
   /// **'Best market for you: {market}'**
   String marketRecommendation(Object market);
 
+  /// No description provided for @priceComparisonMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Price Comparison Mode'**
+  String get priceComparisonMode;
+
+  /// No description provided for @brandSpecificMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Brand-Specific'**
+  String get brandSpecificMode;
+
+  /// No description provided for @genericProductMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Generic Product'**
+  String get genericProductMode;
+
+  /// No description provided for @brandCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} different brands'**
+  String brandCount(Object count);
+
+  /// No description provided for @priceRange.
+  ///
+  /// In en, this message translates to:
+  /// **'₺{min} - ₺{max}'**
+  String priceRange(Object max, Object min);
+
+  /// No description provided for @cheapestAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Cheaper at {merchant}!'**
+  String cheapestAt(Object merchant);
+
+  /// No description provided for @viewAllBrands.
+  ///
+  /// In en, this message translates to:
+  /// **'View All Brands'**
+  String get viewAllBrands;
+
+  /// No description provided for @switchToGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to generic view'**
+  String get switchToGeneric;
+
+  /// No description provided for @switchToBrand.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to brand view'**
+  String get switchToBrand;
+
   /// No description provided for @bestPriceRecently.
   ///
   /// In en, this message translates to:
@@ -4249,12 +4303,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Seen on {date}'**
   String seenAt(Object date);
-
-  /// No description provided for @cheapestAt.
-  ///
-  /// In en, this message translates to:
-  /// **'Cheaper at {merchant}!'**
-  String cheapestAt(Object merchant);
 
   /// No description provided for @priceDropAlertTitle.
   ///

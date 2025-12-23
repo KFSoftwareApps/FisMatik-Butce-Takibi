@@ -649,6 +649,39 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get priceComparisonMode => 'Price Comparison Mode';
+
+  @override
+  String get brandSpecificMode => 'Brand-Specific';
+
+  @override
+  String get genericProductMode => 'Generic Product';
+
+  @override
+  String brandCount(Object count) {
+    return '$count different brands';
+  }
+
+  @override
+  String priceRange(Object max, Object min) {
+    return '₺$min - ₺$max';
+  }
+
+  @override
+  String cheapestAt(Object merchant) {
+    return 'Cheaper at $merchant!';
+  }
+
+  @override
+  String get viewAllBrands => 'View All Brands';
+
+  @override
+  String get switchToGeneric => 'Switch to generic view';
+
+  @override
+  String get switchToBrand => 'Switch to brand view';
+
+  @override
   String get bestPriceRecently => 'Best price was found here recently.';
 
   @override
@@ -2279,11 +2312,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String seenAt(Object date) {
     return 'Seen on $date';
-  }
-
-  @override
-  String cheapestAt(Object merchant) {
-    return 'Cheaper at $merchant!';
   }
 
   @override

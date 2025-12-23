@@ -650,6 +650,39 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String get priceComparisonMode => 'Fiyat Karşılaştırma Modu';
+
+  @override
+  String get brandSpecificMode => 'Marka Bazlı';
+
+  @override
+  String get genericProductMode => 'Ürün Bazlı';
+
+  @override
+  String brandCount(Object count) {
+    return '$count farklı marka';
+  }
+
+  @override
+  String priceRange(Object max, Object min) {
+    return '₺$min - ₺$max';
+  }
+
+  @override
+  String cheapestAt(Object merchant) {
+    return '$merchant marketinde daha ucuz!';
+  }
+
+  @override
+  String get viewAllBrands => 'Tüm Markaları Gör';
+
+  @override
+  String get switchToGeneric => 'Ürün bazlı görünüme geç';
+
+  @override
+  String get switchToBrand => 'Marka bazlı görünüme geç';
+
+  @override
   String get bestPriceRecently => 'Son dönem en ucuz fiyat burada bulundu.';
 
   @override
@@ -2274,11 +2307,6 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String seenAt(Object date) {
     return '$date tarihinde görüldü';
-  }
-
-  @override
-  String cheapestAt(Object merchant) {
-    return '$merchant marketinde daha ucuz!';
   }
 
   @override
