@@ -20,6 +20,8 @@ import 'screens/login_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/main_wrapper.dart';
 import 'screens/verify_email_screen.dart';
+import 'services/supabase_database_service.dart';
+import 'services/product_normalization_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -234,6 +236,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     // 4. Setup Session Listener
     _setupSessionListener();
+
+    // 5. Load Global Product Mappings [NEW]
+    SupabaseDatabaseService().loadGlobalProductMappings();
   }
 
   void _handleUserLogout() {

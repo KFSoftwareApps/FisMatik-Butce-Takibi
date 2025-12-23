@@ -126,8 +126,8 @@ class AdService {
               leading: IconButton(
                 icon: const Icon(Icons.close, color: Colors.black),
                 onPressed: () {
-                  Navigator.pop(context);
                   if (onAdDismissed != null) onAdDismissed();
+                  Navigator.pop(context);
                 },
               ),
               title: Text(
@@ -160,8 +160,8 @@ class AdService {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(context);
                     if (onAdDismissed != null) onAdDismissed();
+                    Navigator.pop(context);
                   },
                   child: const Text("Kapat ve Devam Et"),
                 ),
