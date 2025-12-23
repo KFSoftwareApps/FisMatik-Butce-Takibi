@@ -92,3 +92,22 @@ ios/Flutter/App.framework
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
 .DS_Store
+
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+**/*.xcworkspace
+**/*.xcuserstate
+**/xcuserdata/
+
+# Desktop build artifacts
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+
+# Android
+**/.gradle/
+**/build/
+
