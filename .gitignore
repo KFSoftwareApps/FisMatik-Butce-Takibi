@@ -1,4 +1,4 @@
-# Miscellaneous
+x# Miscellaneous
 *.class
 *.log
 *.pyc
@@ -80,3 +80,15 @@ backend/config/
 backend/**/*secret*.json
 backend/**/*credential*.json
 backend/**/*key*.json
+
+# Platform-specific machine-dependent files
+android/local.properties
+android/key.properties
+*.keystore
+*.jks
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+.DS_Store
