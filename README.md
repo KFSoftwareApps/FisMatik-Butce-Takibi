@@ -1,136 +1,136 @@
-# 🧾 FişMatik - Akıllı Bütçe Takip Uygulaması
+# 🧾 FişMatik - Smart Budget Tracking App
 
-**FişMatik**, fiş ve fatura yönetimini kolaylaştıran, yapay zeka destekli bir mobil bütçe takip uygulamasıdır. Harcamalarınızı otomatik olarak analiz eder, kategorize eder ve size kişiselleştirilmiş tasarruf önerileri sunar.
+**FişMatik** is an AI-powered mobile budget tracking application that simplifies receipt and invoice management. It automatically analyzes and categorizes your expenses, providing personalized savings recommendations.
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue.svg)](https://flutter.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Backend-green.svg)](https://supabase.com/)
 [![License](https://img.shields.io/badge/License-Proprietary-red.svg)]()
 
-## ✨ Özellikler
+## ✨ Features
 
-### 📸 Akıllı Fiş Tarama
-- **AI Destekli OCR:** Google ML Kit ile fiş ve faturaları otomatik tanıma
-- **Hızlı Kayıt:** Kamera veya galeriden fiş yükleme
-- **Otomatik Kategorizasyon:** Harcamaları akıllıca kategorilere ayırma
+### 📸 Smart Receipt Scanning
+- **AI-Powered OCR:** Automatic recognition of receipts and invoices using Google ML Kit.
+- **Fast Entry:** Upload receipts via camera or gallery.
+- **Auto-Categorization:** Intelligent categorization of expenses.
 
-### 💰 Bütçe Yönetimi
-- **Aylık Bütçe Takibi:** Harcama limitlerini belirleyin ve takip edin
-- **Sabit Giderler:** Kira, faturalar gibi düzenli ödemeleri yönetin
-- **Detaylı Raporlar:** Aylık, haftalık ve kategoriye göre harcama analizleri
+### 💰 Budget Management
+- **Monthly Budget Tracking:** Set and track spending limits.
+- **Fixed Expenses:** Manage regular payments like rent and utilities.
+- **Detailed Reports:** Expense analysis by month, week, and category.
 
-### 🎯 Premium Özellikler
+### 🎯 Premium Features
 
-#### Akıllı Tasarruf Merkezi (Premium/Aile)
-- **Fiyat Geçmişi Takibi:** Sık aldığınız ürünlerin fiyat değişimlerini izleyin
-- **Market Önerileri:** Hangi markette daha ucuz alışveriş yapabileceğinizi öğrenin
-- **Kategori Filtreleme:** Süt ürünleri, fırın, içecek gibi kategorilere göre arama
-- **Gerçek Zamanlı Arama:** Ürünlerinizi anında bulun
+#### Smart Savings Center (Premium/Family)
+- **Price History Tracking:** Monitor price changes for frequently purchased products.
+- **Merchant Recommendations:** Discover where you can shop for less.
+- **Category Filtering:** Search by categories like dairy, bakery, beverages, etc.
+- **Real-Time Search:** Find your products instantly.
 
-#### AI Finans Asistanı
-- **Kişiselleştirilmiş Öneriler:** Harcama alışkanlıklarınıza göre tasarruf tavsiyeleri
-- **Doğal Dil İşleme:** Sorularınızı sohbet ederek sorun
+#### AI Finance Assistant
+- **Personalized Recommendations:** Saving tips based on your spending habits.
+- **Natural Language Processing:** Ask questions through chat.
 
-### 👥 Aile Ekonomisi Planı
-- **Çoklu Kullanıcı:** Aile üyeleriyle bütçeyi paylaşın
-- **Ortak Harcama Takibi:** Tüm aile harcamalarını tek yerden yönetin
-- **Yüksek Limitler:** Günlük 35 fiş tarama, 200 manuel giriş
+### 👥 Family Economy Plan
+- **Multi-User:** Share the budget with family members.
+- **Collaborative Tracking:** Manage all family expenses in one place.
+- **High Limits:** Up to 35 receipt scans and 200 manual entries daily.
 
-## 🚀 Teknoloji Stack
+## 🚀 Technology Stack
 
 - **Frontend:** Flutter 3.x (Dart)
 - **Backend:** Supabase (PostgreSQL, Realtime, Auth, Storage)
 - **AI/ML:** 
   - Google ML Kit (OCR)
-  - Google Gemini (AI Asistan)
+  - Google Gemini (AI Assistant)
 - **State Management:** Provider
 - **Localization:** Turkish & English
 - **Payments:** RevenueCat (In-App Purchases)
 
-## 📦 Kurulum
+## 📦 Installation
 
-### Gereksinimler
-- Flutter SDK 3.x veya üzeri
-- Dart SDK 3.x veya üzeri
+### Requirements
+- Flutter SDK 3.x or higher
+- Dart SDK 3.x or higher
 - Android Studio / VS Code
-- Supabase hesabı
+- Supabase account
 
-### Adımlar
+### Steps
 
-1. **Repository'yi klonlayın:**
+1. **Clone the repository:**
 ```bash
 git clone https://github.com/KFSoftwareApps/FisMatik-Butce-Takibi.git
 cd FisMatik-Butce-Takibi
 ```
 
-2. **Bağımlılıkları yükleyin:**
+2. **Install dependencies:**
 ```bash
 flutter pub get
 ```
 
-3. **Environment dosyasını oluşturun:**
+3. **Create the environment file:**
 ```bash
-# .env dosyası oluşturun ve Supabase bilgilerinizi ekleyin
+# Create a .env file and add your Supabase credentials
 SUPABASE_URL=your_supabase_url
 SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-4. **Uygulamayı çalıştırın:**
+4. **Run the application:**
 ```bash
 flutter run
 ```
 
-## 🏗️ Proje Yapısı
+## 🏗️ Project Structure
 
 ```
 lib/
-├── core/              # Tema, sabitler, yardımcı sınıflar
-├── l10n/              # Çoklu dil desteği
-├── models/            # Veri modelleri
+├── core/              # Themes, constants, helpers
+├── l10n/              # Localization support
+├── models/            # Data models
 ├── providers/         # State management
-├── screens/           # UI ekranları
+├── screens/           # UI screens
 │   ├── home_screen.dart
 │   ├── profile_screen.dart
 │   ├── product_list_screen.dart
 │   └── ...
-├── services/          # Backend servisleri
+├── services/          # Backend services
 │   ├── auth_service.dart
 │   ├── supabase_database_service.dart
 │   └── ...
-└── main.dart          # Uygulama giriş noktası
+└── main.dart          # Application entry point
 ```
 
-## 🔒 Güvenlik
+## 🔒 Security
 
-- **API Anahtarları:** Tüm hassas bilgiler `.env` dosyasında saklanır ve `.gitignore` ile korunur
-- **Backend Security:** Supabase Row Level Security (RLS) politikaları
-- **Authentication:** Supabase Auth ile güvenli kullanıcı yönetimi
-- **Data Encryption:** Hassas veriler şifreli olarak saklanır
+- **API Keys:** All sensitive information is stored in the `.env` file and protected by `.gitignore`.
+- **Backend Security:** Supabase Row Level Security (RLS) policies.
+- **Authentication:** Secure user management via Supabase Auth.
+- **Data Encryption:** Sensitive data is stored encrypted.
 
-## 📱 Üyelik Seviyeleri
+## 📱 Subscription Tiers
 
-| Özellik | Ücretsiz | Standart | Pro | Aile Ekonomisi |
+| Feature | Free | Standard | Pro | Family Economy |
 |---------|----------|----------|-----|----------------|
-| Günlük Fiş Tarama | 1 | 10 | 25 | 35 |
-| Manuel Giriş | 20 | 50 | 100 | 200 |
-| AI Asistan | ❌ | ❌ | ✅ | ✅ |
-| Akıllı Fiyat Takibi | ❌ | ❌ | ✅ | ✅ |
-| Kategori Yönetimi | ❌ | ✅ | ✅ | ✅ |
-| Aile Paylaşımı | ❌ | ❌ | ❌ | ✅ |
+| Daily Scans | 1 | 10 | 25 | 35 |
+| Manual Entries | 20 | 50 | 100 | 200 |
+| AI Assistant | ❌ | ❌ | ✅ | ✅ |
+| Smart Price Tracking| ❌ | ❌ | ✅ | ✅ |
+| Category Management | ❌ | ✅ | ✅ | ✅ |
+| Family Sharing | ❌ | ❌ | ❌ | ✅ |
 
-## 🤝 Katkıda Bulunma
+## 🤝 Contributing
 
-Bu proje şu anda kapalı kaynak kodludur. Önerileriniz için lütfen issue açın.
+This project is currently private. For suggestions, please open an issue.
 
-## 📄 Lisans
+## 📄 License
 
-Copyright © 2025 KF Software. Tüm hakları saklıdır.
+Copyright © 2025 KF Software. All rights reserved.
 
-## 📧 İletişim
+## 📧 Contact
 
 - **Email:** kfsoftwareapp@gmail.com
 - **GitHub:** [@KFSoftwareApps](https://github.com/KFSoftwareApps)
 
 ---
 
-**Geliştirici:** KF Software  
-**Son Güncelleme:** Aralık 2025
+**Developer:** KF Software  
+**Last Update:** December 2025

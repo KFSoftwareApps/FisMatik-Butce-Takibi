@@ -54,6 +54,8 @@ class _ScanScreenState extends State<ScanScreen> {
   int _dailyLimit = 0;
   bool _dailyLimitLoaded = false;
   bool _scanQuotaLoaded = false; // Added this as it was referenced in errors
+  MembershipTier? _currentTier; // [NEW] Cache tier
+  DateTime? _lastAccessAt; // [NEW] For spam prevention
 
   // Smart Retry Variables
   String? _lastScannedText;
@@ -103,213 +105,203 @@ class _ScanScreenState extends State<ScanScreen> {
     } catch (e) {
       debugPrint("Günlük limit yükleme hatası: $e");
     }
+
+    // [NEW] Ayrıca tier'ı da yükleyelim
+    try {
+      final tier = await _authService.getCurrentTier();
+      if (!mounted) return;
+      setState(() {
+        _currentTier = tier;
+      });
+    } catch (e) {
+      debugPrint("Tier yükleme hatası: $e");
+    }
   }
 
 
-  // --- KAMERA/GALERİ İŞLEMİ ---
+  // --- KAMERA/GALERİ İİŞLEMİ ---
   Future<void> _pickImage(ImageSource source) async {
-    // 0) Race Condition Önlemi: Hemen loading durumuna geç
     if (_isScanning) return;
+    
     setState(() {
       _isScanning = true;
+      _statusMessage = ""; // Reset status
     });
 
-    // 1) Önce kullanım limiti kontrolü (SADECE KONTROL, DÜŞME YOK)
-    // Düşme işlemi server-side (Edge Function) tarafında yapılacak.
-    final usageResult = await UsageGuard.checkAndConsume(
-      UsageFeature.ocrScan, 
-      checkOnly: true
-    );
+    // Safety timeout: If still scanning after 45 seconds, reset state
+    // This prevents permanent locking if a promise hangs in Safari/Web
+    Future.delayed(const Duration(seconds: 45), () {
+      if (mounted && _isScanning) {
+        setState(() {
+          _isScanning = false;
+          _statusMessage = AppLocalizations.of(context)!.analysisError;
+        });
+      }
+    });
 
-    if (!usageResult.isAllowed) {
-      if (!mounted) return;
-
-      final message = usageResult.message ??
-          AppLocalizations.of(context)!.scanFeatureUnavailable;
-
-      setState(() {
-        _statusMessage = message;
-        _isScanning = false; // Hata durumunda loading kapat
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-      return;
-    }
-
-    // 2) Üyelik tipini al
-    final MembershipTier tier = await _authService.getCurrentTier();
-
-    // 3) Kamerayı/galeriyi açan asıl fonksiyon
-    Future<void> launchCameraOrGallery() async {
-      // İzin Kontrolü (Sadece Mobilde)
-      if (!kIsWeb) {
-        PermissionStatus status;
-
-        if (source == ImageSource.camera) {
-          status = await Permission.camera.request();
-        } else {
-          if (await Permission.photos.request().isGranted ||
-              await Permission.storage.request().isGranted) {
-            status = PermissionStatus.granted;
-          } else {
-            status = PermissionStatus.denied;
-          }
-        }
-
-        if (!status.isGranted && status != PermissionStatus.limited) {
-          if (mounted) {
-            setState(() {
-              _isScanning = false; // İzin yoksa loading kapat
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  AppLocalizations.of(context)!.cameraGalleryPermission,
-                ),
-              ),
-            );
-          }
-          return;
-        }
+    try {
+      // 1) Limit Kontrolü (Hızlı Kontrol)
+      if (_dailyLimitLoaded && _dailyUsage >= _dailyLimit) {
+        final message = AppLocalizations.of(context)!.monthlyLimitReached;
+        setState(() {
+          _statusMessage = message;
+          _isScanning = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        return;
       }
 
-      try {
-        final XFile? pickedFile = await _picker.pickImage(
-          source: source,
-          maxWidth: 2000,
-          maxHeight: 2000,
-          imageQuality: 85,
-        );
-        if (pickedFile == null) {
-          if (mounted) {
-            setState(() {
-              _isScanning = false; // İptal edildiyse loading kapat
-            });
-          }
-          return;
+      // 2) Spam Kontrolü
+      if (_lastAccessAt != null) {
+        final diff = DateTime.now().difference(_lastAccessAt!).inMilliseconds;
+        if (diff < 800) {
+          setState(() { _isScanning = false; });
+          return; 
         }
+      }
+      _lastAccessAt = DateTime.now();
 
-        setState(() {
-          _image = pickedFile;
-          _statusMessage = AppLocalizations.of(context)!.readingText;
-          _receiptData = null;
-        });
+      // 3) Üyelik tipini al
+      final MembershipTier tier = _currentTier ?? await _authService.getCurrentTier();
+      _currentTier = tier;
 
-        Map<String, dynamic>? aiResult;
+      // Local function for actual picking and processing
+      Future<void> launchCameraOrGallery() async {
+        // [WEB FIX] Safari bazen dialog kapandığı anda picker açılmasını 
+        // "user gesture" olarak algılamıyor. 100ms beklemek bunu stabilize edebilir.
+        if (kIsWeb) await Future.delayed(const Duration(milliseconds: 100));
 
-        // --- VISION-FIRST STRATEGY (Unify Web and Mobile) ---
-        final bytes = await _image!.readAsBytes();
-        final base64Image = base64Encode(bytes);
-        
-        setState(() {
-          _statusMessage = AppLocalizations.of(context)!.aiExtractingData;
-        });
+        // İzin Kontrolü (Sadece Mobilde)
+        if (!kIsWeb) {
+          PermissionStatus status;
+          if (source == ImageSource.camera) {
+            status = await Permission.camera.request();
+          } else {
+            if (await Permission.photos.request().isGranted ||
+                await Permission.storage.request().isGranted ||
+                await Permission.photos.request().isLimited) {
+              status = PermissionStatus.granted;
+            } else {
+              status = PermissionStatus.denied;
+            }
+          }
+
+          if (status != PermissionStatus.granted && status != PermissionStatus.limited) {
+            if (mounted) {
+              setState(() { _isScanning = false; });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(AppLocalizations.of(context)!.cameraGalleryPermission)),
+              );
+            }
+            return;
+          }
+        }
 
         try {
-          // Gemini Vision ile çok daha kaliteli sonuçlar
-          aiResult = await _aiService.parseReceiptWithImage(base64Image);
-        } catch (e) {
-          debugPrint("Vision service failed, falling back to local OCR: $e");
+          // [WEB FIX] Safari ve bazı tarayıcılarda ImagePicker instance'ını 
+          // tazelemek sorunları (input element recycle hataları) azaltabiliyor.
+          final pickerInstance = kIsWeb ? ImagePicker() : _picker;
+
+          final XFile? pickedFile = await pickerInstance.pickImage(
+            source: source,
+            maxWidth: 2000,
+            maxHeight: 2000,
+            imageQuality: 85,
+          );
           
-          if (!kIsWeb) {
-            // MOBİL FALLBACK: Yerel OCR + Backend Parse
-            final rawText = await _ocrService.scanReceipt(_image!);
-            aiResult = await _aiService.parseReceiptText(rawText);
-          } else {
-            rethrow;
+          if (pickedFile == null) {
+            if (mounted) setState(() { _isScanning = false; });
+            return;
           }
-        }
 
-        setState(() {
-          _isScanning = false;
-          if (aiResult != null) {
-            _receiptData = aiResult;
-            _statusMessage = AppLocalizations.of(context)!.processSuccess;
-            _loadDailyUsage();
-          } else {
-            _statusMessage = AppLocalizations.of(context)!.dataExtractionFailed;
-          }
-        });
+          setState(() {
+            _image = pickedFile;
+            _statusMessage = AppLocalizations.of(context)!.readingText;
+            _receiptData = null;
+          });
 
-        // --- FETCH PRICE HISTORY (Faz 1) ---
-        if (_receiptData != null && _receiptData!['items'] != null) {
-          final List<String> itemNames = (_receiptData!['items'] as List)
-              .map((e) => e['name'].toString())
-              .toList();
-          final history = await _databaseService.getPriceHistoryForProducts(itemNames);
+          // Fetch bytes
+          final bytes = await pickedFile.readAsBytes();
+          final base64Image = base64Encode(bytes);
+          
           if (mounted) {
             setState(() {
-              _priceHistory = history;
+              _statusMessage = AppLocalizations.of(context)!.aiExtractingData;
             });
           }
+
+          Map<String, dynamic>? aiResult;
+          try {
+            aiResult = await _aiService.parseReceiptWithImage(base64Image);
+          } catch (e) {
+            debugPrint("Vision service failed: $e");
+            if (!kIsWeb) {
+              final rawText = await _ocrService.scanReceipt(pickedFile);
+              aiResult = await _aiService.parseReceiptText(rawText);
+            } else {
+              rethrow;
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              _isScanning = false;
+              if (aiResult != null) {
+                _receiptData = aiResult;
+                _statusMessage = AppLocalizations.of(context)!.processSuccess;
+                _loadDailyUsage();
+              } else {
+                _statusMessage = AppLocalizations.of(context)!.dataExtractionFailed;
+              }
+            });
+
+            // Fetch history
+            if (_receiptData != null && _receiptData!['items'] != null) {
+              final List<String> itemNames = (_receiptData!['items'] as List)
+                  .map((e) => e['name'].toString())
+                  .toList();
+              final history = await _databaseService.getPriceHistoryForProducts(itemNames);
+              if (mounted) setState(() { _priceHistory = history; });
+            }
+          }
+        } on AiBackendException catch (e) {
+          if (mounted) {
+            setState(() { _isScanning = false; });
+            String uiMessage = e.code == 'SCAN_LIMIT_REACHED' 
+                ? AppLocalizations.of(context)!.monthlyLimitReached
+                : (e.code == 'RATE_LIMIT' ? e.message : AppLocalizations.of(context)!.analysisError);
+            setState(() { _statusMessage = uiMessage; });
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(uiMessage)));
+          }
+        } catch (e) {
+          debugPrint("Fiş tarama hatası: $e");
+          if (mounted) {
+            setState(() {
+              _isScanning = false;
+              _statusMessage = AppLocalizations.of(context)!.genericError;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.analysisError)));
+          }
         }
-      } on AiBackendException catch (e) {
-         if (!mounted) return;
-
-        debugPrint(
-          "BACKEND HATA (${e.code}): ${e.message} (status: ${e.statusCode})",
-        );
-
-        setState(() {
-          _isScanning = false;
-        });
-
-        String uiMessage;
-
-        if (e.code == 'SCAN_LIMIT_REACHED') {
-          uiMessage =
-              AppLocalizations.of(context)!.monthlyLimitReached;
-        } else if (e.code == 'RATE_LIMIT') {
-          uiMessage = e.message.isNotEmpty
-              ? e.message
-              : AppLocalizations.of(context)!.rateLimitExceeded;
-        } else if (e.code == 'NETWORK_ERROR') {
-          uiMessage =
-              AppLocalizations.of(context)!.networkError;
-        } else {
-          uiMessage =
-              AppLocalizations.of(context)!.analysisError;
-        }
-
-        setState(() {
-          _statusMessage = uiMessage;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(uiMessage)),
-        );
-      } catch (e) {
-        debugPrint("Fiş tarama hatası: $e");
-
-        if (!mounted) return;
-        setState(() {
-          _isScanning = false;
-          _statusMessage =
-              AppLocalizations.of(context)!.genericError;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppLocalizations.of(context)!.analysisError,
-            ),
-          ),
-        );
       }
-    }
 
-    // 3) REKLAM KONTROLÜ
-    if (tier.id == 'standart') {
-      _adService.showInterstitialAd(
-        context: context,
-        onAdDismissed: () {
-          launchCameraOrGallery();
-        },
-      );
-    } else {
-      await launchCameraOrGallery();
+      // Ad logic
+      if (tier.id == 'standart') {
+        _adService.showInterstitialAd(
+          context: context,
+          onAdDismissed: () => launchCameraOrGallery(),
+        );
+      } else {
+        await launchCameraOrGallery();
+      }
+    } catch (e) {
+      debugPrint("Pre-scan error: $e");
+      if (mounted) {
+        setState(() {
+          _isScanning = false;
+          _statusMessage = e.toString();
+        });
+      }
     }
   }
 

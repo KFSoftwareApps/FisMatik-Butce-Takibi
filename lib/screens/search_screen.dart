@@ -5,6 +5,7 @@ import '../models/receipt_model.dart';
 import '../services/supabase_database_service.dart';
 import 'edit_receipt_screen.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
+import 'package:fismatik/services/product_normalization_service.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -39,6 +40,8 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
         setState(() {}); // Tab değişince UI güncelle (Floating action button vs varsa)
       }
     });
+    // Global ürün eşleşmelerini yükle
+    _databaseService.loadGlobalProductMappings();
     _loadReceipts();
   }
 
@@ -71,7 +74,10 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
         // ... (Mevcut filtreleme mantığı aynı kalacak)
         bool matchesText = receipt.merchantName.toLowerCase().contains(query);
         if (!matchesText) {
-          matchesText = receipt.items.any((item) => item.name.toLowerCase().contains(query));
+          matchesText = receipt.items.any((item) {
+            final normalized = _databaseService.normalizeProductName(item.name).toLowerCase();
+            return normalized.contains(query) || item.name.toLowerCase().contains(query);
+          });
         }
 
         bool matchesDate = true;

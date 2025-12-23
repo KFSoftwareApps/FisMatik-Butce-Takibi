@@ -7,6 +7,7 @@ import '../models/category_model.dart';
 import '../models/subscription_model.dart';
 import '../models/shopping_item_model.dart';
 import 'notification_service.dart';
+import 'package:fismatik/services/product_normalization_service.dart';
 
 class SupabaseDatabaseService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -847,16 +848,13 @@ class SupabaseDatabaseService {
           // Bizim amacımız: "Hangi markette ne kadar?"
           // Bu yüzden (Ürün Adı - Market) bazında en güncelini tutalım.
           
-          // Ürün adlarını normalize etmek zor (Süt vs Tam Yağlı Süt).
-          // Şimdilik tam item ismini kullanalım.
+          // Use normalized names for search results if possible
+          final normalizedName = normalizeProductName(item.name);
+          final key = "$normalizedName-${receipt.merchantName}";
           
-          final key = "${item.name}-${receipt.merchantName}";
-          
-          // Eğer bu kombinasyon daha önce eklenmediyse veya bu fiş daha yeniyse güncelle
-          // Liste zaten tarihe göre azalan sıralı olduğu için, ilk gördüğümüz en güncelidir.
           if (!productMap.containsKey(key)) {
              productMap[key] = {
-               'productName': item.name,
+               'productName': normalizedName,
                'merchantName': receipt.merchantName,
                'price': item.price,
                'date': receipt.date,
@@ -1283,5 +1281,89 @@ class SupabaseDatabaseService {
       print("Toplu fiyat geçmişi hatası: $e");
     }
     return results;
+  }
+
+  // --- PRODUCT NORMALIZATION MAPPINGS ---
+
+  Future<List<Map<String, dynamic>>> getGlobalProductMappings() async {
+    try {
+      final response = await _client
+          .from('product_mappings')
+          .select()
+          .order('raw_name');
+      return (response as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      print("Global mapping çekme hatası: $e");
+      return [];
+    }
+  }
+
+  Future<void> upsertProductMapping({
+    required String rawName,
+    required String normalizedName,
+    String? category,
+  }) async {
+    await _client.from('product_mappings').upsert({
+      'raw_name': rawName,
+      'normalized_name': normalizedName,
+      'category': category,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'raw_name');
+  }
+
+  Future<void> deleteProductMapping(String id) async {
+    await _client.from('product_mappings').delete().eq('id', id);
+  }
+
+  /// Finds unique product names from all receipts that are NOT in product_mappings.
+  /// Also returns the count of occurances for each.
+  Future<List<Map<String, dynamic>>> getUnmappedProductNames() async {
+    try {
+      // Step 1: Get all mappings to filter out
+      final mappings = await getGlobalProductMappings();
+      final mappedNames = mappings.map((m) => m['raw_name'] as String).toSet();
+
+      // Step 2: Get all receipt items
+      // Note: In a large DB, this should be done via a View or RPC for performance.
+      // For now, we'll fetch unique names from all receipts.
+      final response = await _client
+          .from('receipts')
+          .select('items');
+      
+      final Map<String, int> counts = {};
+      
+      for (final row in response) {
+        final items = row['items'] as List?;
+        if (items != null) {
+          for (final item in items) {
+            final name = item['name'] as String?;
+            if (name != null && !mappedNames.contains(name)) {
+              if (!counts.containsKey(name)) {
+                counts[name] = 0;
+                // Guess category for context
+                final guessedCat = this.normalizeProductName(name); 
+                // Actually, I should use the guessing logic which is in AnalysisScreen or similar. 
+                // But wait, the guessing logic is better placed in the service.
+              }
+              counts[name] = counts[name]! + 1;
+            }
+          }
+        }
+      }
+
+      final result = counts.entries.map((e) => {
+        'name': e.key,
+        'count': e.value,
+        'guessed_category': 'Diğer', // Will be filled better later or via a helper
+      }).toList();
+
+      // Sort by count descending
+      result.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+      
+      return result;
+    } catch (e) {
+      print("Unmapped ürün getirme hatası: $e");
+      return [];
+    }
   }
 }

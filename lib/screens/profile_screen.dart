@@ -18,6 +18,7 @@ import '../models/membership_model.dart';
 import '../models/receipt_model.dart';
 import '../models/subscription_model.dart';
 import '../models/credit_model.dart';
+import 'package:fismatik/services/product_normalization_service.dart';
 
 import 'login_screen.dart';
 import 'about_screen.dart';
@@ -56,6 +57,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     // Profil ekranı açıldığında süresi dolmuş üyelikleri kontrol et
     _checkExpiration();
+    // Global ürün eşleşmelerini yükle
+    _databaseService.loadGlobalProductMappings();
   }
 
   Future<void> _checkExpiration() async {
@@ -491,7 +494,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final Map<String, int> productCounts = {};
     for (var receipt in receipts) {
       for (var item in receipt.items) {
-        final name = item.name.trim();
+        final name = _databaseService.normalizeProductName(item.name).trim();
         if (name.length > 2) {
           productCounts[name] = (productCounts[name] ?? 0) + 1;
         }
@@ -628,8 +631,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'date': r.date,
       'price': i.price,
       'merchant': r.merchantName,
-      'name': i.name
-    })).where((i) => (i['name'] as String).toLowerCase() == productName.toLowerCase()).toList();
+      'name': i.name,
+      'normalized_name': _databaseService.normalizeProductName(i.name)
+    })).where((i) => (i['normalized_name'] as String).toLowerCase() == productName.toLowerCase()).toList();
     
     history.sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
 

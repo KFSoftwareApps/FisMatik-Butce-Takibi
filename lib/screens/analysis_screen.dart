@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart'; // For compute
 import '../utils/product_merger.dart';
 import '../core/app_theme.dart';
-import '../services/supabase_database_service.dart';
+import 'package:fismatik/services/supabase_database_service.dart';
 import '../models/receipt_model.dart';
 import '../widgets/empty_state.dart';
 import 'receipt_detail_screen.dart';
@@ -16,6 +16,7 @@ import '../widgets/shimmer_loading.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // [NEW]
 import '../services/usage_guard.dart'; // [NEW]
+import 'package:fismatik/services/product_normalization_service.dart';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
@@ -54,10 +55,14 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
   Future<void> _checkInitialData() async {
     _checkSalaryDayPreference();
-    final tier = await _authService.getCurrentTier();
+    final results = await Future.wait([
+      _authService.getCurrentTier(),
+      _databaseService.loadGlobalProductMappings(),
+    ]);
+    
     if (mounted) {
       setState(() {
-        _currentTierId = tier.id;
+        _currentTierId = (results[0] as MembershipTier).id;
       });
     }
   }
@@ -482,11 +487,14 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   Widget _buildProductTab(List<Receipt> receipts) {
     // 1. Prepare raw items for Isolate (Run on main thread, O(N))
     // We guess categories here to pass simple strings to the isolate
-    final rawItems = receipts.expand((r) => r.items.map((i) => <String, dynamic>{
-      'name': i.name,
-      'quantity': i.quantity,
-      'price': i.price,
-      'category': i.category ?? _guessCategoryFromName(i.name),
+    final rawItems = receipts.expand((r) => r.items.map((i) {
+      final mappingData = _databaseService.getNormalizedData(i.name);
+      return <String, dynamic>{
+        'name': mappingData.name,
+        'quantity': i.quantity,
+        'price': i.price,
+        'category': mappingData.category ?? i.category ?? _databaseService.guessCategoryFromName(i.name),
+      };
     })).toList();
 
     // 2. Run merging logic in background
@@ -624,199 +632,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         );
       }
     );
-  }
-
-
-
-  // _levenshteinDistance ve _findSimilarProduct metodları PERFORMANS SORUNU (ANR) NEDENİYLE KALDIRILDI.
-  // Gerekirse ileride Isolate içinde tekrar eklenebilir.
-
-
-
-  String _guessCategoryFromName(String name) {
-    final lowerName = name.toLowerCase().trim();
-
-    // Hariç Tutulacaklar (Kategori olarak sayılmayacaklar)
-    if (lowerName.contains('indirim') ||
-        lowerName.contains('kdv') ||
-        lowerName.contains('vergi') ||
-        lowerName.contains('iskonto') ||
-        lowerName.contains('toplam') ||
-        lowerName.contains('ara toplam')) {
-      return 'Diğer'; 
-    }
-
-    // --- EV EŞYASI & ZÜCCACİYE ---
-    if (lowerName.contains('sürahi') ||
-        lowerName.contains('cam') ||
-        lowerName.contains('bardak') ||
-        lowerName.contains('tabak') ||
-        lowerName.contains('kaşık') ||
-        lowerName.contains('çatal') ||
-        lowerName.contains('bıçak') ||
-        lowerName.contains('tencere') ||
-        lowerName.contains('tava') ||
-        lowerName.contains('kase') ||
-        lowerName.contains('fincan') ||
-        lowerName.contains('kavanoz') ||
-        lowerName.contains('plastik') ||
-        lowerName.contains('mutfak') ||
-        lowerName.contains('züccaciye')) {
-      return 'Ev Eşyası';
-    }
-
-    // --- MARKET & GIDA ---
-    
-    // Temel Gıda & Kahvaltılık
-    if (lowerName.contains('ekmek') ||
-        lowerName.contains('yumurta') ||
-        lowerName.contains('peynir') ||
-        lowerName.contains('kasar') || lowerName.contains('kaşar') ||
-        lowerName.contains('labne') ||
-        lowerName.contains('yogurt') || lowerName.contains('yoğurt') ||
-        lowerName.contains('süt') || // "süt" kelimesi dikkatli kullanılmalı
-        lowerName.contains('kaymak') ||
-        lowerName.contains('tereyag') || lowerName.contains('tereyağ') ||
-        lowerName.contains('margarin') ||
-        lowerName.contains('zeytin') ||
-        lowerName.contains('reçel') || lowerName.contains('recel') ||
-        lowerName.contains('bal') ||
-        lowerName.contains('helva') ||
-        lowerName.contains('un') ||
-        lowerName.contains('seker') || lowerName.contains('şeker') ||
-        lowerName.contains('tuz') ||
-        lowerName.contains('makarna') ||
-        lowerName.contains('pirinç') || lowerName.contains('pirinc') ||
-        lowerName.contains('bulgur') ||
-        lowerName.contains('mercimek') ||
-        lowerName.contains('nohut') ||
-        lowerName.contains('fasulye') ||
-        lowerName.contains('salça') || lowerName.contains('salca') ||
-        lowerName.contains('yağ') || lowerName.contains('yağ')) { // ayçiçek yağı vb
-      return 'Market';
-    }
-
-    // Et & Balık
-    if (lowerName.contains('kıyma') || lowerName.contains('kiyma') ||
-        lowerName.contains('kuşbaşı') || lowerName.contains('kusbasi') ||
-        lowerName.contains('biftek') ||
-        lowerName.contains('antrikot') ||
-        lowerName.contains('bonfile') ||
-        lowerName.contains('köfte') || lowerName.contains('kofte') ||
-        lowerName.contains('tavuk') ||
-        lowerName.contains('piliç') || lowerName.contains('pilic') ||
-        lowerName.contains('kanat') ||
-        lowerName.contains('baget') ||
-        lowerName.contains('bütün tavuk') ||
-        lowerName.contains('balık') || lowerName.contains('balik') ||
-        lowerName.contains('hamsi') ||
-        lowerName.contains('somon') ||
-        lowerName.contains('ton balığı') ||
-        lowerName.contains('sucuk') ||
-        lowerName.contains('salam') ||
-        lowerName.contains('sosis') ||
-        lowerName.contains('pastırma')) {
-      return 'Market'; 
-    }
-
-    // Sebze & Meyve
-    if (lowerName.contains('domates') ||
-        lowerName.contains('biber') ||
-        lowerName.contains('patlıcan') ||
-        lowerName.contains('salatalık') ||
-        lowerName.contains('kabak') ||
-        lowerName.contains('soğan') || lowerName.contains('sogan') ||
-        lowerName.contains('patates') ||
-        lowerName.contains('havuç') ||
-        lowerName.contains('marul') ||
-        lowerName.contains('maydanoz') ||
-        lowerName.contains('dereotu') ||
-        lowerName.contains('elma') ||
-        lowerName.contains('muz') ||
-        lowerName.contains('portakal') ||
-        lowerName.contains('mandalina') ||
-        lowerName.contains('limon') ||
-        lowerName.contains('karpuz') ||
-        lowerName.contains('kavun') ||
-        lowerName.contains('çilek') ||
-        lowerName.contains('üzüm')) {
-      return 'Market';
-    }
-
-    // İçecekler (Market Altında Olarak da Düşünülebilir ama Ayrı İstenirse Değiştirilebilir)
-    if (lowerName.contains('su ') || lowerName == 'su' ||
-        lowerName.contains('maden suyu') ||
-        lowerName.contains('soda') ||
-        lowerName.contains('kola') ||
-        lowerName.contains('cola') ||
-        lowerName.contains('pepsi') ||
-        lowerName.contains('fanta') ||
-        lowerName.contains('sprite') ||
-        lowerName.contains('gazoz') ||
-        lowerName.contains('soğuk çay') || lowerName.contains('ice tea') ||
-        lowerName.contains('limonata') ||
-        lowerName.contains('meyve suyu') ||
-        lowerName.contains('ayran') ||
-        lowerName.contains('kefir') ||
-        lowerName.contains('bira') ||
-        lowerName.contains('rakı') ||
-        lowerName.contains('şarap') ||
-        lowerName.contains('votka') ||
-        lowerName.contains('viski') || 
-        lowerName.contains('kahve') ||
-        lowerName.contains('çay') || lowerName.contains('cay') ||
-        lowerName.contains('sahlep')) {
-      return 'Market'; 
-    }
-
-    // Abur Cubur / Atıştırmalık
-    if (lowerName.contains('çikolata') || lowerName.contains('cikolata') ||
-        lowerName.contains('gofret') ||
-        lowerName.contains('bisküvi') || lowerName.contains('biskuvi') ||
-        lowerName.contains('kraker') ||
-        lowerName.contains('cips') ||
-        lowerName.contains('kuruyemiş') ||
-        lowerName.contains('fıstık') ||
-        lowerName.contains('fındık') ||
-        lowerName.contains('ceviz') ||
-        lowerName.contains('sakız') ||
-        lowerName.contains('dondurma') ||
-        lowerName.contains('kek') ||
-        lowerName.contains('kraker')) {
-      return 'Atıştırmalık';
-    }
-
-
-
-    // Sigara & Tütün Ürünleri
-    if (lowerName.contains('sigara') ||
-        lowerName.contains('marlboro') ||
-        lowerName.contains('parliament') ||
-        lowerName.contains('winston') ||
-        lowerName.contains('camel') ||
-        lowerName.contains('kent') ||
-        lowerName.contains('muratti') ||
-        lowerName.contains('davidoff') ||
-        lowerName.contains('chesterfield') ||
-        lowerName.contains('lark') ||
-        lowerName.contains('l&m') || lowerName.contains('lm ') ||
-        lowerName.contains('pall mall') ||
-        lowerName.contains('lucky strike') ||
-        lowerName.contains('rothmans') ||
-        lowerName.contains('monte carlo') ||
-        lowerName.contains('west') ||
-        lowerName.contains('violet') ||
-        lowerName.contains('samsun') ||
-        lowerName.contains('maltepe') ||
-        lowerName.contains('2000') ||
-        lowerName.contains('tekel') ||
-        lowerName.contains('tütün') ||
-        lowerName.contains('makaron') ||
-        lowerName.contains('filtre')) {
-      return 'Sigara';
-    }
-
-    return 'Diğer';
   }
 
   IconData _getCategoryIcon(String category) {
