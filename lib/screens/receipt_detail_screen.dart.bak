@@ -1,0 +1,295 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../core/app_theme.dart';
+import '../models/receipt_model.dart';
+import '../services/supabase_database_service.dart';
+import 'edit_receipt_screen.dart';
+
+class ReceiptDetailScreen extends StatelessWidget {
+  final Receipt receipt; // Başlangıç verisi (Listeden gelen)
+
+  const ReceiptDetailScreen({super.key, required this.receipt});
+
+  @override
+  Widget build(BuildContext context) {
+    // StreamBuilder ile veritabanını canlı dinliyoruz
+    return StreamBuilder<Receipt>(
+      stream: SupabaseDatabaseService().getReceiptStream(receipt.id),
+      initialData: receipt, // İlk ekranda listeden gelen veriyi göster
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: Text("Fiş bulunamadı.")),
+          );
+        }
+
+        final currentReceipt = snapshot.data!;
+        final currencyFormat =
+            NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+        final dateFormat =
+            DateFormat('dd MMMM yyyy • HH:mm', 'tr_TR');
+
+        final bool isManual = currentReceipt.isManual;
+        final Color accentColor =
+            isManual ? AppColors.warning : AppColors.primary;
+        final IconData iconData =
+            isManual ? Icons.edit_note : Icons.store;
+        final String sourceText =
+            isManual ? "Manuel giriş" : "Fiş tarama";
+
+        return Scaffold(
+          backgroundColor: AppColors.headerBackground,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.white),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          EditReceiptScreen(receipt: currentReceipt),
+                    ),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.redAccent,
+                ),
+                onPressed: () =>
+                    _showDeleteConfirmDialog(context, currentReceipt.id),
+              ),
+            ],
+          ),
+          body: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  // FİŞ KAĞIDI
+                  Container(
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(20),
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.headerBackground,
+                            borderRadius: BorderRadius.circular(50),
+                          ),
+                          child: Icon(
+                            iconData,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        Text(
+                          currentReceipt.merchantName.toUpperCase(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textDark,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Kategori + Kaynak Etiketleri
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Text(
+                                currentReceipt.category,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: accentColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                sourceText,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: accentColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 8),
+                        Text(
+                          dateFormat.format(currentReceipt.date),
+                          style: const TextStyle(
+                            color: AppColors.textLight,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                                  child: Text(
+                                    "${item.quantity > 1 ? '${item.quantity}x ' : ''}${item.name}",
+                                    style: const TextStyle(
+                                      color: AppColors.textDark,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  currencyFormat.format(item.price),
+                                  style: const TextStyle(
+                                    color: AppColors.textDark,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+                        const Divider(
+                          color: Colors.black12,
+                          thickness: 1,
+                          height: 30,
+                        ),
+
+                        Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "TOPLAM",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+                            Text(
+                              currencyFormat
+                                  .format(currentReceipt.totalAmount),
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Zigzag Efekti
+                  Container(
+                    height: 20,
+                    color: Colors.transparent,
+                    child: Row(
+                      children: List.generate(
+                        20,
+                        (index) => Expanded(
+                          child: Container(
+                            color: Colors.white,
+                            child: Transform.translate(
+                              offset: const Offset(0, 10),
+                              child: Transform.rotate(
+                                angle: 3.14 / 4,
+                                child: Container(
+                                  color: AppColors.headerBackground,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmDialog(BuildContext context, String id) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Fişi Sil"),
+        content: const Text(
+          "Bu fişi kalıcı olarak silmek istediğine emin misin?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              "İptal",
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await SupabaseDatabaseService().deleteReceipt(id);
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Fiş silindi.")),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text(
+              "Sil",
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

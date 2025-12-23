@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:padding="20dp">
+
+    <!-- Header / Logo -->
+    <LinearLayout
+        android:id="@+id/header_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+        
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@mipmap/launcher_icon"
+            android:contentDescription="Icon" />
+            
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="FişMatik Finans"
+            android:textColor="#ffffff"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+            
+        <TextView 
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1"/>
+            
+        <TextView
+             android:id="@+id/tv_date"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:text="Bugün"
+             android:textSize="12sp"
+             android:textColor="#eeeeee"/>
+    </LinearLayout>
+
+    <!-- Divider (SAFE VERSION: Uses ImageView) -->
+    <ImageView
+        android:id="@+id/divider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#33FFFFFF"
+        android:layout_below="@id/header_layout"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp"/>
+
+    <!-- Main Content Grid -->
+    <LinearLayout
+        android:id="@+id/content_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/divider"
+        android:orientation="horizontal"
+        android:baselineAligned="false">
+
+        <!-- Left: Total Spending -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Toplam Harcama"
+                android:textColor="#e0e0e0"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tv_total_spending"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="₺0,00"
+                android:textColor="#ffffff"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Right: Remaining Budget -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="end"
+            android:orientation="vertical">
+            
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Kalan Bütçe"
+                android:textColor="#e0e0e0"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tv_remaining_budget"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="₺0,00"
+                android:textColor="#ffffff"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Progress Bar (SAFE VERSION: Uses standard system style) -->
+    <ProgressBar
+        android:id="@+id/pb_budget"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:layout_below="@id/content_layout"
+        android:layout_marginTop="20dp"
+        android:max="100"
+        android:progress="0" />
+        
+    <TextView
+        android:id="@+id/tv_percent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/pb_budget"
+        android:layout_marginTop="4dp"
+        android:text="%0 Kullanıldı"
+        android:textColor="#cccccc"
+        android:textSize="11sp"
+        android:gravity="center_vertical|end"/>
+
+</RelativeLayout>

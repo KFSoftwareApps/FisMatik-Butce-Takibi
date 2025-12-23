@@ -1,0 +1,77 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/user_profile_model.dart';
+
+class ProfileService {
+  final SupabaseClient _client = Supabase.instance.client;
+
+  String get _uid {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Kullanıcı oturumu bulunamadı.');
+    }
+    return user.id;
+  }
+
+  String get _email {
+    final user = _client.auth.currentUser;
+    return user?.email ?? '';
+  }
+
+  // Canlı profil dinleme
+  Stream<UserProfile?> watchMyProfile() {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      return Stream.value(null);
+    }
+
+    return _client
+        .from('user_profiles')
+        .stream(primaryKey: ['id'])
+        .eq('id', user.id)
+        .map((maps) {
+          if (maps.isEmpty) return null;
+          final data = maps.first;
+          // Supabase stream returns data directly, but we might need to inject ID if it's not in the map (usually it is)
+          return UserProfile.fromMap(data);
+        });
+  }
+
+  // Tek seferlik okuma
+  Future<UserProfile?> getMyProfileOnce() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      final data = await _client
+          .from('user_profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (data == null) return null;
+      return UserProfile.fromMap(data);
+    } catch (e) {
+      print("Profil getirme hatası: $e");
+      return null;
+    }
+  }
+
+  // Profil kaydet / güncelle
+  Future<void> saveProfile({
+    required String firstName,
+    required String lastName,
+    required String phone,
+  }) async {
+    final uid = _uid;
+    final email = _email;
+
+    await _client.from('user_profiles').upsert({
+      'id': uid,
+      'email': email,
+      'firstName': firstName,
+      'lastName': lastName,
+      'phone': phone,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+}
