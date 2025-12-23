@@ -82,11 +82,14 @@ extension ProductNormalization on SupabaseDatabaseService {
     
     await Supabase.instance.client
         .from('user_preferences')
-        .upsert({
-          'user_id': userId,
-          'price_comparison_mode': mode,
-          'updated_at': DateTime.now().toIso8601String(),
-        });
+        .upsert(
+          {
+            'user_id': userId,
+            'price_comparison_mode': mode,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          onConflict: 'user_id',
+        );
   }
   
   /// Get product history grouped by normalized name (generic mode)
