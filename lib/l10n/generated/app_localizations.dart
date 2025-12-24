@@ -392,12 +392,6 @@ abstract class AppLocalizations {
   /// **'{count} Receipts'**
   String receiptCount(Object count);
 
-  /// No description provided for @aiAssistant.
-  ///
-  /// In en, this message translates to:
-  /// **'AI Assistant'**
-  String get aiAssistant;
-
   /// No description provided for @totalSpending.
   ///
   /// In en, this message translates to:
@@ -457,30 +451,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'PRODUCTS'**
   String get products;
-
-  /// No description provided for @aiCoachThinking.
-  ///
-  /// In en, this message translates to:
-  /// **'Coach is thinking...'**
-  String get aiCoachThinking;
-
-  /// No description provided for @interpretExpenses.
-  ///
-  /// In en, this message translates to:
-  /// **'Interpret my expenses (AI)'**
-  String get interpretExpenses;
-
-  /// No description provided for @aiCoachSays.
-  ///
-  /// In en, this message translates to:
-  /// **'FişMatik Coach Says:'**
-  String get aiCoachSays;
-
-  /// No description provided for @premiumAccessRequired.
-  ///
-  /// In en, this message translates to:
-  /// **'Access to AI Finance Coach is exclusive to Limitless membership.'**
-  String get premiumAccessRequired;
 
   /// No description provided for @noDataInDateRange.
   ///
@@ -1931,73 +1901,73 @@ abstract class AppLocalizations {
   /// No description provided for @notificationDailyReminderTitle.
   ///
   /// In en, this message translates to:
-  /// **'Daily Summary'**
+  /// **'Heey! How\'s Your Wallet? 😉|Don\'t Let Receipts Pile Up! 🏔️|Those Papers in Your Pocket... 📄'**
   String get notificationDailyReminderTitle;
 
   /// No description provided for @notificationDailyReminderBody.
   ///
   /// In en, this message translates to:
-  /// **'Forgot to enter today\'s receipts? Record them now!'**
+  /// **'Going to sleep without recording today\'s expenses? Your wallet will be sad!|Scan your receipts in two minutes, keep your budget under control. I\'m waiting!|I know they\'re all crumpled. Transfer them to FişMatik and let\'s clear them out!'**
   String get notificationDailyReminderBody;
 
   /// No description provided for @notificationBudgetExceededTitle.
   ///
   /// In en, this message translates to:
-  /// **'Budget Exceeded!'**
+  /// **'Red Alert in Your Wallet! 🛑|The Boss Went Crazy! 🤪|Did You Think It\'s Bottomless? 💸'**
   String get notificationBudgetExceededTitle;
 
   /// No description provided for @notificationBudgetExceededBody.
   ///
   /// In en, this message translates to:
-  /// **'You have exceeded your total budget limit for this month.'**
+  /// **'You\'ve exceeded the budget! Put the wallet down slowly and step away...|Looks like we\'ve shaken the budget a bit (too much) this month. Should we tighten our belts?|Whoops! We crossed the limits. Take a deep breath before your next purchase.'**
   String get notificationBudgetExceededBody;
 
   /// No description provided for @notificationBudgetWarningTitle.
   ///
   /// In en, this message translates to:
-  /// **'Budget Warning'**
+  /// **'Careful! Wallet Is Getting Thinner 🤏|Yellow Light is On! 🟡'**
   String get notificationBudgetWarningTitle;
 
   /// No description provided for @notificationBudgetWarningBody.
   ///
   /// In en, this message translates to:
-  /// **'You have used {ratio}% of your budget.'**
+  /// **'We\'ve already spent {ratio}% of the budget. Should we slow down a bit?|Approaching the limits, Captain! Better tap the brakes a little.'**
   String notificationBudgetWarningBody(Object ratio);
 
   /// No description provided for @notificationSubscriptionReminderTitle.
   ///
   /// In en, this message translates to:
-  /// **'{name} Payment Due'**
+  /// **'Netflix & Chill... & Debt 🍿|{name} Is Coming! 🎶'**
   String notificationSubscriptionReminderTitle(Object name);
 
   /// No description provided for @notificationSubscriptionReminderBody.
   ///
   /// In en, this message translates to:
-  /// **'Your payment of {amount} for {name} is due tomorrow.'**
+  /// **'{name} bill is at the door again. Let\'s see how many series you finished this month?|Get your headphones ready, {name} is about to be paid for {amount}. Enjoy the rhythm!'**
   String notificationSubscriptionReminderBody(Object amount, Object name);
 
   /// No description provided for @notificationCategoryExceededTitle.
   ///
   /// In en, this message translates to:
-  /// **'{category} Budget Exceeded!'**
+  /// **'{category} Out of Control! 🔥'**
   String notificationCategoryExceededTitle(Object category);
 
   /// No description provided for @notificationCategoryExceededBody.
   ///
   /// In en, this message translates to:
-  /// **'You have exceeded the budget for the {category} category.'**
+  /// **'We burned through the budget for {category}. How about a little break?'**
   String notificationCategoryExceededBody(Object category);
 
   /// No description provided for @notificationCategoryWarningTitle.
   ///
   /// In en, this message translates to:
-  /// **'{category} Budget Warning'**
+  /// **'{category} Warning! ⚠️'**
   String notificationCategoryWarningTitle(Object category);
 
   /// No description provided for @notificationCategoryWarningBody.
   ///
   /// In en, this message translates to:
-  /// **'You have used {ratio}% of the {category} budget.'**
+  /// **'We\'ve swallowed {ratio}% of the {category} budget. Watch out!'**
   String notificationCategoryWarningBody(Object category, Object ratio);
 
   /// No description provided for @notificationSubscriptionChannel.
@@ -3692,18 +3662,6 @@ abstract class AppLocalizations {
   /// **'Standard Categories Only'**
   String get standardCategoriesOnly;
 
-  /// No description provided for @aiFinanceCoach.
-  ///
-  /// In en, this message translates to:
-  /// **'AI Finance Coach'**
-  String get aiFinanceCoach;
-
-  /// No description provided for @aiCoachLimited.
-  ///
-  /// In en, this message translates to:
-  /// **'AI Coach Limited'**
-  String get aiCoachLimited;
-
   /// No description provided for @noRefund.
   ///
   /// In en, this message translates to:
@@ -3943,6 +3901,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Password and security settings'**
   String get securitySettingsSubtitle;
+
+  /// No description provided for @smsTrackingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic SMS Tracking'**
+  String get smsTrackingTitle;
+
+  /// No description provided for @smsTrackingDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically capture expense SMS'**
+  String get smsTrackingDesc;
 
   /// No description provided for @otherSection.
   ///
@@ -4355,13 +4325,13 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingTitle3.
   ///
   /// In en, this message translates to:
-  /// **'AI Coach & Budget Forecasting 🔮'**
+  /// **'Smart Analysis & Budget Forecast 🔮'**
   String get onboardingTitle3;
 
   /// No description provided for @onboardingDesc3.
   ///
   /// In en, this message translates to:
-  /// **'Artificial intelligence learns your spending habits and predicts how much you\'ll spend next month, warning you in advance.'**
+  /// **'See end-of-month spending forecasts and savings tips based on your spending habits, warning you in advance.'**
   String get onboardingDesc3;
 
   /// No description provided for @onboardingTitle4.
@@ -4436,12 +4406,6 @@ abstract class AppLocalizations {
   /// **'Category Management'**
   String get featureCategoryManagement;
 
-  /// No description provided for @featureAICoach.
-  ///
-  /// In en, this message translates to:
-  /// **'AI Finance Coach'**
-  String get featureAICoach;
-
   /// No description provided for @featureBudgetForecasting.
   ///
   /// In en, this message translates to:
@@ -4502,6 +4466,66 @@ abstract class AppLocalizations {
   /// **'Shared Expense Dashboard'**
   String get featureSharedDashboard;
 
+  /// No description provided for @intelligenceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Insights & Alerts'**
+  String get intelligenceTitle;
+
+  /// No description provided for @budgetPrediction.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget Forecasting'**
+  String get budgetPrediction;
+
+  /// No description provided for @predictedEndOfMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Predicted spending by month end: {amount} ₺'**
+  String predictedEndOfMonth(Object amount);
+
+  /// No description provided for @budgetSafe.
+  ///
+  /// In en, this message translates to:
+  /// **'Your budget looks safe! ✅'**
+  String get budgetSafe;
+
+  /// No description provided for @budgetDanger.
+  ///
+  /// In en, this message translates to:
+  /// **'Spending fast! You might exceed your budget. ⚠️'**
+  String get budgetDanger;
+
+  /// No description provided for @addAsSubscriptionShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get addAsSubscriptionShort;
+
+  /// No description provided for @potentialSubsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Potential Subscriptions'**
+  String get potentialSubsTitle;
+
+  /// No description provided for @tipsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving Tip'**
+  String get tipsTitle;
+
+  /// No description provided for @unlockIntelligence.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock Insights'**
+  String get unlockIntelligence;
+
+  /// No description provided for @intelligenceProOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart forecasting and saving tips are for Limitless members only.'**
+  String get intelligenceProOnly;
+
   /// No description provided for @compareFeatures.
   ///
   /// In en, this message translates to:
@@ -4537,6 +4561,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not Available'**
   String get notAvailable;
+
+  /// No description provided for @clearChecked.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Checked Items'**
+  String get clearChecked;
+
+  /// No description provided for @clearCheckedConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to remove all checked items from the list?'**
+  String get clearCheckedConfirm;
+
+  /// No description provided for @frequentlyBought.
+  ///
+  /// In en, this message translates to:
+  /// **'Frequently Bought (Suggestions)'**
+  String get frequentlyBought;
+
+  /// No description provided for @notificationExactAlarmWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Exact Notifications Disabled'**
+  String get notificationExactAlarmWarning;
+
+  /// No description provided for @notificationExactAlarmDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'To receive notifications on time, please enable \'Exact Alarm\' permission in settings.'**
+  String get notificationExactAlarmDesc;
+
+  /// No description provided for @notificationOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get notificationOpenSettings;
 }
 
 class _AppLocalizationsDelegate

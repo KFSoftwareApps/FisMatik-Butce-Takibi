@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import 'admin_notifications_screen.dart';
 import 'admin_statistics_screen.dart';
 import 'admin_user_detail_screen.dart';
+import 'admin_product_mapping_screen.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -535,6 +536,25 @@ class _AdminScreenState extends State<AdminScreen> {
                     children: [
                       // İSTATİSTİK KARTLARI
                       _buildStatsSummary(),
+                      const SizedBox(height: 16),
+                      
+                      // HIZLI İŞLEMLER
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: ListTile(
+                          leading: const Icon(Icons.auto_fix_high, color: AppColors.primary),
+                          title: const Text("Ürün İsimlerini Düzenle"),
+                          subtitle: const Text("Fişlerdeki ürün isimlerini standartlaştırın"),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const AdminProductMappingScreen()),
+                            );
+                          },
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       
                       // ARAMA ÇUBUĞU VE BAŞLIK

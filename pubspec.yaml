@@ -1,7 +1,7 @@
 name: fismatik
 description: "FişMatik Gider Takip Uygulaması"
 publish_to: 'none'
-version: 1.0.0+20
+version: 1.0.0+22 
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -48,6 +48,7 @@ dependencies:
   url_launcher: ^6.3.2
   lottie: ^3.1.2
   home_widget: ^0.8.1
+  telephony: ^0.2.0
   universal_html: ^2.3.0
   universal_io: ^2.2.2
 

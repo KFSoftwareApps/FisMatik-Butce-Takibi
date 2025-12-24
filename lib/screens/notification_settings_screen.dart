@@ -6,6 +6,7 @@ import '../core/app_theme.dart';
 import '../models/notification_preference.dart';
 import '../services/smart_reminder_service.dart';
 import '../services/notification_service.dart';
+import 'package:flutter/services.dart';
 
 /// Bildirim Ayarları Ekranı
 class NotificationSettingsScreen extends StatefulWidget {
@@ -15,17 +16,56 @@ class NotificationSettingsScreen extends StatefulWidget {
   State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
 }
 
-class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
+class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> with WidgetsBindingObserver {
   final SmartReminderService _reminderService = SmartReminderService();
   final NotificationService _notificationService = NotificationService();
   
   NotificationPreference? _preferences;
   bool _isLoading = true;
+  bool _isExactAlarmPermitted = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadPreferences();
+    _checkExactAlarmPermission();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkExactAlarmPermission();
+    }
+  }
+
+  Future<void> _checkExactAlarmPermission() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    final permitted = await _notificationService.canScheduleExactNotifications();
+    if (mounted) {
+      setState(() => _isExactAlarmPermitted = permitted);
+    }
+  }
+
+  Future<void> _openExactAlarmSettings() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    // Android specifi bir intent atmamız lazım. home_widget plugin'i bunu doğrudan yapmıyor olabilir.
+    // Ancak flutter_local_notifications bu izni uygulama detaylarından açmamızı isteyebilir.
+    // Şimdilik basitçe loglayalım veya bir metod varsa onu çağıralım. 
+    // Android 13+ için: android.settings.REQUEST_SCHEDULE_EXACT_ALARM
+    const intent = 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM';
+    final channel = MethodChannel('com.fismatik.app/settings');
+    try {
+      await channel.invokeMethod('openSettings', {'intent': intent});
+    } catch (e) {
+      debugPrint('Ayarlar açılırken hata: $e');
+    }
   }
 
   Future<void> _loadPreferences() async {
@@ -118,6 +158,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
               : ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
+                    if (!_isExactAlarmPermitted && defaultTargetPlatform == TargetPlatform.android)
+                      _buildExactAlarmWarning(),
                     // Günlük Hatırlatıcı
                     _buildSection(
                       title: '🔔 ${AppLocalizations.of(context)!.dailyReminder}',
@@ -265,6 +307,55 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                     ),
                   ],
                 ),
+    );
+  }
+
+  Widget _buildExactAlarmWarning() {
+    final l10n = AppLocalizations.of(context)!;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  l10n.notificationExactAlarmWarning,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.notificationExactAlarmDesc,
+            style: TextStyle(fontSize: 13, color: Colors.amber.shade900),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: _openExactAlarmSettings,
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(l10n.notificationOpenSettings),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

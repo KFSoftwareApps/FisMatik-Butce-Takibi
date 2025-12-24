@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_level.dart';
 import '../models/achievement.dart';
 import '../models/receipt_model.dart';
@@ -138,6 +139,26 @@ class GamificationService {
     await addXp(XpActivity.dailyLogin);
   }
 
+  /// Fiyat keşfi sayısını artır ve rozet kontrolü yap (Phase 7)
+  Future<void> incrementPriceDiscoveries() async {
+    final prefs = await SharedPreferences.getInstance();
+    int count = prefs.getInt('price_discoveries') ?? 0;
+    count++;
+    await prefs.setInt('price_discoveries', count);
+
+    if (count >= 3) {
+      await unlockAchievement('price_detective');
+    }
+  }
+
+  /// Sosyal başarımları kontrol et (Phase 7)
+  Future<void> checkSocialAchievements(int totalReceipts) async {
+    // 50 fiş tarayarak topluluğa katkı sağlama
+    if (totalReceipts >= 50) {
+      await unlockAchievement('community_pillar');
+    }
+  }
+
   /// Rozet kazandır
   Future<void> unlockAchievement(String achievementId) async {
     final user = _supabase.auth.currentUser;
@@ -257,6 +278,7 @@ class GamificationService {
     if (joinDate != null) {
       await checkLoyaltyAchievement(joinDate);
     }
+    await checkSocialAchievements(totalReceipts);
     await checkUltimateAchievement(totalReceipts, totalSpending);
   }
 }

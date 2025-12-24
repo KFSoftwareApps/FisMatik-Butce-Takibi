@@ -1,12 +1,13 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-import '../models/receipt_model.dart';
-// import '../models/household_model.dart'; // Removed missing file
-import '../models/credit_model.dart';
-import '../models/category_model.dart';
-import '../models/subscription_model.dart';
-import '../models/shopping_item_model.dart';
-import 'notification_service.dart';
+import 'package:fismatik/models/receipt_model.dart';
+import 'package:fismatik/models/credit_model.dart';
+import 'package:fismatik/models/category_model.dart';
+import 'package:fismatik/models/subscription_model.dart';
+import 'package:fismatik/models/shopping_item_model.dart';
+import 'package:fismatik/services/notification_service.dart';
+import 'package:fismatik/services/auth_service.dart';
+import 'package:fismatik/models/membership_model.dart';
 import 'package:fismatik/services/product_normalization_service.dart';
 
 class SupabaseDatabaseService {
@@ -107,6 +108,30 @@ class SupabaseDatabaseService {
       }
     }
     return _userId;
+  }
+
+  Future<List<Receipt>> getReceiptsOnce() async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) return [];
+
+    final response = await _client
+        .from('receipts')
+        .select()
+        .eq('user_id', uid)
+        .order('date');
+    return (response as List).map((e) => Receipt.fromMap(e)).toList();
+  }
+
+  Future<MembershipTier> getCurrentTier() async {
+    final authService = AuthService();
+    return await authService.getCurrentTier();
+  }
+
+  Future<double> getMonthlyLimitOnce() async {
+    final uid = _userId;
+    if (uid == null) return 0;
+    final res = await _client.from('user_settings').select('monthly_limit').eq('user_id', uid).maybeSingle();
+    return (res?['monthly_limit'] as num?)?.toDouble() ?? 0;
   }
 
   Future<List<String>> _getScopeUserIds() async {
@@ -549,6 +574,18 @@ class SupabaseDatabaseService {
         .order('date', ascending: false);
 
     return (response as List).map((e) => Receipt.fromMap(e)).toList();
+  }
+
+  // --- ABONELİKLER (SABİT GİDERLER) ---
+  Future<void> saveSubscription(Subscription sub) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    await _client.from('subscriptions').upsert({
+      ...sub.toMap(),
+      'user_id': user.id,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
   }
 
   /// Belirli bir ay için tüm harcamaları (fişler, krediler, abonelikler) birleştirir
@@ -1144,16 +1181,35 @@ class SupabaseDatabaseService {
   }
 
   // --- ALIŞVERİŞ LİSTESİ ---
-  Stream<List<ShoppingItem>> getShoppingList() {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) return Stream.value([]);
+  Stream<List<ShoppingItem>> getShoppingList() async* {
+    final uid = _userId;
+    if (uid == null) {
+      yield [];
+      return;
+    }
 
-    return _client
+    // Üyelik tipini kontrol et
+    final tier = await getCurrentTier();
+    
+    // Sadece Limitless Aile paketinde liste ortaktır
+    final bool isShared = tier.id == 'limitless_family';
+    
+    List<String> targetUserIds;
+    if (isShared) {
+      targetUserIds = await _getScopeUserIds();
+    } else {
+      targetUserIds = [uid];
+    }
+    
+    // Not: Stream üzerinden birden fazla userId filtresi 'in' ile yapılabilir
+    yield* _client
         .from('shopping_items')
         .stream(primaryKey: ['id'])
-        .eq('user_id', uid)
         .order('created_at')
-        .map((event) => event.map((e) => ShoppingItem.fromMap(e)).toList());
+        .map((event) => event
+            .where((e) => targetUserIds.contains(e['user_id']))
+            .map((e) => ShoppingItem.fromMap(e))
+            .toList());
   }
 
   Future<void> addShoppingItem(String name) async {
@@ -1176,6 +1232,37 @@ class SupabaseDatabaseService {
 
   Future<void> deleteShoppingItem(String id) async {
     await _client.from('shopping_items').delete().eq('id', id);
+  }
+
+  Future<void> clearCheckedItems() async {
+    final userIds = await _getScopeUserIds();
+    await _client.from('shopping_items')
+        .delete()
+        .filter('user_id', 'in', userIds)
+        .eq('is_checked', true);
+  }
+
+  /// Kullanıcının son 3 aydaki en sık aldığı 10 ürünün ismini döner (normalleştirilmiş)
+  Future<List<String>> getFrequentlyBoughtProducts() async {
+    final receipts = await getReceiptsOnce();
+    final now = DateTime.now();
+    final threeMonthsAgo = DateTime(now.year, now.month - 3);
+
+    final Map<String, int> counts = {};
+    for (var r in receipts) {
+      if (r.date.isBefore(threeMonthsAgo)) continue;
+      for (var item in r.items) {
+        final normalized = normalizeProductName(item.name).trim();
+        if (normalized.length > 2) {
+          counts[normalized] = (counts[normalized] ?? 0) + 1;
+        }
+      }
+    }
+
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    return sorted.take(10).map((e) => e.key).toList();
   }
 
   // --- BİLDİRİMLER ---
@@ -1365,5 +1452,30 @@ class SupabaseDatabaseService {
       print("Unmapped ürün getirme hatası: $e");
       return [];
     }
+  }
+
+  /// Topluluk bazlı fiyat istatistiklerini getirir (Phase 7)
+  Future<Map<String, dynamic>?> getGlobalPriceStats(String normalizedName) async {
+    try {
+      final response = await _client.rpc('get_global_price_stats', params: {
+        'p_normalized_name': normalizedName,
+      });
+
+      if (response != null && (response as List).isNotEmpty) {
+        final data = response[0] as Map<String, dynamic>;
+        if (data['data_count'] == 0) return null;
+        
+        return {
+          'avg_price': (data['avg_price'] as num).toDouble(),
+          'min_price': (data['min_price'] as num).toDouble(),
+          'cheapest_merchant': data['cheapest_merchant'] ?? 'Bilinmiyor',
+          'last_seen_at': DateTime.parse(data['last_seen_at']),
+          'data_count': data['data_count'] as int,
+        };
+      }
+    } catch (e) {
+      print("Global fiyat istatistikleri çekilirken hata: $e");
+    }
+    return null;
   }
 }

@@ -59,6 +59,8 @@ enum AchievementType {
   scanAtTime,          // Belirli saatte tarama
   scanOnDate,          // Belirli tarihte tarama
   earlyUser,           // Erken kullanıcı
+  priceDiscovery,      // Topluluktan daha ucuz fiyat bulma
+  communityContribution, // Topluluğa veri sağlama
 }
 
 /// Tüm Rozetler
@@ -254,6 +256,32 @@ class Achievements {
       xpReward: 100,
       criteria: AchievementCriteria(
         type: AchievementType.earlyUser,
+      ),
+    ),
+    Achievement(
+      id: 'price_detective',
+      name: 'Fiyat Dedektifi',
+      description: 'Topluluk ortalamasından daha ucuz 3 ürün buldun!',
+      icon: Icons.search,
+      color: Colors.teal,
+      category: AchievementCategory.special,
+      xpReward: 100,
+      criteria: AchievementCriteria(
+        type: AchievementType.priceDiscovery,
+        targetValue: 3,
+      ),
+    ),
+    Achievement(
+      id: 'community_pillar',
+      name: 'Topluluk Kahramanı',
+      description: '50 fiş tarayarak topluluğa dev katkı sağladın!',
+      icon: Icons.groups,
+      color: Colors.blueAccent,
+      category: AchievementCategory.special,
+      xpReward: 250,
+      criteria: AchievementCriteria(
+        type: AchievementType.communityContribution,
+        targetValue: 50,
       ),
     ),
   ];

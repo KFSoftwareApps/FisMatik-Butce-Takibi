@@ -13,6 +13,10 @@
     <!-- Biometrik -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- SMS (Phase 8) -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+
     <!-- Eski Android için klasik storage izinleri (isteğe bağlı, Photo Picker ile çoğunlukla gerekmiyor ama dursun) -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />

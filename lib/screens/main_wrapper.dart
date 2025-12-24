@@ -29,6 +29,29 @@ class _MainWrapperState extends State<MainWrapper> {
     SupabaseDatabaseService().checkAndDowngradeIfExpired();
     // Bildirimlerin kurulu olduğundan emin ol (Self-Healing)
     _ensureNotificationsScheduled();
+    // Widget tıklamalarını dinle
+    _handleWidgetLaunch();
+  }
+
+  void _handleWidgetLaunch() {
+    HomeWidget.setAppGroupId('group.fismatik.widget');
+    HomeWidget.initiallyLaunchedFromHomeWidget().then((uri) {
+      if (uri != null && uri.scheme == 'fismatik' && uri.host == 'scan') {
+        if (mounted) {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const ScanScreen()));
+        }
+      }
+    });
+
+    HomeWidget.widgetClicked.listen((uri) {
+      if (uri != null && uri.scheme == 'fismatik' && uri.host == 'scan') {
+        if (mounted) {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const ScanScreen()));
+        }
+      }
+    });
   }
 
   Future<void> _ensureNotificationsScheduled() async {

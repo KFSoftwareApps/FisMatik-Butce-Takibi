@@ -4,6 +4,7 @@ import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../core/app_theme.dart';
 import '../models/receipt_model.dart';
 import '../services/supabase_database_service.dart';
+import '../services/product_normalization_service.dart';
 import 'edit_receipt_screen.dart';
 
 class ReceiptDetailScreen extends StatefulWidget {
@@ -252,7 +253,7 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    "${item.quantity > 1 ? '${item.quantity}x ' : ''}${item.name}",
+                                    "${item.quantity > 1 ? '${item.quantity}x ' : ''}${SupabaseDatabaseService().normalizeProductName(item.name)}",
                                     style: const TextStyle(
                                       color: AppColors.textDark,
                                       fontSize: 14,

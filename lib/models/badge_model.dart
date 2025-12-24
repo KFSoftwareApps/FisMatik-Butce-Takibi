@@ -127,6 +127,22 @@ class Badge {
       iconCode: 'e8e8', // emoji_events (trophy)
       colorValue: 0xFFFFD700, // Gold
     ),
+    Badge(
+      id: 'price_detective',
+      name: 'Fiyat Dedektifi',
+      description: 'Topluluktan daha ucuz 3 ürün buldun.',
+      backMessage: '🔍 Keskin gözler! En iyi fiyatları bulmakta üstüne yok.',
+      iconCode: 'e8b6', // search
+      colorValue: 0xFF009688, // Teal
+    ),
+    Badge(
+      id: 'community_pillar',
+      name: 'Topluluk Kahramanı',
+      description: '50 fiş tarayarak topluluğa dev katkı sağladın!',
+      backMessage: '🤝 Birlikten kuvvet doğar! Katkıların için teşekkürler.',
+      iconCode: 'e7ef', // groups
+      colorValue: 0xFF3F51B5, // Indigo
+    ),
   ];
 
   Badge copyWith({bool? isEarned, DateTime? earnedAt}) {

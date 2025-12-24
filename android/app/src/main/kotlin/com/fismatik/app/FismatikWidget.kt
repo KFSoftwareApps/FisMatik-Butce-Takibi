@@ -50,14 +50,39 @@ class FismatikWidget : HomeWidgetProvider() {
                          }
                     }
 
-                    // Open App on Click
+                    // Phase 8: Click Handling Improvement
+                    // Set app launch intent on specific containers instead of the root to avoid shadowing the button
                     val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
                     if (intent != null) {
                         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                         val pendingIntent = android.app.PendingIntent.getActivity(
                             context, 0, intent, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
                         )
-                        setOnClickPendingIntent(R.id.widget_container, pendingIntent)
+                        // In Small Layout: Click on info_layout opens app
+                        // In Large Layout: Click on header_layout or content_layout opens app
+                        if (layoutId == R.layout.widget_layout) {
+                            setOnClickPendingIntent(R.id.info_layout, pendingIntent)
+                        } else {
+                            setOnClickPendingIntent(R.id.header_layout, pendingIntent)
+                            setOnClickPendingIntent(R.id.content_layout, pendingIntent)
+                        }
+                    }
+
+                    // Phase 8: Quick Scan Button Click (Deep Linking)
+                    try {
+                        val scanUri = widgetData.getString("scan_uri", "fismatik://scan") ?: "fismatik://scan"
+                        val scanIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(scanUri)).apply {
+                            setPackage(context.packageName)
+                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        // Use a unique request code (1) to differentiate from the main app launch intent
+                        val scanPendingIntent = android.app.PendingIntent.getActivity(
+                            context, 1, scanIntent, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                        )
+                        setOnClickPendingIntent(R.id.btn_quick_scan, scanPendingIntent)
+                        Log.d("FismatikWidget", "Scan Click Intent Set: $scanUri")
+                    } catch (e: Exception) {
+                        Log.e("FismatikWidget", "Error setting scan intent", e)
                     }
                 }
 

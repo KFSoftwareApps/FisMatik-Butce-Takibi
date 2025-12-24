@@ -1,76 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:gravity="center_vertical">
-    
-    <!-- Header -->
+    android:padding="12dp">
+
+    <!-- Left side: Info -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:id="@+id/info_layout"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-        
-       <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@mipmap/launcher_icon" 
-            android:layout_marginEnd="8dp"/>
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
+        android:orientation="vertical">
 
         <TextView
-            android:id="@+id/widget_title"
+            android:id="@+id/tv_total_spending_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="FişMatik"
+            android:text="Harcama"
+            android:textColor="#dddddd"
+            android:textSize="10sp" />
+
+        <TextView
+            android:id="@+id/tv_total_spending"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="₺0,00"
             android:textColor="#ffffff"
-            android:textStyle="bold"
-            android:textSize="14sp" />
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_remaining_budget"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Kalan: ₺0,00"
+            android:textColor="#bbbbbb"
+            android:textSize="11sp" />
     </LinearLayout>
 
-    <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#33FFFFFF"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"/>
+    <!-- Right side: Quick Action -->
+    <LinearLayout
+        android:id="@+id/btn_quick_scan"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:background="@drawable/widget_button_bg_circle"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="true">
 
-    <!-- Spending -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Toplam Harcama"
-        android:textColor="#dddddd"
-        android:textSize="12sp" />
+        <ImageView
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:src="@android:drawable/ic_menu_camera"
+            android:tint="#ffffff" />
+    </LinearLayout>
 
-    <TextView
-        android:id="@+id/tv_total_spending"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="₺0,00"
-        android:textColor="#ffffff"
-        android:textSize="22sp"
-        android:textStyle="bold" />
-    
-    <!-- Remaining Budget -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="Kalan Bütçe"
-        android:textColor="#dddddd"
-        android:textSize="12sp" />
-
-    <TextView
-        android:id="@+id/tv_remaining_budget"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="₺0,00"
-        android:textColor="#ffffff"
-        android:textSize="18sp"
-        android:textStyle="bold" />
-
-</LinearLayout>
+</RelativeLayout>

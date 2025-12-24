@@ -46,6 +46,7 @@ class Receipt {
   final bool isManual;      // true ise manuel giriş
   final String createdBy;   // fişi ekleyen kullanıcı id
   final String? familyId;   // aile planında ortak aile id
+  final String source;      // scan, manual, sms
 
   Receipt({
     required this.id,
@@ -61,6 +62,7 @@ class Receipt {
     this.isManual = false,
     String? createdBy,
     this.familyId,
+    this.source = 'scan',
   }) : createdBy = createdBy ?? userId;
 
   Map<String, dynamic> toMap() {
@@ -77,8 +79,8 @@ class Receipt {
       'items': items.map((x) => x.toMap()).toList(),
       'is_manual': isManual,
       'created_by': createdBy,
-      'created_by': createdBy,
       'household_id': familyId,
+      'source': source,
     };
   }
 
@@ -101,6 +103,7 @@ class Receipt {
       isManual: map['is_manual'] == true,
       createdBy: (map['created_by'] ?? map['user_id'] ?? '') as String,
       familyId: map['household_id'] as String?,
+      source: map['source'] ?? (map['is_manual'] == true ? 'manual' : 'scan'),
     );
   }
 

@@ -37,9 +37,10 @@ import 'gamification_dashboard.dart';
 import 'security_settings_screen.dart';
 import 'scan_screen.dart';
 import 'search_screen.dart';
-import 'chat_screen.dart';
 import 'product_list_screen.dart';
+import 'shopping_list_screen.dart';
 import 'package:fismatik/main.dart'; // languageNotifier için
+import 'package:fismatik/services/sms_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -50,6 +51,8 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final SupabaseDatabaseService _databaseService = SupabaseDatabaseService();
+  bool _isLoadingDelete = false;
+  bool _smsTrackingEnabled = false;
 
 
   @override
@@ -59,6 +62,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _checkExpiration();
     // Global ürün eşleşmelerini yükle
     _databaseService.loadGlobalProductMappings();
+    // SMS Takibi tercihini yükle
+    _loadSmsPreference();
   }
 
   Future<void> _checkExpiration() async {
@@ -77,7 +82,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _loadSmsPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _smsTrackingEnabled = prefs.getBool('sms_tracking_enabled') ?? false;
+      });
+    }
+  }
 
+  Future<void> _toggleSmsTracking(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('sms_tracking_enabled', value);
+    setState(() => _smsTrackingEnabled = value);
+    if (value) {
+      await SmsService().init();
+    }
+  }
 
   Future<String> _timeAgo(DateTime date) async {
     final now = await NetworkTimeService.now;
@@ -241,6 +262,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FamilyPlanScreen())),
                               ),
+                            if (tierId == 'limitless' || tierId == 'limitless_family' || tierId == 'premium')
+                            _buildSettingsTile(
+                              context,
+                              icon: Icons.shopping_basket_outlined,
+                              title: AppLocalizations.of(context)!.shoppingListTitle,
+                              color: Colors.green, // Choose a nice color
+                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShoppingListScreen())),
+                            ),
                             _buildSettingsTile(
                               context,
                               icon: Icons.account_balance_wallet_outlined,
@@ -313,24 +343,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SecuritySettingsScreen())),
                             ),
+                            if (defaultTargetPlatform == TargetPlatform.android)
+                              _buildSettingsTile(
+                                context,
+                                icon: Icons.sms_outlined,
+                                title: AppLocalizations.of(context)!.smsTrackingTitle,
+                                subtitle: AppLocalizations.of(context)!.smsTrackingDesc,
+                                color: Colors.blue,
+                                trailing: Switch.adaptive(
+                                  value: _smsTrackingEnabled,
+                                  onChanged: _toggleSmsTracking,
+                                  activeColor: AppColors.primary,
+                                ),
+                              ),
                             const SizedBox(height: 20),
                             _buildSectionTitle(AppLocalizations.of(context)!.otherSection),
-                            _buildSettingsTile(
-                              context,
-                              icon: Icons.language,
-                              title: AppLocalizations.of(context)!.language,
-                              color: Colors.cyan,
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                              onTap: _showLanguageDialog,
-                            ),
-                            _buildSettingsTile(
-                              context,
-                              icon: Icons.info_outline,
-                              title: AppLocalizations.of(context)!.aboutUs,
-                              color: Colors.blueGrey,
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
-                            ),
                             _buildSettingsTile(
                               context,
                               icon: Icons.table_chart_outlined,
@@ -387,6 +414,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   await ReportService().generateAndSharePdfReport(receipts, start, now, isTaxReport: true);
                                 }
                               },
+                            ),
+                            _buildSettingsTile(
+                              context,
+                              icon: Icons.language,
+                              title: AppLocalizations.of(context)!.language,
+                              color: Colors.cyan,
+                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                              onTap: _showLanguageDialog,
+                            ),
+                            _buildSettingsTile(
+                              context,
+                              icon: Icons.info_outline,
+                              title: AppLocalizations.of(context)!.aboutUs,
+                              color: Colors.blueGrey,
+                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
                             ),
                             const SizedBox(height: 10),
                             _buildSettingsTile(
@@ -490,24 +533,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
   Widget _buildSmartPriceTracker(BuildContext context, List<Receipt> receipts) {
-    // Sık alınan ürünleri hesapla
-    final Map<String, int> productCounts = {};
-    final List<String> allRawNames = [];
-    for (var receipt in receipts) {
-      for (var item in receipt.items) {
-        allRawNames.add(item.name);
-        final name = _databaseService.normalizeProductName(item.name).trim();
-        if (name.length >= 2) {
-          productCounts[name] = (productCounts[name] ?? 0) + 1;
-        }
-      }
-    }
-
-    final sortedProducts = productCounts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    
-    final allNormalizedProducts = sortedProducts.map((e) => e.key).toList();
-    final previewProducts = allNormalizedProducts.take(3).toList();
+    // Sadece tüm ürün isimlerini topla (Detay ekranı için lazım)
+    final List<String> allRawNames = receipts.expand((r) => r.items.map((i) => i.name)).toList();
 
     return GestureDetector(
       onTap: () => _showAllProductsScreen(context, allRawNames, receipts),
@@ -565,26 +592,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Icon(Icons.chevron_right, color: Colors.grey[400]),
               ],
             ),
-            const SizedBox(height: 20),
-            if (previewProducts.isEmpty)
-              _buildEmptyTrackerCard(context)
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 10,
-                children: previewProducts.map((product) => _buildProductTag(context, product, receipts)).toList(),
-              ),
-            if (allNormalizedProducts.length > 3) ...[
-              const SizedBox(height: 12),
-              Text(
-                '+${allNormalizedProducts.length - 3} ürün daha',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
           ],
         ),
       ),

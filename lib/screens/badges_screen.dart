@@ -31,6 +31,8 @@ class _BadgesScreenState extends State<BadgesScreen> {
       case 'e87d': return Icons.favorite;
       case 'e574': return Icons.category;
       case 'e8e8': return Icons.emoji_events;
+      case 'e8b6': return Icons.search;
+      case 'e7ef': return Icons.groups;
       default: return Icons.help_outline;
     }
   }

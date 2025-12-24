@@ -11,13 +11,16 @@ import '../widgets/empty_state.dart';
 import 'receipt_detail_screen.dart';
 import '../services/auth_service.dart';
 import '../widgets/web_ad_banner.dart';
-import '../services/ai_service.dart';
-import '../widgets/shimmer_loading.dart';
+import 'package:fismatik/services/intelligence_service.dart';
+import 'package:fismatik/models/subscription_model.dart';
+import 'package:uuid/uuid.dart';
+import 'package:fismatik/widgets/shimmer_loading.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // [NEW]
-import '../services/usage_guard.dart'; // [NEW]
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/usage_guard.dart';
 import 'package:fismatik/services/product_normalization_service.dart';
 import '../models/membership_model.dart';
+import 'upgrade_screen.dart';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
@@ -37,11 +40,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
   late Stream<List<Receipt>> _receiptsStream;
   late Stream<Map<String, dynamic>> _settingsStream;
+  final IntelligenceService _intelligenceService = IntelligenceService();
   final AuthService _authService = AuthService();
   String _currentTierId = 'standart';
-  
-  // Cache for the session to prevent flicker
-  final Map<String, String> _adviceMemoryCache = {};
 
   @override
   void initState() {
@@ -56,7 +57,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
   Future<void> _checkInitialData() async {
     _checkSalaryDayPreference();
-    final results = await Future.wait([
+    final results = await Future.wait<dynamic>([
       _authService.getCurrentTier(),
       _databaseService.loadGlobalProductMappings(),
     ]);
@@ -311,10 +312,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           ),
           const SizedBox(height: 20),
 
-          // --- AI FİNANS KOÇU TAVSİYESİ ---
-          // Sadece Pro ve Aile paketlerinde göster
-          if (['limitless', 'limitless_family'].contains(_currentTierId))
-            _buildAiAdviceCard(totalSpent, categoryData),
+          // --- AKILLI ANALİZ VE İPUÇLARI BÖLÜMÜ ---
+          _buildIntelligenceSection(context),
           
           const SizedBox(height: 20),
 
@@ -603,25 +602,75 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       child: Divider(),
                     ),
                     ...items.map((stat) {
-                      return ListTile(
-                        dense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 4),
-                        title: Text(
-                          stat.name,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          AppLocalizations.of(context)!.timesBought(stat.count.toString()),
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                        ),
-                        trailing: Text(
-                          NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(stat.totalAmount),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
+                      return FutureBuilder<Map<String, dynamic>?>(
+                        future: _databaseService.getGlobalPriceStats(stat.name),
+                        builder: (context, globalSnapshot) {
+                          final globalData = globalSnapshot.data;
+                          final myAvgPrice = stat.count > 0 ? stat.totalAmount / stat.count : 0.0;
+                          
+                          // Eğer toplulukta %10 veya daha ucuz bir fiyat varsa işaretle
+                          final hasBetterDeal = globalData != null && 
+                                              globalData['min_price'] < myAvgPrice * 0.9;
+
+                          return ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 4),
+                            title: Row(
+                              children: [
+                                Expanded(child: Text(stat.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                                if (hasBetterDeal)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      "🌍 Fırsat!",
+                                      style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppLocalizations.of(context)!.timesBought(stat.count.toString()),
+                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                ),
+                                if (globalData != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      "Toplulukta en ucuz: ${NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(globalData['min_price'])} (${globalData['cheapest_merchant']})",
+                                      style: TextStyle(fontSize: 10, color: hasBetterDeal ? Colors.green : Colors.grey[500], fontWeight: hasBetterDeal ? FontWeight.bold : FontWeight.normal),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            trailing: Text(
+                              NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(stat.totalAmount),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            onTap: hasBetterDeal ? () {
+                              // Eğer kullanıcı daha ucuz fiyat bulursa "Fiyat Dedektifi" rozeti için sayacı artır
+                              _intelligenceService.incrementPriceDiscoveries(); 
+                              // Not: IntelligenceService üzerinden de çağrılabilir veya doğrudan GamificationService.
+                              // Şimdilik sadece bilgilendirme yapalım.
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("${stat.name} için toplulukta daha ucuz bir fiyat keşfettiniz!"),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            } : null,
+                          );
+                        },
                       );
                     }).toList(),
                     const SizedBox(height: 8),
@@ -754,129 +803,247 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     }).toList();
   }
 
-  Widget _buildAiAdviceCard(double totalSpent, Map<String, double> categoryData) {
-    return FutureBuilder<String?>(
-      future: _getFinancialAdviceSafe(totalSpent, categoryData),
-      builder: (context, snapshot) {
-        final advice = snapshot.data;
-        final isLoading = snapshot.connectionState == ConnectionState.waiting;
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.primary.withOpacity(0.1)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+  // --- AKILLI ANALİZ VE İPUÇLARI BÖLÜMÜ ---
+  Widget _buildIntelligenceSection(BuildContext context) {
+    final bool isPro = _currentTierId == 'limitless' || _currentTierId == 'limitless_family';
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.deepPurple.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+        border: Border.all(color: Colors.deepPurple.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.psychology, color: Colors.deepPurple, size: 20),
               ),
+              const SizedBox(width: 12),
+              Text(
+                AppLocalizations.of(context)!.intelligenceTitle,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const Spacer(),
+              if (!isPro)
+                Icon(Icons.lock_outline, color: Colors.grey.shade400, size: 18),
             ],
           ),
-          child: advice == null && isLoading 
-            ? const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()))
-            : advice == null 
-               ? const SizedBox.shrink() // Limit dolduysa veya hata varsa gizle
-               : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+          const SizedBox(height: 16),
+          
+          if (!isPro)
+            _buildLockedIntelligence(context)
+          else
+            _buildActiveIntelligence(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLockedIntelligence(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          AppLocalizations.of(context)!.intelligenceProOnly,
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const UpgradeScreen()),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.deepPurple,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: Text(AppLocalizations.of(context)!.unlockIntelligence),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActiveIntelligence(BuildContext context) {
+    return FutureBuilder<List<Object>>(
+      future: Future.wait([
+        _intelligenceService.getBudgetPrediction(),
+        _intelligenceService.getPersonalizedSavingTips(),
+        _intelligenceService.detectPotentialSubscriptions(),
+      ]),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: Padding(
+            padding: EdgeInsets.all(10.0),
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ));
+        }
+        
+        if (snapshot.hasError) return const SizedBox();
+
+        final prediction = snapshot.data![0] as Map<String, dynamic>;
+        final tips = snapshot.data![1] as List<String>;
+        final potentialSubs = snapshot.data![2] as List<Map<String, dynamic>>;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Bütçe Tahmini
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (prediction['isExceeding'] as bool) ? Colors.red.shade50 : Colors.green.shade50,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.auto_awesome, color: AppColors.primary, size: 18),
+                  Icon(
+                    (prediction['isExceeding'] as bool) ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                    color: (prediction['isExceeding'] as bool) ? Colors.red : Colors.green,
+                    size: 20,
                   ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    "AI Finans Koçu",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppColors.textDark,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!.predictedEndOfMonth(
+                            (prediction['predictedTotal'] as double).toStringAsFixed(0)
+                          ),
+                          style: TextStyle(
+                            fontSize: 12, 
+                            fontWeight: FontWeight.bold,
+                            color: (prediction['isExceeding'] as bool) ? Colors.red.shade800 : Colors.green.shade800,
+                          ),
+                        ),
+                        Text(
+                          (prediction['isExceeding'] as bool) 
+                            ? AppLocalizations.of(context)!.budgetDanger 
+                            : AppLocalizations.of(context)!.budgetSafe,
+                          style: TextStyle(fontSize: 11, color: (prediction['isExceeding'] as bool) ? Colors.red.shade700 : Colors.green.shade700),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              if (isLoading)
-                CardShimmer(height: 60, margin: EdgeInsets.zero)
-              else
-                Text(
-                  advice!, // Safe because of outer check
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                    height: 1.5,
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Tasarruf İpucu
+            if (tips.isNotEmpty)
+              Row(
+                children: [
+                  const Icon(Icons.lightbulb_outline, color: Colors.orange, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      tips.first,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textDark),
+                    ),
                   ),
-                ),
+                ],
+              ),
+
+            if (potentialSubs.isNotEmpty) ...[
+              const Divider(height: 24),
+              Text(
+                AppLocalizations.of(context)!.potentialSubsTitle,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+              ),
+              const SizedBox(height: 8),
+              ...potentialSubs.map((sub) => _buildPotentialSubItem(context, sub)).toList(),
             ],
-          ),
+          ],
         );
       },
     );
   }
 
-  Future<String?> _getFinancialAdviceSafe(double totalSpent, Map<String, double> categoryData) async {
-    // 1. Tier Check (Extra güvenlik)
-    if (!['limitless', 'limitless_family'].contains(_currentTierId)) {
-      return null;
-    }
+  Widget _buildPotentialSubItem(BuildContext context, Map<String, dynamic> sub) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(sub['merchant'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                Text("${sub['price'].toStringAsFixed(2)} ₺ • Her ayın ${sub['renewalDay']}. günü", style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => _addAsSubscription(sub),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(AppLocalizations.of(context)!.addAsSubscriptionShort, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
 
-    final userId = _authService.currentUser?.id;
-    if (userId == null) return null;
-
-    // 2. Memory Cache Check
-    final now = DateTime.now();
-    final todayStr = DateFormat('yyyyMMdd').format(now);
-    // Filtreye göre key oluştur
-    final filterKey = _selectedTimeFilter.replaceAll(' ', '_'); 
-    final cacheKey = '${userId}_${todayStr}_$filterKey';
-    
-    if (_adviceMemoryCache.containsKey(cacheKey)) {
-      return _adviceMemoryCache[cacheKey];
-    }
-
-    // 3. Disk Cache Check (SharedPreferences)
-    final prefs = await SharedPreferences.getInstance();
-    final diskCacheKey = 'fismatik_advice_$cacheKey';
-    final diskCached = prefs.getString(diskCacheKey);
-    if (diskCached != null) {
-      _adviceMemoryCache[cacheKey] = diskCached;
-      return diskCached;
-    }
-
-    // 4. Usage Guard Check
-    // Kullanıcının hakkı var mı?
-    final guard = await UsageGuard.checkAndConsume(UsageFeature.aiCoach);
-    if (!guard.isAllowed) {
-      // Limit dolduysa veya hata varsa null dön (UI gizler)
-      return null;
-    }
-
-    // 5. Fetch from AI
+  Future<void> _addAsSubscription(Map<String, dynamic> subData) async {
     try {
-      final advice = await AiService().getFinancialAdvice(totalSpent, categoryData);
-      if (advice != null) {
-        if (!advice.contains('Hata')) {
-           _adviceMemoryCache[cacheKey] = advice;
-           await prefs.setString(diskCacheKey, advice);
-        }
-        return advice;
-      } else {
-        // null döndüyse hak iadesi yap
-        await UsageGuard.refund(UsageFeature.aiCoach);
-        return null;
+      final subscription = Subscription(
+        id: const Uuid().v4(),
+        name: subData['merchant'],
+        price: subData['price'],
+        renewalDay: subData['renewalDay'],
+        colorHex: 'FF673AB7', // Deep Purple default
+      );
+      
+      await _databaseService.saveSubscription(subscription);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.subscriptionAdded)),
+        );
+        setState(() {});
       }
     } catch (e) {
-      await UsageGuard.refund(UsageFeature.aiCoach);
-      return null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Hata: $e")),
+        );
+      }
     }
   }
 }

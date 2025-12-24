@@ -22,6 +22,12 @@ class NotificationService {
 
   static const int _dailyReminderId = 100;
 
+  String _getRandomVariant(String source) {
+    final variants = source.split('|');
+    if (variants.isEmpty) return source;
+    return variants[DateTime.now().millisecond % variants.length].trim();
+  }
+
   Future<void> init() async {
     // Android icon: android/app/src/main/res/mipmap-*/ic_launcher
     const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
@@ -42,40 +48,32 @@ class NotificationService {
     await _plugin.initialize(initSettings);
 
     // zonedSchedule için timezone init
-    // WEB veya MOBILE
-    // zonedSchedule için timezone init
-    // WEB veya MOBILE
-    if (!kIsWeb && !Platform.isLinux) { 
-      // DİKKAT: Platform kullanımını kIsWeb ile ayırmalıyız.
-    }
+    tz.initializeTimeZones();
     
-    // Doğru mantık:
     if (kIsWeb) {
-      // Web için basit init
       try {
-        tz.initializeTimeZones();
-        // Web'de varsayılan olarak bir timezone atayalım (örneğin Europe/Istanbul veya UTC)
-        // Kullanıcının tarayıcı saatini almak zor olabilir, sabit bir değer güvenli.
         tz.setLocalLocation(tz.getLocation('Europe/Istanbul')); 
       } catch (e) {
         debugPrint('Web Timezone init hatası: $e');
       }
-    } else if (!Platform.isLinux) {
-      // MOBİL (Android/iOS)
-      tz.initializeTimeZones();
+    } else {
       try {
         final String timeZoneName = await FlutterTimezone.getLocalTimezone();
-        // ... (mevcut kod)
-        try {
-          final location = tz.getLocation(timeZoneName);
-          tz.setLocalLocation(location);
-        } catch (e) {
-          tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
-        }
+        tz.setLocalLocation(tz.getLocation(timeZoneName));
       } catch (e) {
-         tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
+        debugPrint('Timezone init hatası, fallback uygulanıyor: $e');
+        tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
       }
     }
+  }
+
+  /// Exact alarm izni kontrolü (Android 13+)
+  Future<bool> canScheduleExactNotifications() async {
+    if (kIsWeb || !Platform.isAndroid) return true;
+    
+    final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    return await androidImpl?.canScheduleExactNotifications() ?? false;
   }
 
   /// Bildirim izni iste (Android 13+ ve iOS/macOS)
@@ -123,7 +121,10 @@ class NotificationService {
       final bool? granted =
           await androidImpl?.requestNotificationsPermission();
 
-      debugPrint('🔔 System notification permission: $granted');
+      // Opsiyonel: Exact alarm izni yoksa ayarları açabiliriz (Burada sadece log/check yapıyoruz)
+      final bool exactGranted = await canScheduleExactNotifications();
+      debugPrint('🔔 System notification permission: $granted, Exact: $exactGranted');
+      
       return granted ?? false;
     }
 
@@ -153,18 +154,16 @@ class NotificationService {
 
     await _plugin.show(
       0,
-      title,
-      body,
+      _getRandomVariant(title),
+      _getRandomVariant(body),
       details,
     );
   }
 
   /// Günlük hatırlatıcı:
-  /// - Android: inexact tekrar eden (günde 1 kez)
+  /// - Android: Exact (Tam zamanında) tekrar eden
   /// - iOS/macOS: her gün belirtilen saatte exact
   Future<void> scheduleDailyReminder(BuildContext context, {TimeOfDay? time}) async {
-
-
     final l10n = AppLocalizations.of(context)!;
     // Varsayılan: 21:00
     final targetTime = time ?? const TimeOfDay(hour: 21, minute: 0);
@@ -204,21 +203,25 @@ class NotificationService {
     }
 
     try {
+      final bool hasExactPermission = await canScheduleExactNotifications();
+      
       await _plugin.zonedSchedule(
         _dailyReminderId,
-        l10n.notificationDailyReminderTitle,
-        l10n.notificationDailyReminderBody,
+        _getRandomVariant(l10n.notificationDailyReminderTitle),
+        _getRandomVariant(l10n.notificationDailyReminderBody),
         scheduled,
         details,
-        // Android: Doze modunda bile çalışsın
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle, 
+        // Android: İzin varsa EXACT (Tam zamanında), yoksa INEXACT (Hata vermez)
+        androidScheduleMode: hasExactPermission 
+            ? AndroidScheduleMode.exactAllowWhileIdle 
+            : AndroidScheduleMode.inexactAllowWhileIdle, 
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.time, // Her gün aynı saatte tekrar et
       );
 
       debugPrint(
-        '⏰ Günlük hatırlatıcı ${targetTime.hour}:${targetTime.minute} için planlandı: $scheduled (Timezone: ${tz.local.name})',
+        '⏰ Günlük hatırlatıcı ${targetTime.hour}:${targetTime.minute} için ${hasExactPermission ? "EXACT" : "INEXACT"} planlandı: $scheduled (Timezone: ${tz.local.name})',
       );
     } catch (e) {
       debugPrint('⚠️ Bildirim planlama hatası: $e');
@@ -297,8 +300,8 @@ class NotificationService {
 
       await _plugin.zonedSchedule(
         notificationId,
-        l10n.notificationSubscriptionReminderTitle(sub.name),
-        l10n.notificationSubscriptionReminderBody(sub.name, sub.price.toStringAsFixed(2)),
+        _getRandomVariant(l10n.notificationSubscriptionReminderTitle(sub.name)),
+        _getRandomVariant(l10n.notificationSubscriptionReminderBody(sub.name, sub.price.toStringAsFixed(2))),
         scheduledDate,
         details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,

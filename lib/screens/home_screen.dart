@@ -1,33 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import 'package:intl/intl.dart';
-import '../core/app_theme.dart';
-import '../models/category_model.dart';
-import '../models/subscription_model.dart';
-import '../models/credit_model.dart';
-import '../models/receipt_model.dart'; // [FIX] Added Receipt model
-import '../services/supabase_database_service.dart';
-import '../services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'scan_screen.dart';
-import 'receipt_detail_screen.dart';
-import 'statistics_screen.dart';
-// import 'welcome_screen.dart'; // Removed missing file 
-import 'subscriptions_screen.dart'; 
-import 'fixed_expenses_screen.dart';
-import 'chat_screen.dart';
-import 'profile_screen.dart';
-import 'admin_screen.dart';
-import 'search_screen.dart';
-import 'shopping_list_screen.dart';
-import '../widgets/shimmer_loading.dart';
-import '../widgets/empty_state.dart'; // [FIX] Added EmptyState widget
-import '../utils/haptic_helper.dart';
-import '../services/widget_service.dart';
-import '../services/ad_service.dart';
-import '../services/auth_service.dart';
-import '../widgets/web_ad_banner.dart';
+import 'package:uuid/uuid.dart';
+import 'package:fismatik/core/app_theme.dart';
+import 'package:fismatik/models/category_model.dart';
+import 'package:fismatik/models/subscription_model.dart';
+import 'package:fismatik/models/credit_model.dart';
+import 'package:fismatik/models/receipt_model.dart';
+import 'package:fismatik/services/supabase_database_service.dart';
+import 'package:fismatik/services/notification_service.dart';
+import 'package:fismatik/screens/scan_screen.dart';
+import 'package:fismatik/screens/receipt_detail_screen.dart';
+import 'package:fismatik/screens/statistics_screen.dart';
+import 'package:fismatik/services/intelligence_service.dart';
+import 'package:fismatik/screens/subscriptions_screen.dart'; 
+import 'package:fismatik/screens/fixed_expenses_screen.dart';
+import 'package:fismatik/screens/profile_screen.dart';
+import 'package:fismatik/screens/admin_screen.dart';
+import 'package:fismatik/screens/search_screen.dart';
+import 'package:fismatik/widgets/shimmer_loading.dart';
+import 'package:fismatik/widgets/empty_state.dart';
+import 'package:fismatik/utils/haptic_helper.dart';
+import 'package:fismatik/services/widget_service.dart';
+import 'package:fismatik/services/ad_service.dart';
+import 'package:fismatik/services/auth_service.dart';
+import 'package:fismatik/widgets/web_ad_banner.dart';
 import 'package:flutter/foundation.dart';
+import 'package:fismatik/widgets/sms_onboarding_dialog.dart';
+import 'package:fismatik/services/sms_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,8 +41,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final SupabaseDatabaseService _databaseService = SupabaseDatabaseService();
   final NotificationService _notificationService = NotificationService();
   final AuthService _authService = AuthService();
+  final IntelligenceService _intelligenceService = IntelligenceService();
+  final SmsService _smsService = SmsService();
   
   String _currentTierId = 'standart';
+  List<Map<String, dynamic>> _pendingSmsExpenses = [];
 
   // Stream Caching
   late Stream<List<Receipt>> _receiptsStream;
@@ -85,6 +89,24 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       setState(() {
         _currentTierId = tier.id;
+      });
+      
+      // Phase 8: SMS Onboarding
+      if (defaultTargetPlatform == TargetPlatform.android && !kIsWeb) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) SmsOnboardingDialog.showIfNeeded(context);
+        });
+        _loadPendingSmsExpenses();
+      }
+    }
+  }
+
+  Future<void> _loadPendingSmsExpenses() async {
+    if (defaultTargetPlatform != TargetPlatform.android || kIsWeb) return;
+    final expenses = await _smsService.getPendingExpenses();
+    if (mounted) {
+      setState(() {
+        _pendingSmsExpenses = expenses;
       });
     }
   }
@@ -300,18 +322,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     return Scaffold(
                   backgroundColor: AppColors.background,
-                  floatingActionButton: FloatingActionButton(
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const ChatScreen()),
-                      );
-                      if (mounted) _refreshData();
-                    },
-                    backgroundColor: AppColors.primary,
-                    child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-                    tooltip: AppLocalizations.of(context)!.aiAssistant,
-                  ),
                   body: SafeArea(
                     top: false,
                     child: ListView(
@@ -324,6 +334,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         // Filtre Butonları
                         _buildFilterTabs(),
+
+                        // Phase 8: SMS Harcama Bildirimi
+                        if (_pendingSmsExpenses.isNotEmpty)
+                          _buildPendingSmsBanner(),
 
                         // Liste İçeriği
                         Padding(
@@ -372,8 +386,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
 
-
                               const SizedBox(height: 24),
+
 
                               // Başlık
                               Row(
@@ -816,13 +830,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _refreshData() {
-    setState(() {
-      _receiptsStream = _databaseService.getReceipts();
-      _monthlyLimitStream = _databaseService.getMonthlyLimit();
-      _subscriptionsStream = _databaseService.getSubscriptions();
-      _creditsStream = _databaseService.getCredits();
-      _userSettingsStream = _databaseService.getUserSettings();
-    });
+    if (mounted) {
+      _loadPendingSmsExpenses();
+      setState(() {
+        _receiptsStream = _databaseService.getReceipts();
+        _monthlyLimitStream = _databaseService.getMonthlyLimit();
+        _subscriptionsStream = _databaseService.getSubscriptions();
+        _creditsStream = _databaseService.getCredits();
+        _userSettingsStream = _databaseService.getUserSettings();
+      });
+    }
   }
 
   void _showEditLimitDialog(BuildContext context, double currentLimit) {
@@ -1424,5 +1441,129 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  Widget _buildPendingSmsBanner() {
+    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.shade200, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.sms_failed_outlined, color: Colors.blue.shade700, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Yeni Harcamalar Tespit Edildi',
+                  style: TextStyle(
+                    color: Colors.blue.shade900,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () {
+                  setState(() => _pendingSmsExpenses = []);
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._pendingSmsExpenses.map((expense) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          expense['merchant'] ?? 'Bilinmiyor',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        Text(
+                          currencyFormat.format(expense['amount'] ?? 0),
+                          style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _smsService.removePendingExpense(expense['id']),
+                    child: const Text('Reddet', style: TextStyle(color: Colors.red, fontSize: 12)),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _addSmsExpenseToDatabase(expense),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      minimumSize: const Size(60, 30),
+                    ),
+                    child: const Text('Ekle', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addSmsExpenseToDatabase(Map<String, dynamic> expense) async {
+    final receipt = Receipt(
+      id: const Uuid().v4(),
+      userId: _authService.currentUser?.id ?? '',
+      merchantName: expense['merchant'] ?? 'Bilinmiyor',
+      date: DateTime.parse(expense['date']),
+      totalAmount: (expense['amount'] as num).toDouble(),
+      category: 'Diğer', // Fallback as guessCategoryFromName is missing
+      items: [],
+      isManual: true,
+      source: 'sms',
+    );
+
+    try {
+      await _databaseService.saveManualReceipt(
+        merchantName: receipt.merchantName,
+        date: receipt.date,
+        totalAmount: receipt.totalAmount,
+        category: receipt.category,
+      );
+      await _smsService.removePendingExpense(expense['id']);
+      _refreshData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Harcama başarıyla eklendi'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }

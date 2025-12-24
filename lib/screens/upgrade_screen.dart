@@ -314,11 +314,6 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
         values: [false, true, true, true],
       ),
       _FeatureRow(
-        name: l10n.featureAICoach,
-        icon: Icons.auto_awesome,
-        values: [false, false, true, true],
-      ),
-      _FeatureRow(
         name: l10n.featureBudgetForecasting,
         icon: Icons.trending_up,
         values: [false, false, true, true],

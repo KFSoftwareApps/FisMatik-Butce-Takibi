@@ -163,9 +163,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get aiAssistant => 'AI Assistant';
-
-  @override
   String get totalSpending => 'Total Spending';
 
   @override
@@ -194,19 +191,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get products => 'PRODUCTS';
-
-  @override
-  String get aiCoachThinking => 'Coach is thinking...';
-
-  @override
-  String get interpretExpenses => 'Interpret my expenses (AI)';
-
-  @override
-  String get aiCoachSays => 'FişMatik Coach Says:';
-
-  @override
-  String get premiumAccessRequired =>
-      'Access to AI Finance Coach is exclusive to Limitless membership.';
 
   @override
   String get noDataInDateRange => 'No data in this date range.';
@@ -1008,55 +992,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationDailyDesc => 'Reminds you of your receipts every day';
 
   @override
-  String get notificationDailyReminderTitle => 'Daily Summary';
+  String get notificationDailyReminderTitle =>
+      'Heey! How\'s Your Wallet? 😉|Don\'t Let Receipts Pile Up! 🏔️|Those Papers in Your Pocket... 📄';
 
   @override
   String get notificationDailyReminderBody =>
-      'Forgot to enter today\'s receipts? Record them now!';
+      'Going to sleep without recording today\'s expenses? Your wallet will be sad!|Scan your receipts in two minutes, keep your budget under control. I\'m waiting!|I know they\'re all crumpled. Transfer them to FişMatik and let\'s clear them out!';
 
   @override
-  String get notificationBudgetExceededTitle => 'Budget Exceeded!';
+  String get notificationBudgetExceededTitle =>
+      'Red Alert in Your Wallet! 🛑|The Boss Went Crazy! 🤪|Did You Think It\'s Bottomless? 💸';
 
   @override
   String get notificationBudgetExceededBody =>
-      'You have exceeded your total budget limit for this month.';
+      'You\'ve exceeded the budget! Put the wallet down slowly and step away...|Looks like we\'ve shaken the budget a bit (too much) this month. Should we tighten our belts?|Whoops! We crossed the limits. Take a deep breath before your next purchase.';
 
   @override
-  String get notificationBudgetWarningTitle => 'Budget Warning';
+  String get notificationBudgetWarningTitle =>
+      'Careful! Wallet Is Getting Thinner 🤏|Yellow Light is On! 🟡';
 
   @override
   String notificationBudgetWarningBody(Object ratio) {
-    return 'You have used $ratio% of your budget.';
+    return 'We\'ve already spent $ratio% of the budget. Should we slow down a bit?|Approaching the limits, Captain! Better tap the brakes a little.';
   }
 
   @override
   String notificationSubscriptionReminderTitle(Object name) {
-    return '$name Payment Due';
+    return 'Netflix & Chill... & Debt 🍿|$name Is Coming! 🎶';
   }
 
   @override
   String notificationSubscriptionReminderBody(Object amount, Object name) {
-    return 'Your payment of $amount for $name is due tomorrow.';
+    return '$name bill is at the door again. Let\'s see how many series you finished this month?|Get your headphones ready, $name is about to be paid for $amount. Enjoy the rhythm!';
   }
 
   @override
   String notificationCategoryExceededTitle(Object category) {
-    return '$category Budget Exceeded!';
+    return '$category Out of Control! 🔥';
   }
 
   @override
   String notificationCategoryExceededBody(Object category) {
-    return 'You have exceeded the budget for the $category category.';
+    return 'We burned through the budget for $category. How about a little break?';
   }
 
   @override
   String notificationCategoryWarningTitle(Object category) {
-    return '$category Budget Warning';
+    return '$category Warning! ⚠️';
   }
 
   @override
   String notificationCategoryWarningBody(Object category, Object ratio) {
-    return 'You have used $ratio% of the $category budget.';
+    return 'We\'ve swallowed $ratio% of the $category budget. Watch out!';
   }
 
   @override
@@ -1974,12 +1961,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get standardCategoriesOnly => 'Standard Categories Only';
 
   @override
-  String get aiFinanceCoach => 'AI Finance Coach';
-
-  @override
-  String get aiCoachLimited => 'AI Coach Limited';
-
-  @override
   String get noRefund => 'No Refund for Errors';
 
   @override
@@ -2113,6 +2094,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get securitySettingsSubtitle => 'Password and security settings';
+
+  @override
+  String get smsTrackingTitle => 'Automatic SMS Tracking';
+
+  @override
+  String get smsTrackingDesc => 'Automatically capture expense SMS';
 
   @override
   String get otherSection => 'Other';
@@ -2345,11 +2332,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'Scan your receipt or statement; let AI record your expenses and automatically detect your bills and subscriptions.';
 
   @override
-  String get onboardingTitle3 => 'AI Coach & Budget Forecasting 🔮';
+  String get onboardingTitle3 => 'Smart Analysis & Budget Forecast 🔮';
 
   @override
   String get onboardingDesc3 =>
-      'Artificial intelligence learns your spending habits and predicts how much you\'ll spend next month, warning you in advance.';
+      'See end-of-month spending forecasts and savings tips based on your spending habits, warning you in advance.';
 
   @override
   String get onboardingTitle4 => 'Where Is It Cheaper? 🏷️';
@@ -2390,9 +2377,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureCategoryManagement => 'Category Management';
 
   @override
-  String get featureAICoach => 'AI Finance Coach';
-
-  @override
   String get featureBudgetForecasting => 'Smart Budget Forecasting';
 
   @override
@@ -2423,6 +2407,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureSharedDashboard => 'Shared Expense Dashboard';
 
   @override
+  String get intelligenceTitle => 'AI Insights & Alerts';
+
+  @override
+  String get budgetPrediction => 'Budget Forecasting';
+
+  @override
+  String predictedEndOfMonth(Object amount) {
+    return 'Predicted spending by month end: $amount ₺';
+  }
+
+  @override
+  String get budgetSafe => 'Your budget looks safe! ✅';
+
+  @override
+  String get budgetDanger => 'Spending fast! You might exceed your budget. ⚠️';
+
+  @override
+  String get addAsSubscriptionShort => 'Add';
+
+  @override
+  String get potentialSubsTitle => 'Potential Subscriptions';
+
+  @override
+  String get tipsTitle => 'Saving Tip';
+
+  @override
+  String get unlockIntelligence => 'Unlock Insights';
+
+  @override
+  String get intelligenceProOnly =>
+      'Smart forecasting and saving tips are for Limitless members only.';
+
+  @override
   String get compareFeatures => 'Compare Features';
 
   @override
@@ -2443,4 +2460,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notAvailable => 'Not Available';
+
+  @override
+  String get clearChecked => 'Clear Checked Items';
+
+  @override
+  String get clearCheckedConfirm =>
+      'Are you sure you want to remove all checked items from the list?';
+
+  @override
+  String get frequentlyBought => 'Frequently Bought (Suggestions)';
+
+  @override
+  String get notificationExactAlarmWarning => 'Exact Notifications Disabled';
+
+  @override
+  String get notificationExactAlarmDesc =>
+      'To receive notifications on time, please enable \'Exact Alarm\' permission in settings.';
+
+  @override
+  String get notificationOpenSettings => 'Open Settings';
 }

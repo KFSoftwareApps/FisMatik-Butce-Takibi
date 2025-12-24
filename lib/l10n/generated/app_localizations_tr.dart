@@ -164,9 +164,6 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
-  String get aiAssistant => 'AI Asistan';
-
-  @override
   String get totalSpending => 'Toplam Harcama';
 
   @override
@@ -195,19 +192,6 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get products => 'ÜRÜNLER';
-
-  @override
-  String get aiCoachThinking => 'Koç Düşünüyor...';
-
-  @override
-  String get interpretExpenses => 'Harcamalarımı Yorumla (AI)';
-
-  @override
-  String get aiCoachSays => 'FişMatik Koç Diyor ki:';
-
-  @override
-  String get premiumAccessRequired =>
-      'AI Finans Koçu\'na erişim Limitless üyeliğe özeldir.';
 
   @override
   String get noDataInDateRange => 'Bu tarih aralığında veri yok.';
@@ -1008,55 +992,58 @@ class AppLocalizationsTr extends AppLocalizations {
   String get notificationDailyDesc => 'Her gün fişlerini hatırlatır';
 
   @override
-  String get notificationDailyReminderTitle => 'Günün Özeti';
+  String get notificationDailyReminderTitle =>
+      'Heey! Cüzdanın Ne Alemde? 😉|Fiş Dağ Olmasın! 🏔️|Cebindeki Kağıtlar... 📄';
 
   @override
   String get notificationDailyReminderBody =>
-      'Bugünkü harcamalarınızı girmeyi unuttunuz mu? Hemen kaydedin!';
+      'Bugünkü harcamaları girmeden mi uyuyorsun? Cüzdanın darılır!|İki dakikada fişlerini tara, bütçeni kontrol altında tut. Hadi bekliyorum!|Buruş buruş olduklarını biliyorum. Onları FişMatik\'e aktar da ferahlayalım!';
 
   @override
-  String get notificationBudgetExceededTitle => 'Bütçe Aşıldı!';
+  String get notificationBudgetExceededTitle =>
+      'Cüzdanda Kırmızı Alarm! 🛑|Patron Çıldırdı! 🤪|Harca Harca Bitmez Sandın... 💸';
 
   @override
   String get notificationBudgetExceededBody =>
-      'Bu ayki toplam bütçe limitinizi aştınız.';
+      'Bütçeyi aştın! Cüzdanı yavaşça masaya bırak ve oradan uzaklaş...|Bu ay bütçeyi biraz (fazlaca) sarsmışız sanki. Kemerleri biraz sıkalım mı?|Hop dedik! Limitleri biraz aştık. Bir sonraki harcamadan önce derin bir nefes al.';
 
   @override
-  String get notificationBudgetWarningTitle => 'Bütçe Uyarısı';
+  String get notificationBudgetWarningTitle =>
+      'Dikkat! Cüzdan İnceltiliyor 🤏|Sarı Işık Yandı! 🟡';
 
   @override
   String notificationBudgetWarningBody(Object ratio) {
-    return 'Bütçenizin %$ratio\'sini kullandınız.';
+    return 'Bütçenin %$ratio\'sini bitirdik bile. Yavaşlasak mı biraz?|Limitlere yaklaşıyoruz kaptan! Frenlere biraz dokunmakta fayda var.';
   }
 
   @override
   String notificationSubscriptionReminderTitle(Object name) {
-    return '$name Ödemesi Yaklaşıyor';
+    return 'Netflix & Chill... & Borç 🍿|$name Geliyor! 🎶';
   }
 
   @override
   String notificationSubscriptionReminderBody(Object amount, Object name) {
-    return '$name için $amount tutarındaki ödemeniz yarın yapılacak.';
+    return '$name faturası yine kapıda. Bakalım bu ay kaç dizi bitirdin?|Kulaklıkları hazırla, $name için $amount ödenmek üzere. Ritmine devam!';
   }
 
   @override
   String notificationCategoryExceededTitle(Object category) {
-    return '$category Bütçesi Aşıldı!';
+    return '$category Kontrolden Çıktı! 🔥';
   }
 
   @override
   String notificationCategoryExceededBody(Object category) {
-    return '$category kategorisi için belirlediğiniz bütçeyi aştınız.';
+    return '$category için bütçeyi yakıp geçtik. Biraz mola vermeye ne dersin?';
   }
 
   @override
   String notificationCategoryWarningTitle(Object category) {
-    return '$category Bütçe Uyarısı';
+    return '$category Uyarı Veriyor! ⚠️';
   }
 
   @override
   String notificationCategoryWarningBody(Object category, Object ratio) {
-    return '$category bütçesinin %$ratio\'sini kullandınız.';
+    return '$category bütçesinin %$ratio\'sini yutmuşuz. Aman dikkat!';
   }
 
   @override
@@ -1969,12 +1956,6 @@ class AppLocalizationsTr extends AppLocalizations {
   String get standardCategoriesOnly => 'Sadece Standart Kategoriler';
 
   @override
-  String get aiFinanceCoach => 'AI Finans Koçu';
-
-  @override
-  String get aiCoachLimited => 'AI Koç Kısıtlı';
-
-  @override
   String get noRefund => 'Hatalı Çekim İadesi Yok';
 
   @override
@@ -2107,6 +2088,12 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get securitySettingsSubtitle => 'Şifre ve güvenlik ayarları';
+
+  @override
+  String get smsTrackingTitle => 'Otomatik SMS Takibi';
+
+  @override
+  String get smsTrackingDesc => 'Harcama SMS\'lerini otomatik yakala';
 
   @override
   String get otherSection => 'Diğer';
@@ -2340,11 +2327,11 @@ class AppLocalizationsTr extends AppLocalizations {
       'Fiş veya ekstrenizi taratın; yapay zeka harcamalarınızı kaydetsin, fatura ve aboneliklerinizi otomatik tespit etsin.';
 
   @override
-  String get onboardingTitle3 => 'AI Koç & Bütçe Tahmini 🔮';
+  String get onboardingTitle3 => 'Akıllı Analiz & Bütçe Tahmini 🔮';
 
   @override
   String get onboardingDesc3 =>
-      'Yapay zeka, harcama alışkanlıklarınızı öğrenir ve gelecek ay ne kadar harcayacağınızı tahmin ederek sizi uyarır.';
+      'Harcama alışkanlıklarınıza göre ay sonu harcama tahminlerini ve tasarruf ipuçlarını görün.';
 
   @override
   String get onboardingTitle4 => 'Nerede Daha Ucuz? 🏷️';
@@ -2385,9 +2372,6 @@ class AppLocalizationsTr extends AppLocalizations {
   String get featureCategoryManagement => 'Kategori Yönetimi';
 
   @override
-  String get featureAICoach => 'AI Finans Koçu';
-
-  @override
   String get featureBudgetForecasting => 'Akıllı Bütçe Tahmini';
 
   @override
@@ -2418,6 +2402,40 @@ class AppLocalizationsTr extends AppLocalizations {
   String get featureSharedDashboard => 'Ortak Harcama Ekranı';
 
   @override
+  String get intelligenceTitle => 'Akıllı Analiz ve İpuçları';
+
+  @override
+  String get budgetPrediction => 'Bütçe Tahmini';
+
+  @override
+  String predictedEndOfMonth(Object amount) {
+    return 'Ay sonu harcama tahmini: $amount ₺';
+  }
+
+  @override
+  String get budgetSafe => 'Bütçen güvende gözüküyor! ✅';
+
+  @override
+  String get budgetDanger =>
+      'Daha dikkatli harcamalısın, bütçeni aşabilirsin! ⚠️';
+
+  @override
+  String get addAsSubscriptionShort => 'Ekle';
+
+  @override
+  String get potentialSubsTitle => 'Olası Abonelikler';
+
+  @override
+  String get tipsTitle => 'Tasarruf İpucu';
+
+  @override
+  String get unlockIntelligence => 'Analizleri kilidini aç';
+
+  @override
+  String get intelligenceProOnly =>
+      'Akıllı tahminler ve tasarruf ipuçları Limitless üyelere özeldir.';
+
+  @override
   String get compareFeatures => 'Özellikleri Karşılaştır';
 
   @override
@@ -2438,4 +2456,24 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get notAvailable => 'Yok';
+
+  @override
+  String get clearChecked => 'İşaretli olanları temizle';
+
+  @override
+  String get clearCheckedConfirm =>
+      'Alınan tüm ürünleri listeden silmek istediğinize emin misiniz?';
+
+  @override
+  String get frequentlyBought => 'Sık Aldıkların (Öneri)';
+
+  @override
+  String get notificationExactAlarmWarning => 'Tam Zamanlı Bildirimler Kapalı';
+
+  @override
+  String get notificationExactAlarmDesc =>
+      'Bildirimleri saniyesi saniyesine alabilmek için lütfen ayarlardan \'Tam Zamanlı Alarm\' iznini verin.';
+
+  @override
+  String get notificationOpenSettings => 'Ayarları Aç';
 }

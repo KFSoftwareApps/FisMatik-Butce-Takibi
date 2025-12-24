@@ -61,4 +61,9 @@ class NotificationService {
 
   Future<void> scheduleSubscriptionReminder(BuildContext context, Subscription sub) async {}
   Future<void> checkCategoryBudgetAndNotify(BuildContext context, String categoryName, double currentSpending, double limit) async {}
+  
+  // Web için stub metod (Exact Alarm desteği yok)
+  Future<bool> canScheduleExactNotifications() async {
+    return false;
+  }
 }

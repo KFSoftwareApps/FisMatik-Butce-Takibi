@@ -30,6 +30,10 @@ class WidgetService {
       final now = DateFormat('d MMMM, EEEE', 'tr_TR').format(DateTime.now());
       await HomeWidget.saveWidgetData<String>('current_date', now);
       
+      // Phase 8: Deep links for quick actions
+      // Bu veriler native (XML/Kotlin) tarafında PendingIntent için kullanılacak
+      await HomeWidget.saveWidgetData<String>('scan_uri', 'fismatik://scan');
+      
       await HomeWidget.updateWidget(
         name: _widgetName,
         androidName: _widgetName,

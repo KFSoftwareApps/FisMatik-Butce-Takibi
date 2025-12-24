@@ -34,6 +34,10 @@ subprojects {
                     defaultConfig {
                         targetSdk = 35
                     }
+                    // Phase 8 Fix: Inject namespace for legacy telephony package
+                    if (project.name == "telephony") {
+                        namespace = "com.shounakmulay.telephony"
+                    }
                 }
             } catch (e: Exception) {
                 // Ignore if the extension type is not found or other errors

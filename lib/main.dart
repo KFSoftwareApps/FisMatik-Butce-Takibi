@@ -10,18 +10,19 @@ import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'core/app_theme.dart';
-import 'providers/theme_provider.dart';
-import 'l10n/generated/app_localizations.dart';
-import 'services/auth_service.dart';
-import 'services/notification_service.dart';
-import 'services/payment_service.dart'; // [NEW] Import
-import 'screens/login_screen.dart';
-import 'screens/onboarding_screen.dart';
-import 'screens/main_wrapper.dart';
-import 'screens/verify_email_screen.dart';
-import 'services/supabase_database_service.dart';
-import 'services/product_normalization_service.dart';
+import 'package:fismatik/core/app_theme.dart';
+import 'package:fismatik/providers/theme_provider.dart';
+import 'package:fismatik/l10n/generated/app_localizations.dart';
+import 'package:fismatik/services/auth_service.dart';
+import 'package:fismatik/services/notification_service.dart';
+import 'package:fismatik/services/payment_service.dart';
+import 'package:fismatik/screens/login_screen.dart';
+import 'package:fismatik/screens/onboarding_screen.dart';
+import 'package:fismatik/screens/main_wrapper.dart';
+import 'package:fismatik/screens/verify_email_screen.dart';
+import 'package:fismatik/services/supabase_database_service.dart';
+import 'package:fismatik/services/product_normalization_service.dart';
+import 'package:fismatik/services/sms_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +59,11 @@ void main() async {
     // 5. Ödeme servisi başlat (Satın alımları ve yenilemeleri dinle)
     if (!kIsWeb) {
       PaymentService().init(); 
+    }
+
+    // 6. SMS servisi başlat (Sadece Android ve mobil platformlarda)
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      await SmsService().init();
     }
 
 
