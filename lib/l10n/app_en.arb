@@ -88,6 +88,7 @@
   "no": "No",
   "subscriptionAdded": "Subscription added!",
   "cameraGalleryPermission": "Camera / Gallery permission required. Please enable it in settings.",
+  "goToSettings": "Settings",
   "readingText": "Reading text...",
   "waitingForDevice": "Waiting for system dialog...",
   "longWaitWarning": "Please wait, dialog is opening...",

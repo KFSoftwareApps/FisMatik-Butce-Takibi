@@ -10,19 +10,20 @@ import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:fismatik/core/app_theme.dart';
-import 'package:fismatik/providers/theme_provider.dart';
-import 'package:fismatik/l10n/generated/app_localizations.dart';
-import 'package:fismatik/services/auth_service.dart';
-import 'package:fismatik/services/notification_service.dart';
-import 'package:fismatik/services/payment_service.dart';
-import 'package:fismatik/screens/login_screen.dart';
-import 'package:fismatik/screens/onboarding_screen.dart';
-import 'package:fismatik/screens/main_wrapper.dart';
-import 'package:fismatik/screens/verify_email_screen.dart';
-import 'package:fismatik/services/supabase_database_service.dart';
-import 'package:fismatik/services/product_normalization_service.dart';
-import 'package:fismatik/services/sms_service.dart';
+import 'core/app_theme.dart';
+import 'providers/theme_provider.dart';
+import 'l10n/generated/app_localizations.dart';
+import 'services/auth_service.dart';
+import 'services/notification_service.dart';
+import 'services/payment_service.dart';
+import 'screens/login_screen.dart';
+import 'screens/onboarding_screen.dart';
+import 'screens/main_wrapper.dart';
+import 'screens/verify_email_screen.dart';
+import 'services/supabase_database_service.dart';
+import 'services/product_normalization_service.dart';
+import 'services/sms_service.dart';
+import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,7 +54,11 @@ void main() async {
 
     // 4. Reklam servisi başlat (Sadece mobil platformlarda)
     if (!kIsWeb) {
-      await MobileAds.instance.initialize();
+      try {
+        await MobileAds.instance.initialize();
+      } catch (e) {
+        debugPrint("ADS INIT ERROR: $e");
+      }
     }
     
     // 5. Ödeme servisi başlat (Satın alımları ve yenilemeleri dinle)
@@ -398,9 +403,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Initial Loading
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const SplashScreen();
     }
 
     // 2. Not Logged In

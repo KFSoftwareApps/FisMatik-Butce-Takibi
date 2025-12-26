@@ -107,12 +107,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         const Spacer(),
                         // LOGO ALANI
-                        // LOGO ALANI
-                        // LOGO ALANI
-                        const Text(
-                          '🧾',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 100),
+                        Center(
+                          child: Hero(
+                            tag: 'app_logo',
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Text(
+                                '🧾',
+                                style: TextStyle(fontSize: 100),
+                              ),
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 24),
                         Text(

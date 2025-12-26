@@ -7,55 +7,57 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Arka planı gri yapıyoruz (Giriş ekranıyla uyumlu)
       backgroundColor: const Color(0xFFF5F5F5),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // LOGO (Mavi daire içinde ikon)
-            Container(
-              width: 160,
-              height: 160,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFF1565C0), // Koyu Mavi Zemin
-              ),
-              child: const Icon(
-                Icons.receipt_long_rounded,
-                size: 88,
-                color: Colors.white,
+            // LOGO (Emoji olarak)
+            Hero(
+              tag: 'app_logo',
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Text(
+                  '🧾',
+                  style: TextStyle(fontSize: 120),
+                ),
               ),
             ),
             const SizedBox(height: 24),
-
+            
             // UYGULAMA ADI
             const Text(
               "FişMatik",
               style: TextStyle(
-                fontSize: 32,
+                fontSize: 36,
                 fontWeight: FontWeight.bold,
                 color: AppColors.primary,
-                letterSpacing: 1.5,
+                letterSpacing: 2.0,
               ),
             ),
+            const SizedBox(height: 8),
             const Text(
-              "Harcamalarını Yönet",
+              "Harcamalarını Akıllıca Yönet",
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 color: Colors.grey,
+                fontWeight: FontWeight.w500,
               ),
             ),
 
-            const SizedBox(height: 48),
+            const SizedBox(height: 64),
 
             // YÜKLENİYOR ÇUBUĞU
             const SizedBox(
-              width: 30,
-              height: 30,
+              width: 40,
+              height: 40,
               child: CircularProgressIndicator(
                 color: AppColors.primary,
-                strokeWidth: 3,
+                strokeWidth: 4,
               ),
             ),
           ],

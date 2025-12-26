@@ -28,20 +28,66 @@ class _ProductListScreenState extends State<ProductListScreen> {
   final _dbService = SupabaseDatabaseService();
   final _currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
 
+  List<Map<String, dynamic>> _allGenericData = [];
+  List<String> _allBrandData = [];
+
   @override
   void initState() {
     super.initState();
     _loadUserPreference();
   }
 
+  void _preCalculateData() {
+    // 1. Brand Data (Simple unique list)
+    _allBrandData = widget.allProducts.toSet().toList()..sort();
+
+    // 2. Generic Data (Optimized O(N) grouping and stats)
+    final stats = <String, Map<String, dynamic>>{};
+    
+    // Group names first
+    for (final product in widget.allProducts) {
+      final normalized = _dbService.normalizeProductName(product);
+      if (!stats.containsKey(normalized)) {
+        stats[normalized] = {
+          'normalized_name': normalized,
+          'variants': <String>{},
+          'prices': <double>[],
+        };
+      }
+      stats[normalized]!['variants'].add(product);
+    }
+
+    // Single pass over receipts to collect prices
+    for (final receipt in widget.receipts) {
+      for (final item in receipt.items) {
+        final itemNormalized = _dbService.normalizeProductName(item.name);
+        if (stats.containsKey(itemNormalized)) {
+          stats[itemNormalized]!['prices'].add(item.price.toDouble());
+        }
+      }
+    }
+
+    // Convert to final format
+    _allGenericData = stats.values.map((s) {
+      final prices = s['prices'] as List<double>;
+      return {
+        'normalized_name': s['normalized_name'],
+        'brand_count': (s['variants'] as Set<String>).length,
+        'min_price': prices.isEmpty ? 0.0 : prices.reduce((a, b) => a < b ? a : b),
+        'max_price': prices.isEmpty ? 0.0 : prices.reduce((a, b) => a > b ? a : b),
+        'brand_variants': (s['variants'] as Set<String>).toList(),
+      };
+    }).toList();
+  }
+
   Future<void> _loadUserPreference() async {
     try {
-      // Load both preference and global mappings
       await Future.wait([
         _dbService.getUserPriceComparisonMode(),
         _dbService.loadGlobalProductMappings(),
       ]).then((results) {
         if (mounted) {
+          _preCalculateData(); // Pre-calculate after mappings are loaded
           setState(() {
             _viewMode = results[0] as String;
             _isLoadingPreference = false;
@@ -50,6 +96,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       });
     } catch (e) {
       if (mounted) {
+        _preCalculateData();
         setState(() {
           _viewMode = 'generic';
           _isLoadingPreference = false;
@@ -85,90 +132,22 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   List<dynamic> get _filteredProducts {
+    final query = _searchQuery.toLowerCase();
+    
     if (_viewMode == 'brand') {
-      return _getFilteredBrandProducts();
+      return _allBrandData.where((p) {
+        final matchesQuery = query.isEmpty || p.toLowerCase().contains(query);
+        final matchesCategory = _selectedCategory == 'Tümü' || _getCategoryForProduct(p) == _selectedCategory;
+        return matchesQuery && matchesCategory;
+      }).toList();
     } else {
-      return _getFilteredGenericProducts();
-    }
-  }
-
-  List<String> _getFilteredBrandProducts() {
-    // Show RAW names in Brand view, only filtered by search/category
-    var products = widget.allProducts.toSet().toList();
-    
-    if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
-      products = products
-          .where((p) => p.toLowerCase().contains(query))
-          .toList();
-    }
-    
-    if (_selectedCategory != 'Tümü') {
-      products = products.where((p) => _getCategoryForProduct(p) == _selectedCategory).toList();
-    }
-    
-    products.sort((a, b) => a.compareTo(b));
-    return products;
-  }
-
-  List<Map<String, dynamic>> _getFilteredGenericProducts() {
-    // Group products by normalized name
-    final grouped = <String, List<String>>{};
-    
-    for (final product in widget.allProducts) {
-      final normalized = _dbService.normalizeProductName(product);
-      if (!grouped.containsKey(normalized)) {
-        grouped[normalized] = [];
-      }
-      grouped[normalized]!.add(product);
-    }
-
-    // Convert to list of maps with statistics
-    var genericProducts = grouped.entries.map((entry) {
-      final normalizedName = entry.key;
-      final brandVariants = entry.value;
-      
-      // Calculate price stats from receipts
-      final prices = <double>[];
-      final markets = <String>{};
-      
-      for (final receipt in widget.receipts) {
-        for (final item in receipt.items) {
-          // [FIX] Compare using normalized names to count prices correctly for a generic group
-          final itemNormalized = _dbService.normalizeProductName(item.name);
-          if (brandVariants.contains(itemNormalized) || brandVariants.contains(item.name)) {
-            prices.add(item.price);
-            markets.add(receipt.merchantName);
-          }
-        }
-      }
-      
-      return {
-        'normalized_name': normalizedName,
-        'brand_count': brandVariants.length,
-        'min_price': prices.isEmpty ? 0.0 : prices.reduce((a, b) => a < b ? a : b),
-        'max_price': prices.isEmpty ? 0.0 : prices.reduce((a, b) => a > b ? a : b),
-        'brand_variants': brandVariants,
-      };
-    }).toList();
-
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      genericProducts = genericProducts.where((p) {
-        final name = p['normalized_name'] as String;
-        return name.toLowerCase().contains(_searchQuery.toLowerCase());
+      return _allGenericData.where((p) {
+        final name = (p['normalized_name'] as String).toLowerCase();
+        final matchesQuery = query.isEmpty || name.contains(query);
+        final matchesCategory = _selectedCategory == 'Tümü' || _getCategoryForProduct(p['normalized_name']) == _selectedCategory;
+        return matchesQuery && matchesCategory;
       }).toList();
     }
-
-    // Apply category filter
-    if (_selectedCategory != 'Tümü') {
-      genericProducts = genericProducts.where((p) {
-        final name = p['normalized_name'] as String;
-        return _getCategoryForProduct(name) == _selectedCategory;
-      }).toList();
-    }
-
-    return genericProducts;
   }
 
   List<String> get _categories {

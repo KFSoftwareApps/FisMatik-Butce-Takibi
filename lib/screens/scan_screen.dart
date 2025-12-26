@@ -204,8 +204,14 @@ class _ScanScreenState extends State<ScanScreen> {
           if (status != PermissionStatus.granted && status != PermissionStatus.limited) {
             if (mounted) {
               setState(() { _isScanning = false; });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(AppLocalizations.of(context)!.cameraGalleryPermission)),
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(AppLocalizations.of(context)!.cameraGalleryPermission),
+                  action: SnackBarAction(
+                    label: AppLocalizations.of(context)!.goToSettings,
+                    onPressed: () => openAppSettings(),
+                  ),
+                ),
               );
             }
             return;

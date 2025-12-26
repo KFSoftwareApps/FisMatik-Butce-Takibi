@@ -1,5 +1,3 @@
-// lib/services/auth_service.dart
-
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -348,23 +346,17 @@ class AuthService {
       // 1. Google Sign In başlat
       const webClientId = '650635272198-sf9ha4oi6bsifebnq0ocdhd7skmsvohs.apps.googleusercontent.com'; // Supabase'den alınacak
 
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId: webClientId, // Mobile'da genellikle ignore edilir ama webClientId'yi parametre olarak gönderiyoruz
-        serverClientId: webClientId,
-      );
+      final googleSignIn = GoogleSignIn.instance;
       
-      final googleUser = await googleSignIn.signIn();
+      // Google Sign In 7.x+ requires authenticate() instead of signIn()
+      final googleUser = await googleSignIn.authenticate();
       if (googleUser == null) {
         throw 'Google girişi iptal edildi.';
       }
       
-      final googleAuth = await googleUser.authentication;
-      final accessToken = googleAuth.accessToken;
+      final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
 
-      if (accessToken == null) {
-        throw 'Google Access Token alınamadı.';
-      }
       if (idToken == null) {
         throw 'Google ID Token alınamadı.';
       }
@@ -373,7 +365,6 @@ class AuthService {
       final res = await _supabase.auth.signInWithIdToken(
         provider: supa.OAuthProvider.google,
         idToken: idToken,
-        accessToken: accessToken,
       );
       
       final user = res.user;

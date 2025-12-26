@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:local_auth_android/local_auth_android.dart';
+import 'package:local_auth_darwin/local_auth_darwin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // enum BiometricType { face, fingerprint, iris, weak, strong } // local_auth'dan geliyor
@@ -43,10 +45,10 @@ class BiometricService {
     try {
       return await _auth.authenticate(
         localizedReason: reason,
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly: false, // PIN/Desen ile de açabilsin
-        ),
+        authMessages: const <AuthMessages>[
+          IOSAuthMessages(),
+          AndroidAuthMessages(),
+        ],
       );
     } on PlatformException catch (e) {
       print("Kimlik doğrulama hatası: $e");

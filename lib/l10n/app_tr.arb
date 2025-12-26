@@ -88,6 +88,7 @@
   "no": "Hayır",
   "subscriptionAdded": "Abonelik eklendi!",
   "cameraGalleryPermission": "Kamera / Galeri izni gerekli. Lütfen ayarlardan etkinleştirin.",
+  "goToSettings": "Ayarlar",
   "readingText": "Yazılar okunuyor...",
   "waitingForDevice": "Sistem diyaloğu bekleniyor...",
   "longWaitWarning": "Lütfen bekleyin, diyalog açılıyor...",

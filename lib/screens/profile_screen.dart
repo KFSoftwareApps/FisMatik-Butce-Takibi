@@ -615,6 +615,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Icon(Icons.chevron_right, color: Colors.grey[400]),
               ],
             ),
+            const SizedBox(height: 8),
           ],
         ),
       ),

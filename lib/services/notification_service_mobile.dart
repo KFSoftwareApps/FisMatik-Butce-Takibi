@@ -59,7 +59,11 @@ class NotificationService {
     } else {
       try {
         final String timeZoneName = await FlutterTimezone.getLocalTimezone();
-        tz.setLocalLocation(tz.getLocation(timeZoneName));
+        try {
+          tz.setLocalLocation(tz.getLocation(timeZoneName));
+        } catch (e) {
+          tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
+        }
       } catch (e) {
         debugPrint('Timezone init hatası, fallback uygulanıyor: $e');
         tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
@@ -285,7 +289,7 @@ class NotificationService {
     
     int reminderDay = sub.renewalDay - 1;
     if (reminderDay < 1) reminderDay = 1; // Basit çözüm: Ayın 1'i ise 1'inde hatırlat (veya bir önceki ayın sonu ama karmaşık)
-
+    
     var scheduledDate = tz.TZDateTime(tz.local, now.year, now.month, reminderDay, 10, 0);
 
     if (scheduledDate.isBefore(now)) {
@@ -305,8 +309,6 @@ class NotificationService {
         scheduledDate,
         details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime, // Her ay aynı gün ve saatte
       );
 
