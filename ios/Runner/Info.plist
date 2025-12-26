@@ -43,7 +43,7 @@
 		<key>NSFaceIDUsageDescription</key>
 		<string>FişMatik güvenli giriş yapabilmeniz için FaceID kullanmak ister.</string>
 		<key>GIDClientID</key>
-		<string>650635272198-sf9ha4oi6bsifebnq0ocdhd7skmsvohs.apps.googleusercontent.com</string>
+		<string>421792290498-5076pvaqef5i3dlem16igercnink333e.apps.googleusercontent.com</string>
 		<key>GADApplicationIdentifier</key>
 		<string>ca-app-pub-3940256099942544~1458002511</string>
 		<key>SKAdNetworkItems</key>
@@ -62,7 +62,7 @@
 				<string>Editor</string>
 				<key>CFBundleURLSchemes</key>
 				<array>
-					<string>com.googleusercontent.apps.650635272198-sf9ha4oi6bsifebnq0ocdhd7skmsvohs</string>
+					<string>com.googleusercontent.apps.421792290498-5076pvaqef5i3dlem16igercnink333e</string>
 				</array>
 			</dict>
 		</array>

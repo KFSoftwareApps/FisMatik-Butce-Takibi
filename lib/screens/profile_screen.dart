@@ -284,7 +284,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FamilyPlanScreen())),
                               ),
-                            if (tierId == 'limitless' || tierId == 'limitless_family')
+                            if (tierId == 'limitless' || tierId == 'limitless_family' || tierId == 'premium')
                             _buildSettingsTile(
                               context,
                               icon: Icons.shopping_basket_outlined,

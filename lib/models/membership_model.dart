@@ -47,7 +47,7 @@ class MembershipTier {
     ),
     'limitless': MembershipTier(
       id: 'limitless',
-      name: 'Pro',
+      name: 'Premium',
       price: '79.99 TL / Ay',
       receiptLimit: 999999,        // Aylık sınırsız
       dailyReceiptLimit: 25,      // Günlük 25 fiş

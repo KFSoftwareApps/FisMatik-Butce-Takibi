@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in/google_sign_in.dart' as google;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
@@ -344,9 +344,9 @@ class AuthService {
       
       // MOBİL PLATFORM İÇİN (Native Flow)
       // 1. Google Sign In başlat
-      const webClientId = '650635272198-sf9ha4oi6bsifebnq0ocdhd7skmsvohs.apps.googleusercontent.com'; // Supabase'den alınacak
+      // 1. Google Sign In başlat
 
-      final googleSignIn = GoogleSignIn.instance;
+      final googleSignIn = google.GoogleSignIn.instance;
       
       // Google Sign In 7.x+ requires authenticate() instead of signIn()
       final googleUser = await googleSignIn.authenticate();
