@@ -58,9 +58,9 @@ class NotificationService {
       }
     } else {
       try {
-        final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+        final timeZoneName = await FlutterTimezone.getLocalTimezone();
         try {
-          tz.setLocalLocation(tz.getLocation(timeZoneName));
+        tz.setLocalLocation(tz.getLocation(timeZoneName.toString()));
         } catch (e) {
           tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
         }
@@ -219,8 +219,7 @@ class NotificationService {
         androidScheduleMode: hasExactPermission 
             ? AndroidScheduleMode.exactAllowWhileIdle 
             : AndroidScheduleMode.inexactAllowWhileIdle, 
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
+
         matchDateTimeComponents: DateTimeComponents.time, // Her gün aynı saatte tekrar et
       );
 
