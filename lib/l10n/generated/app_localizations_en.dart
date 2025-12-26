@@ -286,6 +286,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get readingText => 'Reading text...';
 
   @override
+  String get waitingForDevice => 'Waiting for system dialog...';
+
+  @override
+  String get longWaitWarning => 'Please wait, dialog is opening...';
+
+  @override
+  String get connectionChecking =>
+      'Checking connection, please do not close the page.';
+
+  @override
   String get aiExtractingData => 'AI is extracting data...';
 
   @override
@@ -306,6 +316,36 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get networkError =>
       'Connection error. Please check your internet connection.';
+
+  @override
+  String get locationSettings => 'Location Settings';
+
+  @override
+  String get locationSettingsSubtitle => 'Update city and district information';
+
+  @override
+  String get locationOnboardingDescription =>
+      'To provide you with personalized local price comparisons and more accurate analysis, you must specify your location.';
+
+  @override
+  String get city => 'City';
+
+  @override
+  String get district => 'District';
+
+  @override
+  String get cityHint => 'e.g. London';
+
+  @override
+  String get districtHint => 'e.g. Westminster';
+
+  @override
+  String cheapestInCity(Object city) {
+    return 'Cheapest in $city';
+  }
+
+  @override
+  String get cheapestInCommunity => 'Cheapest in community';
 
   @override
   String get analysisError =>

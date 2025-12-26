@@ -21,6 +21,7 @@ import '../services/usage_guard.dart';
 import 'package:fismatik/services/product_normalization_service.dart';
 import '../models/membership_model.dart';
 import 'upgrade_screen.dart';
+import 'package:fismatik/services/profile_service.dart';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
@@ -40,9 +41,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
   late Stream<List<Receipt>> _receiptsStream;
   late Stream<Map<String, dynamic>> _settingsStream;
+  late Stream<Map<String, dynamic>> _roleStream;
   final IntelligenceService _intelligenceService = IntelligenceService();
   final AuthService _authService = AuthService();
   String _currentTierId = 'standart';
+  String? _userCity;
 
   @override
   void initState() {
@@ -50,9 +53,24 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     _tabController = TabController(length: 2, vsync: this);
     _receiptsStream = _databaseService.getUnifiedReceiptsStream();
     _settingsStream = _databaseService.getUserSettings();
+    _roleStream = _databaseService.getUserRoleDataStream();
     
     // Check for Salary Day preference on init
     _checkInitialData();
+    _loadUserCity();
+  }
+
+  Future<void> _loadUserCity() async {
+    try {
+      final profile = await ProfileService().getMyProfileOnce();
+      if (profile != null && mounted) {
+        setState(() {
+          _userCity = profile.city;
+        });
+      }
+    } catch (e) {
+      print("AnalysisScreen city load error: $e");
+    }
   }
 
   Future<void> _checkInitialData() async {
@@ -159,11 +177,17 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   return _buildEmptyState();
                 }
 
-                // Receipts loaded, now fetch settings
+                // Receipts loaded, now fetch role and settings
                 return StreamBuilder<Map<String, dynamic>>(
-                  stream: _settingsStream, // Use cached stream
-                  builder: (context, settingsSnapshot) {
-                    final settings = settingsSnapshot.data ?? {'salary_day': 1};
+                  stream: _roleStream,
+                  builder: (context, roleSnapshot) {
+                    final roleData = roleSnapshot.data ?? {};
+                    _currentTierId = roleData['tier_id'] as String? ?? 'standart';
+
+                    return StreamBuilder<Map<String, dynamic>>(
+                      stream: _settingsStream, // Use cached stream
+                      builder: (context, settingsSnapshot) {
+                        final settings = settingsSnapshot.data ?? {'salary_day': 1};
                     final int salaryDay = settings['salary_day'] as int;
 
                     final filteredReceipts = _filterReceiptsByDate(snapshot.data!, salaryDay);
@@ -174,12 +198,14 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       );
                     }
 
-                    return TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildCategoryTab(filteredReceipts),
-                        _buildProductTab(filteredReceipts),
-                      ],
+                        return TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildCategoryTab(filteredReceipts),
+                            _buildProductTab(filteredReceipts),
+                          ],
+                        );
+                      },
                     );
                   },
                 );
@@ -601,55 +627,58 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       padding: EdgeInsets.symmetric(horizontal: 16),
                       child: Divider(),
                     ),
-                    ...items.map((stat) {
-                      return FutureBuilder<Map<String, dynamic>?>(
-                        future: _databaseService.getGlobalPriceStats(stat.name),
-                        builder: (context, globalSnapshot) {
-                          final globalData = globalSnapshot.data;
-                          final myAvgPrice = stat.count > 0 ? stat.totalAmount / stat.count : 0.0;
-                          
-                          // Eğer toplulukta %10 veya daha ucuz bir fiyat varsa işaretle
-                          final hasBetterDeal = globalData != null && 
-                                              globalData['min_price'] < myAvgPrice * 0.9;
+                     ...items.map((stat) {
+                       final hasLocationAccess = _currentTierId == 'limitless' || _currentTierId == 'limitless_family';
+                       return FutureBuilder<Map<String, dynamic>?>(
+                         future: _databaseService.getLocationPriceStats(stat.name, city: hasLocationAccess ? _userCity : null),
+                         builder: (context, globalSnapshot) {
+                           final globalData = globalSnapshot.data;
+                           final myAvgPrice = stat.count > 0 ? stat.totalAmount / stat.count : 0.0;
+                           
+                           // Eğer toplulukta %10 veya daha ucuz bir fiyat varsa işaretle
+                           final hasBetterDeal = globalData != null && 
+                                               globalData['min_price'] < myAvgPrice * 0.9;
 
-                          return ListTile(
-                            dense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 4),
-                            title: Row(
-                              children: [
-                                Expanded(child: Text(stat.name, style: const TextStyle(fontWeight: FontWeight.w600))),
-                                if (hasBetterDeal)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Text(
-                                      "🌍 Fırsat!",
-                                      style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  AppLocalizations.of(context)!.timesBought(stat.count.toString()),
-                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                                ),
-                                if (globalData != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 2),
-                                    child: Text(
-                                      "Toplulukta en ucuz: ${NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(globalData['min_price'])} (${globalData['cheapest_merchant']})",
-                                      style: TextStyle(fontSize: 10, color: hasBetterDeal ? Colors.green : Colors.grey[500], fontWeight: hasBetterDeal ? FontWeight.bold : FontWeight.normal),
-                                    ),
-                                  ),
-                              ],
-                            ),
+                           return ListTile(
+                             dense: true,
+                             contentPadding: const EdgeInsets.symmetric(
+                                 horizontal: 16, vertical: 4),
+                             title: Row(
+                               children: [
+                                 Expanded(child: Text(stat.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                                 if (hasBetterDeal)
+                                   Container(
+                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                     decoration: BoxDecoration(
+                                       color: Colors.green.shade100,
+                                       borderRadius: BorderRadius.circular(4),
+                                     ),
+                                     child: const Text(
+                                       "🌍 Fırsat!",
+                                       style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
+                                     ),
+                                   ),
+                               ],
+                             ),
+                             subtitle: Column(
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+                                 Text(
+                                   AppLocalizations.of(context)!.timesBought(stat.count.toString()),
+                                   style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                 ),
+                                 if (globalData != null)
+                                   Padding(
+                                     padding: const EdgeInsets.only(top: 2),
+                                     child: Text(
+                                       hasLocationAccess && _userCity != null && globalData['city'] == _userCity
+                                         ? AppLocalizations.of(context)!.cheapestInCity(_userCity!) + ": ${NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(globalData['min_price'])} (${globalData['cheapest_merchant']})"
+                                         : AppLocalizations.of(context)!.cheapestInCommunity + ": ${NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(globalData['min_price'])} (${globalData['cheapest_merchant']})",
+                                       style: TextStyle(fontSize: 10, color: hasBetterDeal ? Colors.green : Colors.grey[500], fontWeight: hasBetterDeal ? FontWeight.bold : FontWeight.normal),
+                                     ),
+                                   ),
+                               ],
+                             ),
                             trailing: Text(
                               NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(stat.totalAmount),
                               style: const TextStyle(

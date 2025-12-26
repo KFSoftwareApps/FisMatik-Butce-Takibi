@@ -41,6 +41,8 @@ import 'product_list_screen.dart';
 import 'shopping_list_screen.dart';
 import 'package:fismatik/main.dart'; // languageNotifier için
 import 'package:fismatik/services/sms_service.dart';
+import 'package:fismatik/services/profile_service.dart';
+import 'package:fismatik/models/user_profile_model.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -53,6 +55,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final SupabaseDatabaseService _databaseService = SupabaseDatabaseService();
   bool _isLoadingDelete = false;
   bool _smsTrackingEnabled = false;
+  String? _city;
+  String? _district;
 
 
   @override
@@ -64,6 +68,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _databaseService.loadGlobalProductMappings();
     // SMS Takibi tercihini yükle
     _loadSmsPreference();
+    // Profil verilerini (şehir/ilçe) yükle
+    _loadUserProfile();
   }
 
   Future<void> _checkExpiration() async {
@@ -88,6 +94,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _smsTrackingEnabled = prefs.getBool('sms_tracking_enabled') ?? false;
       });
+    }
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final profile = await ProfileService().getMyProfileOnce();
+      if (profile != null) {
+        if (mounted) {
+          setState(() {
+            _city = profile.city;
+            _district = profile.district;
+          });
+        }
+      }
+    } catch (e) {
+      print("Profil yükleme hatası: $e");
     }
   }
 
@@ -262,7 +284,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FamilyPlanScreen())),
                               ),
-                            if (tierId == 'limitless' || tierId == 'limitless_family' || tierId == 'premium')
+                            if (tierId == 'limitless' || tierId == 'limitless_family')
                             _buildSettingsTile(
                               context,
                               icon: Icons.shopping_basket_outlined,
@@ -333,6 +355,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationSettingsScreen())),
                             ),
+                            const SizedBox(height: 12),
                             if (!kIsWeb)
                             _buildSettingsTile(
                               context,

@@ -340,6 +340,7 @@ class SupabaseDatabaseService {
     try {
       final String userId = _userId;
       final String? familyId = await _getFamilyIdForCurrentUser();
+      final location = await _getUserLocation();
 
       final newReceipt = Receipt(
         id: const Uuid().v4(),
@@ -366,12 +367,37 @@ class SupabaseDatabaseService {
             .toList(),
         isManual: false,
         familyId: familyId,
+        city: location['city'],
+        district: location['district'],
       );
 
       await _client.from('receipts').insert(newReceipt.toMap());
     } catch (e) {
       print("Kaydetme Hatası: $e");
       rethrow;
+    }
+  }
+
+  Future<Map<String, String?>> _getUserLocation() async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return {'city': null, 'district': null};
+
+      final profile = await _client
+          .from('user_profiles')
+          .select('city, district')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (profile == null) return {'city': null, 'district': null};
+
+      return {
+        'city': profile['city'] as String?,
+        'district': profile['district'] as String?,
+      };
+    } catch (e) {
+      print("Konum getirme hatası: $e");
+      return {'city': null, 'district': null};
     }
   }
 
@@ -387,6 +413,7 @@ class SupabaseDatabaseService {
     try {
       final String userId = _userId;
       final String? familyId = await _getFamilyIdForCurrentUser();
+      final location = await _getUserLocation();
 
       final newReceipt = Receipt(
         id: const Uuid().v4(),
@@ -401,6 +428,8 @@ class SupabaseDatabaseService {
         items: items ?? <ReceiptItem>[],
         isManual: true,
         familyId: familyId,
+        city: location['city'],
+        district: location['district'],
       );
 
       await _client.from('receipts').insert(newReceipt.toMap());
@@ -1456,25 +1485,36 @@ class SupabaseDatabaseService {
 
   /// Topluluk bazlı fiyat istatistiklerini getirir (Phase 7)
   Future<Map<String, dynamic>?> getGlobalPriceStats(String normalizedName) async {
+    return getLocationPriceStats(normalizedName);
+  }
+
+  /// Konum bazlı (Şehir/İlçe) fiyat istatistiklerini getirir (Phase 11)
+  Future<Map<String, dynamic>?> getLocationPriceStats(
+    String normalizedName, {
+    String? city,
+    String? district,
+  }) async {
     try {
-      final response = await _client.rpc('get_global_price_stats', params: {
+      final response = await _client.rpc('get_location_price_stats', params: {
         'p_normalized_name': normalizedName,
+        'p_city': city,
+        'p_district': district,
       });
 
       if (response != null && (response as List).isNotEmpty) {
         final data = response[0] as Map<String, dynamic>;
-        if (data['data_count'] == 0) return null;
-        
+        if (data['data_count'] == 0 || data['data_count'] == null) return null;
+
         return {
           'avg_price': (data['avg_price'] as num).toDouble(),
           'min_price': (data['min_price'] as num).toDouble(),
           'cheapest_merchant': data['cheapest_merchant'] ?? 'Bilinmiyor',
           'last_seen_at': DateTime.parse(data['last_seen_at']),
-          'data_count': data['data_count'] as int,
+          'data_count': (data['data_count'] as num).toInt(),
         };
       }
     } catch (e) {
-      print("Global fiyat istatistikleri çekilirken hata: $e");
+      print("Konum bazlı fiyat istatistikleri çekilirken hata: $e");
     }
     return null;
   }

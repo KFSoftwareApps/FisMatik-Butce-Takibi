@@ -125,13 +125,28 @@ class _ScanScreenState extends State<ScanScreen> {
     
     setState(() {
       _isScanning = true;
-      _statusMessage = ""; // Reset status
+      _statusMessage = AppLocalizations.of(context)!.waitingForDevice;
     });
 
-    // Safety timeout: If still scanning after 45 seconds, reset state
-    // This prevents permanent locking if a promise hangs in Safari/Web
+    // Safety timeouts for Safari/Web
+    Future.delayed(const Duration(seconds: 15), () {
+      if (mounted && _isScanning && _image == null) {
+        setState(() {
+          _statusMessage = AppLocalizations.of(context)!.longWaitWarning;
+        });
+      }
+    });
+
+    Future.delayed(const Duration(seconds: 30), () {
+      if (mounted && _isScanning && _image == null) {
+        setState(() {
+          _statusMessage = AppLocalizations.of(context)!.connectionChecking;
+        });
+      }
+    });
+
     Future.delayed(const Duration(seconds: 45), () {
-      if (mounted && _isScanning) {
+      if (mounted && _isScanning && _image == null) {
         setState(() {
           _isScanning = false;
           _statusMessage = AppLocalizations.of(context)!.analysisError;

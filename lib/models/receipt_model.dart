@@ -47,6 +47,8 @@ class Receipt {
   final String createdBy;   // fişi ekleyen kullanıcı id
   final String? familyId;   // aile planında ortak aile id
   final String source;      // scan, manual, sms
+  final String? city;
+  final String? district;
 
   Receipt({
     required this.id,
@@ -63,6 +65,8 @@ class Receipt {
     String? createdBy,
     this.familyId,
     this.source = 'scan',
+    this.city,
+    this.district,
   }) : createdBy = createdBy ?? userId;
 
   Map<String, dynamic> toMap() {
@@ -81,6 +85,8 @@ class Receipt {
       'created_by': createdBy,
       'household_id': familyId,
       'source': source,
+      'city': city,
+      'district': district,
     };
   }
 
@@ -104,6 +110,8 @@ class Receipt {
       createdBy: (map['created_by'] ?? map['user_id'] ?? '') as String,
       familyId: map['household_id'] as String?,
       source: map['source'] ?? (map['is_manual'] == true ? 'manual' : 'scan'),
+      city: map['city'] as String?,
+      district: map['district'] as String?,
     );
   }
 

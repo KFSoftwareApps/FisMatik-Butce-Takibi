@@ -28,6 +28,7 @@ import 'package:fismatik/services/auth_service.dart';
 import 'package:fismatik/widgets/web_ad_banner.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fismatik/widgets/sms_onboarding_dialog.dart';
+import 'package:fismatik/widgets/location_onboarding_dialog.dart';
 import 'package:fismatik/services/sms_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -91,9 +92,14 @@ class _HomeScreenState extends State<HomeScreen> {
         _currentTierId = tier.id;
       });
       
+      // Phase 11: Location Onboarding
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) LocationOnboardingDialog.showIfNeeded(context);
+      });
+
       // Phase 8: SMS Onboarding
       if (defaultTargetPlatform == TargetPlatform.android && !kIsWeb) {
-        Future.delayed(const Duration(seconds: 2), () {
+        Future.delayed(const Duration(seconds: 3), () {
           if (mounted) SmsOnboardingDialog.showIfNeeded(context);
         });
         _loadPendingSmsExpenses();

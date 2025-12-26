@@ -288,6 +288,16 @@ class AppLocalizationsTr extends AppLocalizations {
   String get readingText => 'Yazılar okunuyor...';
 
   @override
+  String get waitingForDevice => 'Sistem diyaloğu bekleniyor...';
+
+  @override
+  String get longWaitWarning => 'Lütfen bekleyin, diyalog açılıyor...';
+
+  @override
+  String get connectionChecking =>
+      'Bağlantı kontrol ediliyor, lütfen sayfayı kapatmayın.';
+
+  @override
   String get aiExtractingData => 'Yapay zeka verileri ayıklıyor...';
 
   @override
@@ -308,6 +318,36 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get networkError =>
       'Sunucuya bağlanırken bir sorun oluştu. İnternet bağlantını kontrol edip tekrar deneyebilirsin.';
+
+  @override
+  String get locationSettings => 'Konum Ayarlarım';
+
+  @override
+  String get locationSettingsSubtitle => 'Şehir ve ilçe bilgilerini güncelle';
+
+  @override
+  String get locationOnboardingDescription =>
+      'Size özel yerel fiyat karşılaştırmaları ve daha doğru analizler sunabilmek için konumunuzu belirtmeniz gerekmektedir.';
+
+  @override
+  String get city => 'Şehir';
+
+  @override
+  String get district => 'İlçe';
+
+  @override
+  String get cityHint => 'Örn: İstanbul';
+
+  @override
+  String get districtHint => 'Örn: Kadıköy';
+
+  @override
+  String cheapestInCity(Object city) {
+    return '$city şehrinde en ucuz';
+  }
+
+  @override
+  String get cheapestInCommunity => 'Toplulukta en ucuz';
 
   @override
   String get analysisError =>

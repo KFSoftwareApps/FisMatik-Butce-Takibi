@@ -626,6 +626,24 @@ abstract class AppLocalizations {
   /// **'Reading text...'**
   String get readingText;
 
+  /// No description provided for @waitingForDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for system dialog...'**
+  String get waitingForDevice;
+
+  /// No description provided for @longWaitWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Please wait, dialog is opening...'**
+  String get longWaitWarning;
+
+  /// No description provided for @connectionChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking connection, please do not close the page.'**
+  String get connectionChecking;
+
   /// No description provided for @aiExtractingData.
   ///
   /// In en, this message translates to:
@@ -661,6 +679,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Connection error. Please check your internet connection.'**
   String get networkError;
+
+  /// No description provided for @locationSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Location Settings'**
+  String get locationSettings;
+
+  /// No description provided for @locationSettingsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update city and district information'**
+  String get locationSettingsSubtitle;
+
+  /// No description provided for @locationOnboardingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'To provide you with personalized local price comparisons and more accurate analysis, you must specify your location.'**
+  String get locationOnboardingDescription;
+
+  /// No description provided for @city.
+  ///
+  /// In en, this message translates to:
+  /// **'City'**
+  String get city;
+
+  /// No description provided for @district.
+  ///
+  /// In en, this message translates to:
+  /// **'District'**
+  String get district;
+
+  /// No description provided for @cityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. London'**
+  String get cityHint;
+
+  /// No description provided for @districtHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Westminster'**
+  String get districtHint;
+
+  /// No description provided for @cheapestInCity.
+  ///
+  /// In en, this message translates to:
+  /// **'Cheapest in {city}'**
+  String cheapestInCity(Object city);
+
+  /// No description provided for @cheapestInCommunity.
+  ///
+  /// In en, this message translates to:
+  /// **'Cheapest in community'**
+  String get cheapestInCommunity;
 
   /// No description provided for @analysisError.
   ///

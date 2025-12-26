@@ -61,6 +61,8 @@ class ProfileService {
     required String firstName,
     required String lastName,
     required String phone,
+    String? city,
+    String? district,
   }) async {
     final uid = _uid;
     final email = _email;
@@ -71,6 +73,8 @@ class ProfileService {
       'firstName': firstName,
       'lastName': lastName,
       'phone': phone,
+      'city': city,
+      'district': district,
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }

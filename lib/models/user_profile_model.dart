@@ -6,6 +6,8 @@ class UserProfile {
   final String firstName;
   final String lastName;
   final String phone;
+  final String? city;
+  final String? district;
 
   const UserProfile({
     required this.id,
@@ -13,6 +15,8 @@ class UserProfile {
     required this.firstName,
     required this.lastName,
     required this.phone,
+    this.city,
+    this.district,
   });
 
   String get fullName {
@@ -28,6 +32,8 @@ class UserProfile {
       'firstName': firstName,
       'lastName': lastName,
       'phone': phone,
+      'city': city,
+      'district': district,
     };
   }
 
@@ -38,6 +44,8 @@ class UserProfile {
       firstName: (map['firstName'] ?? '') as String,
       lastName: (map['lastName'] ?? '') as String,
       phone: (map['phone'] ?? '') as String,
+      city: map['city'] as String?,
+      district: map['district'] as String?,
     );
   }
 }

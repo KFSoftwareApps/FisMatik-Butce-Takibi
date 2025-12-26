@@ -29,6 +29,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _districtController = TextEditingController();
 
   final TextEditingController _currentPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
@@ -45,6 +47,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     _emailController.text = _client.auth.currentUser?.email ?? '';
     _loadUserAvatar();
+  }
+
+  Future<void> _loadUserProfile() async {
+    final profile = await _profileService.getMyProfileOnce();
+    if (profile != null && mounted) {
+      setState(() {
+        _firstNameController.text = profile.firstName;
+        _lastNameController.text = profile.lastName;
+        _phoneController.text = profile.phone;
+        _cityController.text = profile.city ?? '';
+        _districtController.text = profile.district ?? '';
+      });
+    }
   }
 
   Future<void> _loadUserAvatar() async {
@@ -115,6 +130,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _lastNameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
+    _cityController.dispose();
+    _districtController.dispose();
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
@@ -125,6 +142,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     final phone = _phoneController.text.trim();
+    final city = _cityController.text.trim();
+    final district = _districtController.text.trim();
 
     if (firstName.isEmpty && lastName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -149,8 +168,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             'first_name': firstName,
             'last_name': lastName,
             'phone': phone,
+            'city': city.isNotEmpty ? city : null,
+            'district': district.isNotEmpty ? district : null,
           },
         ),
+      );
+
+      // Also update the user_profiles table for consistency and the location-based queries
+      await _profileService.saveProfile(
+        firstName: firstName,
+        lastName: lastName,
+        phone: phone,
+        city: city.isNotEmpty ? city : null,
+        district: district.isNotEmpty ? district : null,
       );
 
       if (!mounted) return;
@@ -473,10 +503,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final user = _client.auth.currentUser;
     
     if (!_initializedFromProfile && user != null) {
-      final metadata = user.userMetadata ?? {};
-      _firstNameController.text = metadata['first_name'] ?? '';
-      _lastNameController.text = metadata['last_name'] ?? '';
-      _phoneController.text = metadata['phone'] ?? '';
+      _loadUserProfile();
       _initializedFromProfile = true;
     }
 
@@ -692,6 +719,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               label: AppLocalizations.of(context)!.loginEmailHint,
               icon: Icons.email_outlined,
               readOnly: true,
+            ),
+            const SizedBox(height: 12),
+
+            _buildTextField(
+              controller: _cityController,
+              label: AppLocalizations.of(context)!.city,
+              icon: Icons.location_city_outlined,
+              hintText: AppLocalizations.of(context)!.cityHint,
+            ),
+            const SizedBox(height: 12),
+
+            _buildTextField(
+              controller: _districtController,
+              label: AppLocalizations.of(context)!.district,
+              icon: Icons.place_outlined,
+              hintText: AppLocalizations.of(context)!.districtHint,
             ),
 
             const SizedBox(height: 20),
@@ -915,6 +958,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required IconData icon,
     bool obscureText = false,
     bool readOnly = false,
+    String? hintText,
     TextInputType? keyboardType,
   }) {
     return TextField(
@@ -924,6 +968,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
+        hintText: hintText,
         prefixIcon: Icon(icon, color: AppColors.primary),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
