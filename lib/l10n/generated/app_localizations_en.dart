@@ -283,6 +283,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Camera / Gallery permission required. Please enable it in settings.';
 
   @override
+  String get goToSettings => 'Settings';
+
+  @override
   String get readingText => 'Reading text...';
 
   @override
@@ -350,6 +353,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get analysisError =>
       'Error analyzing receipt. Please try again later.';
+
+  @override
+  String get detectLocation => 'Auto Detect Location';
+
+  @override
+  String get detecting => 'Detecting...';
+
+  @override
+  String locationDetected(Object city, Object district) {
+    return 'Location detected: $city, $district';
+  }
+
+  @override
+  String get locationError =>
+      'Could not detect location. Please check permissions.';
 
   @override
   String get genericError =>
@@ -2130,12 +2148,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationSettingsSubtitle => 'Manage reminders';
 
   @override
-  String get securitySettings => 'Security';
-
-  @override
-  String get securitySettingsSubtitle => 'Password and security settings';
-
-  @override
   String get smsTrackingTitle => 'Automatic SMS Tracking';
 
   @override
@@ -2520,4 +2532,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationOpenSettings => 'Open Settings';
+
+  @override
+  String get installmentExpensesTitle => 'Installment Expenses';
+
+  @override
+  String get installmentExpenseTitle => 'Is this an installment?';
+
+  @override
+  String get installmentExpenseSub => 'This expense will be reflected monthly.';
+
+  @override
+  String get installmentCountLabel => 'Installment Count:';
+
+  @override
+  String get monthlyPaymentAmount => 'Monthly Amount';
+
+  @override
+  String get installment => 'Installment';
+
+  @override
+  String get deleteAllTitle => 'Delete All';
+
+  @override
+  String get deleteAllConfirm =>
+      'All items in the list will be deleted. Are you sure?';
 }

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
-import 'package:google_sign_in/google_sign_in.dart' as google;
+import 'package:google_sign_in/google_sign_in.dart' as gsi;
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
@@ -145,14 +146,13 @@ class AuthService {
 
     try {
       final res = await _supabase
-          .from('user_roles')
-          .select()
+          .from('household_members')
+          .select('household_id')
           .eq('user_id', user.id)
-          .maybeSingle() as Map<String, dynamic>?;
+          .maybeSingle();
 
-      final fam = res?['family_id'];
-      if (fam is String && fam.isNotEmpty) {
-        return fam;
+      if (res != null && res['household_id'] != null) {
+        return res['household_id'] as String;
       }
     } catch (e) {
       print("familyId çekme hatası (Supabase): $e");
@@ -165,15 +165,17 @@ class AuthService {
     if (user == null) return null;
 
     try {
-      final res = await _supabase
-          .from('user_roles')
-          .select()
-          .eq('user_id', user.id)
-          .maybeSingle() as Map<String, dynamic>?;
+      final familyId = await getCurrentFamilyId();
+      if (familyId == null) return null;
 
-      final role = res?['family_role'];
-      if (role is String && role.isNotEmpty) {
-        return role;
+      final res = await _supabase
+          .from('households')
+          .select('owner_id')
+          .eq('id', familyId)
+          .maybeSingle();
+
+      if (res != null) {
+        return res['owner_id'] == user.id ? 'owner' : 'member';
       }
     } catch (e) {
       print("familyRole çekme hatası (Supabase): $e");
@@ -300,7 +302,7 @@ class AuthService {
         password: password,
         emailRedirectTo: kIsWeb 
             ? Uri.base.origin // Web: Uygulamanın olduğu URL'ye dön
-            : 'io.supabase.flutterquickstart://login-callback', // Mobil Deep Link
+            : 'fismatik://login-callback', // Mobil Deep Link
       );
 
       print('📧 Supabase signUp response received');
@@ -346,7 +348,7 @@ class AuthService {
       // 1. Google Sign In başlat
       // 1. Google Sign In başlat
 
-      final googleSignIn = google.GoogleSignIn.instance;
+      final googleSignIn = gsi.GoogleSignIn.instance;
       
       // Google Sign In 7.x+ requires authenticate() instead of signIn()
       final googleUser = await googleSignIn.authenticate();
@@ -394,7 +396,7 @@ class AuthService {
         email,
         redirectTo: kIsWeb 
             ? Uri.base.origin 
-            : 'io.supabase.flutterquickstart://login-callback',
+            : 'fismatik://login-callback',
       );
     } on supa.AuthException catch (e) {
       throw e.message ?? 'Şifre sıfırlama e-postası gönderilemedi.';
@@ -421,5 +423,17 @@ class AuthService {
 
   Future<void> refreshSession() async {
     await _supabase.auth.refreshSession();
+  }
+
+  Future<void> updateUserPassword(String newPassword) async {
+    try {
+      await _supabase.auth.updateUser(
+        supa.UserAttributes(password: newPassword),
+      );
+    } on supa.AuthException catch (e) {
+      throw e.message ?? 'Şifre güncellenemedi.';
+    } catch (e) {
+      throw 'Bir hata oluştu: $e';
+    }
   }
 }

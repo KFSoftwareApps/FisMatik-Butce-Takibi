@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/app_theme.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
+import '../services/family_service.dart';
 import '../services/notification_service.dart';
 import '../services/export_service.dart';
 import '../services/report_service.dart';
@@ -25,6 +26,7 @@ import 'about_screen.dart';
 import 'history_screen.dart';
 import 'subscriptions_screen.dart';
 import 'fixed_expenses_screen.dart';
+import 'installment_expenses_screen.dart';
 import 'categories_screen.dart';
 import 'upgrade_screen.dart';
 import 'edit_profile_screen.dart';
@@ -34,7 +36,6 @@ import 'badges_screen.dart';
 import 'spending_trends_screen.dart';
 import 'notification_settings_screen.dart';
 import 'gamification_dashboard.dart';
-import 'security_settings_screen.dart';
 import 'scan_screen.dart';
 import 'search_screen.dart';
 import 'product_list_screen.dart';
@@ -275,15 +276,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 20),
                             _buildSectionTitle(AppLocalizations.of(context)!.accountSection),
-                            if (currentTier.id == 'limitless_family')
-                              _buildSettingsTile(
-                                context,
-                                icon: Icons.family_restroom,
-                                title: AppLocalizations.of(context)!.familyPlan,
-                                color: Colors.pink,
-                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FamilyPlanScreen())),
+                            _buildSettingsTile(
+                              context,
+                              icon: Icons.family_restroom,
+                              title: AppLocalizations.of(context)!.familyPlan,
+                              color: Colors.pink,
+                              trailing: FutureBuilder<List<Map<String, dynamic>>>(
+                                future: FamilyService().getPendingInvitations(),
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                                    return Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                                      child: Text("${snapshot.data!.length}", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                    );
+                                  }
+                                  return const Icon(Icons.arrow_forward_ios, size: 16);
+                                },
                               ),
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FamilyPlanScreen())),
+                            ),
                             if (tierId == 'limitless' || tierId == 'limitless_family' || tierId == 'premium')
                             _buildSettingsTile(
                               context,
@@ -300,6 +312,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: Colors.purple,
                               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FixedExpensesScreen())),
+                            ),
+                            _buildSettingsTile(
+                              context,
+                              icon: Icons.receipt_long_outlined,
+                              title: AppLocalizations.of(context)!.installmentExpensesTitle ?? "Taksitli Giderler",
+                              color: Colors.blue,
+                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InstallmentExpensesScreen())),
                             ),
                             _buildSettingsTile(
                               context,
@@ -356,16 +376,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationSettingsScreen())),
                             ),
                             const SizedBox(height: 12),
-                            if (!kIsWeb)
-                            _buildSettingsTile(
-                              context,
-                              icon: Icons.security,
-                              title: AppLocalizations.of(context)!.securitySettings,
-                              subtitle: AppLocalizations.of(context)!.securitySettingsSubtitle,
-                              color: Colors.red,
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SecuritySettingsScreen())),
-                            ),
                             if (defaultTargetPlatform == TargetPlatform.android)
                               _buildSettingsTile(
                                 context,

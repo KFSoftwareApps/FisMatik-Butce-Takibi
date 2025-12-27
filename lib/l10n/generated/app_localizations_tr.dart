@@ -285,6 +285,9 @@ class AppLocalizationsTr extends AppLocalizations {
       'Kamera / Galeri izni gerekli. Lütfen ayarlardan etkinleştirin.';
 
   @override
+  String get goToSettings => 'Ayarlar';
+
+  @override
   String get readingText => 'Yazılar okunuyor...';
 
   @override
@@ -352,6 +355,21 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get analysisError =>
       'Fiş analiz edilirken bir hata oluştu. Biraz sonra tekrar deneyebilirsin.';
+
+  @override
+  String get detectLocation => 'Otomatik Konum Algıla';
+
+  @override
+  String get detecting => 'Algılanıyor...';
+
+  @override
+  String locationDetected(Object city, Object district) {
+    return 'Konum başarıyla algılandı: $city, $district';
+  }
+
+  @override
+  String get locationError =>
+      'Konum algılanamadı. Lütfen izinleri kontrol edin.';
 
   @override
   String get genericError =>
@@ -2124,12 +2142,6 @@ class AppLocalizationsTr extends AppLocalizations {
   String get notificationSettingsSubtitle => 'Hatırlatıcıları yönetin';
 
   @override
-  String get securitySettings => 'Güvenlik';
-
-  @override
-  String get securitySettingsSubtitle => 'Şifre ve güvenlik ayarları';
-
-  @override
   String get smsTrackingTitle => 'Otomatik SMS Takibi';
 
   @override
@@ -2516,4 +2528,30 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get notificationOpenSettings => 'Ayarları Aç';
+
+  @override
+  String get installmentExpensesTitle => 'Taksitli Giderler';
+
+  @override
+  String get installmentExpenseTitle => 'Taksitli Harcama mı?';
+
+  @override
+  String get installmentExpenseSub =>
+      'Bu harcama ay ay gider olarak yansıtılsın.';
+
+  @override
+  String get installmentCountLabel => 'Taksit Sayısı:';
+
+  @override
+  String get monthlyPaymentAmount => 'Aylık Tutar';
+
+  @override
+  String get installment => 'Taksit';
+
+  @override
+  String get deleteAllTitle => 'Hepsini Sil';
+
+  @override
+  String get deleteAllConfirm =>
+      'Listedeki tüm ürünler silinecektir. Emin misiniz?';
 }

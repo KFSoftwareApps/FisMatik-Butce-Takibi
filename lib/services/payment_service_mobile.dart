@@ -12,6 +12,8 @@ class PaymentService {
 
   final InAppPurchase _iap = InAppPurchase.instance;
   final SupabaseDatabaseService _databaseService = SupabaseDatabaseService();
+  bool _isInitialized = false;
+  final Set<String> _processedPurchaseIds = {};
 
   // Google Play Console'da oluşturacağın ürün kimlikleri (ID)
   // DİKKAT: Bu ID'leri Google Play Console'da AYNEN oluşturmalısın.
@@ -29,7 +31,7 @@ class PaymentService {
   };
 
   // WhatsApp Support Number for fallback
-  static const String _supportWhatsApp = '905054717288'; // TODO: Update with actual number
+  static const String _supportWhatsApp = '905054717288';
 
   List<ProductDetails> _products = [];
   late StreamSubscription<List<PurchaseDetails>> _subscription;
@@ -39,6 +41,11 @@ class PaymentService {
 
   // Servisi Başlat
   void init() {
+    if (_isInitialized) {
+      print("PaymentService zaten başlatılmış.");
+      return;
+    }
+
     final Stream<List<PurchaseDetails>> purchaseUpdated = _iap.purchaseStream;
     _subscription = purchaseUpdated.listen(
       (purchaseDetailsList) {
@@ -46,13 +53,17 @@ class PaymentService {
       },
       onDone: () {
         _subscription.cancel();
+        _isInitialized = false;
       },
       onError: (error) {
+        print("PaymentService Stream Hatası: $error");
         if (onPurchaseCompleted != null) {
           onPurchaseCompleted!("Hata oluştu: $error", false);
         }
       },
     );
+    
+    _isInitialized = true;
     _loadProducts();
   }
 
@@ -107,8 +118,9 @@ class PaymentService {
          }
 
          // PROD MODDA HATA DÖN
+         final storeName = defaultTargetPlatform == TargetPlatform.iOS ? 'App Store' : 'Google Play';
          if (onPurchaseCompleted != null) {
-           onPurchaseCompleted!("Google Play bağlantısı kurulamadı. Lütfen internetinizi kontrol edin veya daha sonra tekrar deneyin.", false);
+           onPurchaseCompleted!("$storeName bağlantısı kurulamadı veya ürünler bulunamadı. Lütfen internetinizi kontrol edin.", false);
          }
          return;
       }
@@ -139,26 +151,40 @@ class PaymentService {
     }
   }
 
-  // Satın Alma Dinleyicisi (Google'dan gelen cevabı işler)
+  // Satın Alma Dinleyicisi (Google/Apple'dan gelen cevabı işler)
   void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) async {
     for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
-      if (purchaseDetails.status == PurchaseStatus.pending) {
-        // İşlem bekliyor (UI'da loading gösterebilirsin)
-      } else {
+      try {
+        if (purchaseDetails.status == PurchaseStatus.pending) {
+          // İşlem bekliyor
+          continue;
+        }
+
         if (purchaseDetails.status == PurchaseStatus.error) {
+          print("IAP Hatası: ${purchaseDetails.error}");
           if (onPurchaseCompleted != null) {
-            onPurchaseCompleted!("Ödeme başarısız oldu.", false);
+            onPurchaseCompleted!("Ödeme başarısız oldu: ${purchaseDetails.error?.message}", false);
           }
         } else if (purchaseDetails.status == PurchaseStatus.purchased ||
                    purchaseDetails.status == PurchaseStatus.restored) {
           
-          // ✅ ÖDEME BAŞARILI!
-          await _verifyAndGrantAccess(purchaseDetails);
+          // Mükerrer işlem kontrolü
+          if (_processedPurchaseIds.contains(purchaseDetails.purchaseID)) {
+            print("Bu işlem zaten işlendi: ${purchaseDetails.purchaseID}");
+          } else {
+            if (purchaseDetails.purchaseID != null) {
+              _processedPurchaseIds.add(purchaseDetails.purchaseID!);
+            }
+            // ✅ ÖDEME BAŞARILI!
+            await _verifyAndGrantAccess(purchaseDetails);
+          }
         }
 
         if (purchaseDetails.pendingCompletePurchase) {
           await _iap.completePurchase(purchaseDetails);
         }
+      } catch (e) {
+        print("_listenToPurchaseUpdated içinde hata: $e");
       }
     }
   }

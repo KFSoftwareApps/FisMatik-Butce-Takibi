@@ -56,8 +56,8 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
     final totalAmountController = TextEditingController(text: credit?.totalAmount.toString());
     final monthlyAmountController = TextEditingController(text: credit?.monthlyAmount.toString());
     final totalInstallmentsController = TextEditingController(text: credit?.totalInstallments.toString());
-    final remainingInstallmentsController = TextEditingController(text: credit?.paymentDay.toString());
-    final dayController = TextEditingController(text: credit?.remainingInstallments.toString() ?? '15');
+    final remainingInstallmentsController = TextEditingController(text: credit?.remainingInstallments.toString());
+    final dayController = TextEditingController(text: credit?.paymentDay.toString() ?? '15');
 
     await showDialog(
       context: context,
@@ -154,8 +154,8 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
               final monthly = double.tryParse(monthlyAmountController.text.replaceAll(',', '.')) ?? 0;
               // If it's a credit card, force 999. If not, parse or default to 12.
               final totalInst = isCreditCard ? 999 : (int.tryParse(totalInstallmentsController.text) ?? 12);
-              final remainingInst = isCreditCard ? 999 : (int.tryParse(dayController.text) ?? totalInst);
-              final day = int.tryParse(remainingInstallmentsController.text) ?? 15;
+              final remainingInst = isCreditCard ? 999 : (int.tryParse(remainingInstallmentsController.text) ?? totalInst);
+              final day = int.tryParse(dayController.text) ?? 15;
 
               final newCredit = Credit(
                 id: credit?.id ?? const Uuid().v4(),
@@ -620,52 +620,49 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
         child: Column(
           children: [
             // --- HEADER SUMMARY ---
-             StreamBuilder(
-               stream: _subscriptionsStream, // Just to trigger rebuild, real calc is manual
-               builder: (context, _) => StreamBuilder(
-                 stream: _creditsStream,
-                 builder: (context, _) {
-                   // Only accurate way is to wait for both, but for UI responsiveness we can build partial
-                   return FutureBuilder(
-                     future: Future.wait([
-                       _databaseService.getSubscriptionsOnce(),
-                       _databaseService.getCredits().first,
-                     ]), 
-                     builder: (context, AsyncSnapshot<List<dynamic>> snap) {
-                        double total = 0;
-                        if (snap.hasData) {
-                           final subs = snap.data![0] as List<Subscription>;
-                           final creds = snap.data![1] as List<Credit>;
-                           total = subs.fold(0.0, (s, e) => s + e.price) + 
-                                   creds.fold(0.0, (s, e) => s + e.monthlyAmount);
-                        }
-                        return Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.all(20),
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              Text(AppLocalizations.of(context)!.totalMonthlyFixedExpenses, style: const TextStyle(color: Colors.white70)),
-                              Text("₺${total.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        );
-                     }
-                   );
-                 }
-               ),
-             ),
+            // --- HEADER SUMMARY ---
+            StreamBuilder<List<Subscription>>(
+              stream: _subscriptionsStream,
+              builder: (context, subSnapshot) {
+                return StreamBuilder<List<Credit>>(
+                  stream: _creditsStream,
+                  builder: (context, creditSnapshot) {
+                    double total = 0;
+                    
+                    if (subSnapshot.hasData) {
+                      total += subSnapshot.data!.fold(0.0, (sum, item) => sum + item.price);
+                    }
+                    
+                    if (creditSnapshot.hasData) {
+                      total += creditSnapshot.data!.fold(0.0, (sum, item) => sum + item.monthlyAmount);
+                    }
+
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Text(AppLocalizations.of(context)!.totalMonthlyFixedExpenses, style: const TextStyle(color: Colors.white70)),
+                          Text("₺${total.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
              
              // --- KREDİLER SECTION ---
              Padding(
@@ -709,7 +706,7 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
                           subtitle: Text(
                             credit.totalInstallments == 999 
                               ? AppLocalizations.of(context)!.creditCardDetail(credit.paymentDay.toString())
-                              : AppLocalizations.of(context)!.creditInstallmentDetail(credit.remainingInstallments.toString(), credit.totalInstallments.toString(), credit.paymentDay.toString())
+                                  : AppLocalizations.of(context)!.creditInstallmentDetail(credit.paymentDay.toString(), credit.remainingInstallments.toString(), credit.totalInstallments.toString())
                           ),
                          trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,

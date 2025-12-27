@@ -620,6 +620,12 @@ abstract class AppLocalizations {
   /// **'Camera / Gallery permission required. Please enable it in settings.'**
   String get cameraGalleryPermission;
 
+  /// No description provided for @goToSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get goToSettings;
+
   /// No description provided for @readingText.
   ///
   /// In en, this message translates to:
@@ -739,6 +745,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error analyzing receipt. Please try again later.'**
   String get analysisError;
+
+  /// No description provided for @detectLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto Detect Location'**
+  String get detectLocation;
+
+  /// No description provided for @detecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Detecting...'**
+  String get detecting;
+
+  /// No description provided for @locationDetected.
+  ///
+  /// In en, this message translates to:
+  /// **'Location detected: {city}, {district}'**
+  String locationDetected(Object city, Object district);
+
+  /// No description provided for @locationError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not detect location. Please check permissions.'**
+  String get locationError;
 
   /// No description provided for @genericError.
   ///
@@ -3962,18 +3992,6 @@ abstract class AppLocalizations {
   /// **'Manage reminders'**
   String get notificationSettingsSubtitle;
 
-  /// No description provided for @securitySettings.
-  ///
-  /// In en, this message translates to:
-  /// **'Security'**
-  String get securitySettings;
-
-  /// No description provided for @securitySettingsSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Password and security settings'**
-  String get securitySettingsSubtitle;
-
   /// No description provided for @smsTrackingTitle.
   ///
   /// In en, this message translates to:
@@ -4669,6 +4687,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open Settings'**
   String get notificationOpenSettings;
+
+  /// No description provided for @installmentExpensesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Installment Expenses'**
+  String get installmentExpensesTitle;
+
+  /// No description provided for @installmentExpenseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Is this an installment?'**
+  String get installmentExpenseTitle;
+
+  /// No description provided for @installmentExpenseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'This expense will be reflected monthly.'**
+  String get installmentExpenseSub;
+
+  /// No description provided for @installmentCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Installment Count:'**
+  String get installmentCountLabel;
+
+  /// No description provided for @monthlyPaymentAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly Amount'**
+  String get monthlyPaymentAmount;
+
+  /// No description provided for @installment.
+  ///
+  /// In en, this message translates to:
+  /// **'Installment'**
+  String get installment;
+
+  /// No description provided for @deleteAllTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete All'**
+  String get deleteAllTitle;
+
+  /// No description provided for @deleteAllConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'All items in the list will be deleted. Are you sure?'**
+  String get deleteAllConfirm;
 }
 
 class _AppLocalizationsDelegate

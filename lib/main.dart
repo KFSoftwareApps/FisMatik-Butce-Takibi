@@ -21,9 +21,10 @@ import 'screens/onboarding_screen.dart';
 import 'screens/main_wrapper.dart';
 import 'screens/verify_email_screen.dart';
 import 'services/supabase_database_service.dart';
-import 'services/product_normalization_service.dart';
 import 'services/sms_service.dart';
 import 'screens/splash_screen.dart';
+import 'screens/reset_password_screen.dart';
+import 'services/family_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -99,7 +100,7 @@ void main() async {
         providers: [
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ],
-        child: const MyApp(),
+        child: const FismatikApp(),
       ),
     );
   } catch (e, stack) {
@@ -107,12 +108,8 @@ void main() async {
     debugPrint(stack.toString());
     // Hata durumunda basit bir ekran göster ki çökmesin
     runApp(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: Text("Uygulama başlatılamadı:\n$e", textAlign: TextAlign.center),
-          ),
-        ),
+      const MaterialApp(
+        home: Scaffold(body: Center(child: Text("Başlatma hatası oluştu."))),
       ),
     );
   }
@@ -121,8 +118,10 @@ void main() async {
 // Global notifier for language changes (initialized in main)
 final ValueNotifier<Locale> languageNotifier = ValueNotifier(const Locale('tr'));
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+class FismatikApp extends StatelessWidget {
+  const FismatikApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +147,7 @@ class MyApp extends StatelessWidget {
                 Locale('tr'),
                 Locale('en'),
               ],
+              navigatorKey: navigatorKey,
               home: const AuthWrapper(),
             );
           },
@@ -178,6 +178,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
   // Onboarding status
   bool? _hasCompletedOnboarding;
   bool _isLoadingOnboardingCheck = false;
+  
+  // Password Recovery Flow
+  bool _isPasswordRecoveryMode = false;
   
   // Subscriptions
   StreamSubscription<AuthState>? _authSubscription;
@@ -219,10 +222,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (!mounted) return;
 
       // Handle user change
-      if (user?.id != _currentUser?.id) {
+      if (user?.id != _currentUser?.id || event == AuthChangeEvent.passwordRecovery) {
         setState(() {
           _currentUser = user;
-          _isLoading = false; // Loading done once we have a definitive state
+          _isLoading = false; 
+          if (event == AuthChangeEvent.passwordRecovery) {
+            _isPasswordRecoveryMode = true;
+            // Şifre sıfırlama moduna geçildiğinde Navigator yığınını temizle
+            // Bu sayede "Şifremi Unuttum" sayfasında takılı kalma sorunu çözülür.
+            navigatorKey.currentState?.popUntil((route) => route.isFirst);
+          } else if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.initialSession) {
+            _isPasswordRecoveryMode = false;
+          }
         });
 
         if (user != null) {
@@ -248,8 +259,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
     // 4. Setup Session Listener
     _setupSessionListener();
 
-    // 5. Load Global Product Mappings [NEW]
-    SupabaseDatabaseService().loadGlobalProductMappings();
+    // 6. Check for Family Invitations [NEW]
+    FamilyService().attachCurrentUserToFamilyIfInvited();
   }
 
   void _handleUserLogout() {
@@ -348,7 +359,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
     
     try {
-      final blocked = await _authService.isBlocked();
+      // 5 saniye içinde yanıt gelmezse varsayılan olarak engellenmedi kabul et (kilitlenmeyi önle)
+      final blocked = await _authService.isBlocked().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          print('⚠️ Block status check timed out!');
+          return false;
+        },
+      );
       if (mounted) {
         setState(() {
           _isBlocked = blocked;
@@ -373,28 +391,21 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     setState(() => _isLoadingOnboardingCheck = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
       final key = 'onboarding_completed_${userId}';
       final completed = prefs.getBool(key) ?? false;
       
       if (mounted) {
         setState(() {
-         // authStateChanges stream'i kullanıcının doğrulanıp doğrulanmadığına göre
-      // zaten Login / VerifyEmail / MainWrapper arasında yönlendirecek.
           _hasCompletedOnboarding = completed;
           _isLoadingOnboardingCheck = false;
         });
       }
     } catch (e) {
+      print("Onboarding status error or timeout: $e");
       if (mounted) {
         setState(() {
-          // Hata mesajını kullanıcı dostu hale getir
-          String errorMessage = e.toString();
-          String displayMessage = "";
-          Color backgroundColor = Colors.red;
-
-          // Localize authentication errors
-          _hasCompletedOnboarding = true; // Skip on error
+          _hasCompletedOnboarding = true; // Skip on error to avoid hang
           _isLoadingOnboardingCheck = false;
         });
       }
@@ -447,6 +458,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
 
     // E. Main App
+    if (_isPasswordRecoveryMode) {
+      return ResetPasswordScreen(
+        onComplete: () {
+          if (mounted) {
+            setState(() {
+              _isPasswordRecoveryMode = false;
+            });
+          }
+        },
+      );
+    }
+    
     return const MainWrapper();
   }
 

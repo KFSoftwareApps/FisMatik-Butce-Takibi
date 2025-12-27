@@ -47,9 +47,13 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // StreamBuilder ile veritabanını canlı dinliyoruz
+    final bool isVirtual = widget.receipt.id.startsWith('sub_') || widget.receipt.id.startsWith('credit_');
+
+    // StreamBuilder ile veritabanını canlı dinliyoruz (Sanal değilse)
     return StreamBuilder<Receipt>(
-      stream: SupabaseDatabaseService().getReceiptStream(widget.receipt.id),
+      stream: isVirtual 
+          ? Stream.value(widget.receipt) 
+          : SupabaseDatabaseService().getReceiptStream(widget.receipt.id),
       initialData: widget.receipt, // İlk ekranda listeden gelen veriyi göster
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -65,13 +69,32 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
         final dateFormat =
             DateFormat('dd MMMM yyyy • HH:mm', locale);
 
-        final bool isManual = currentReceipt.isManual;
-        final Color accentColor =
-            isManual ? AppColors.warning : AppColors.primary;
-        final IconData iconData =
-            isManual ? Icons.edit_note : Icons.store;
-        final String sourceText =
-            isManual ? AppLocalizations.of(context)!.manualEntrySource : AppLocalizations.of(context)!.scanReceiptSource;
+        final bool isSubscription = currentReceipt.id.startsWith('sub_');
+        final bool isCredit = currentReceipt.id.startsWith('credit_');
+
+        final Color accentColor = isSubscription 
+            ? Colors.purple 
+            : isCredit 
+                ? Colors.blue 
+                : currentReceipt.isManual 
+                    ? AppColors.warning 
+                    : AppColors.primary;
+
+        final IconData iconData = isSubscription 
+            ? Icons.autorenew 
+            : isCredit 
+                ? Icons.calendar_month 
+                : currentReceipt.isManual 
+                    ? Icons.edit_note 
+                    : Icons.store;
+
+        final String sourceText = isSubscription 
+            ? AppLocalizations.of(context)!.fixedExpenses 
+            : isCredit 
+                ? AppLocalizations.of(context)!.installment 
+                : currentReceipt.isManual 
+                    ? AppLocalizations.of(context)!.manualEntrySource 
+                    : AppLocalizations.of(context)!.scanReceiptSource;
 
         return Scaffold(
           backgroundColor: AppColors.headerBackground,
@@ -83,32 +106,34 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
               onPressed: () => Navigator.pop(context, _isEdited),
             ),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.edit, color: Colors.white),
-                onPressed: () async {
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          EditReceiptScreen(receipt: currentReceipt),
-                    ),
-                  );
-                  
-                  if (result == true && mounted) {
-                    setState(() {
-                      _isEdited = true;
-                    });
-                  }
-                },
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.delete_outline,
-                  color: Colors.redAccent,
+              if (!isVirtual) ...[
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.white),
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            EditReceiptScreen(receipt: currentReceipt),
+                      ),
+                    );
+                    
+                    if (result == true && mounted) {
+                      setState(() {
+                        _isEdited = true;
+                      });
+                    }
+                  },
                 ),
-                onPressed: () =>
-                    _showDeleteConfirmDialog(context, currentReceipt.id),
-              ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
+                  ),
+                  onPressed: () =>
+                      _showDeleteConfirmDialog(context, currentReceipt.id),
+                ),
+              ],
             ],
           ),
           body: Center(

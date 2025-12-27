@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 import 'package:uuid/uuid.dart';
 import 'package:fismatik/models/receipt_model.dart';
 import 'package:fismatik/models/credit_model.dart';
@@ -18,14 +19,13 @@ class SupabaseDatabaseService {
 
   // --- KREDİLER İŞLEMLERİ ---
 
-  Stream<List<Credit>> getCredits() {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) return Stream.value([]);
+  Stream<List<Credit>> getCredits() async* {
+    final ownerId = await _getScopeOwnerId();
     
-    return _client
+    yield* _client
         .from('user_credits')
         .stream(primaryKey: ['id'])
-        .eq('user_id', uid)
+        .eq('user_id', ownerId)
         .order('created_at', ascending: false)
         .map((data) {
           final now = DateTime.now();
@@ -34,17 +34,7 @@ class SupabaseDatabaseService {
           for (final map in data) {
             final credit = Credit.fromMap(map);
             
-            // Ay farkını hesapla
-            final monthsPassed = (now.year - credit.createdAt.year) * 12 + now.month - credit.createdAt.month;
-            
-            // Eğer taksit süresi dolduysa sil (Arka planda)
-            if (monthsPassed >= credit.totalInstallments) {
-              _client.from('user_credits').delete().eq('id', credit.id).then((_) {
-                print("Süresi dolan kredi silindi: ${credit.title}");
-              });
-            } else {
-              activeCredits.add(credit);
-            }
+            activeCredits.add(credit);
           }
           return activeCredits;
         });
@@ -83,42 +73,55 @@ class SupabaseDatabaseService {
           .from('household_members')
           .select('household_id')
           .eq('user_id', _userId)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              print('⚠️ household_id check timed out!');
+              return null;
+            },
+          );
 
       if (response != null && response['household_id'] != null) {
         return response['household_id'] as String;
       }
     } catch (e) {
-      print("familyId okunurken hata: $e");
+      print("household_id okunurken hata: $e");
     }
     return null;
   }
 
   Future<String> _getScopeOwnerId() async {
-    final familyId = await _getFamilyIdForCurrentUser();
-    if (familyId != null) {
-      final familyRes = await _client
-          .from('households')
-          .select('owner_id')
-          .eq('id', familyId)
-          .maybeSingle();
-      
-      if (familyRes != null && familyRes['owner_id'] != null) {
-        return familyRes['owner_id'] as String;
+    try {
+      final familyId = await _getFamilyIdForCurrentUser();
+      if (familyId != null) {
+        final familyRes = await _client
+            .from('households')
+            .select('owner_id')
+            .eq('id', familyId)
+            .maybeSingle()
+            .timeout(
+              const Duration(seconds: 4),
+              onTimeout: () => null,
+            );
+        
+        if (familyRes != null && familyRes['owner_id'] != null) {
+          return familyRes['owner_id'] as String;
+        }
       }
+    } catch (e) {
+      print("Scope owner ID alınırken hata: $e");
     }
     return _userId;
   }
 
   Future<List<Receipt>> getReceiptsOnce() async {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) return [];
-
+    final userIds = await _getScopeUserIds();
     final response = await _client
         .from('receipts')
         .select()
-        .eq('user_id', uid)
-        .order('date');
+        .filter('user_id', 'in', userIds)
+        .order('date', ascending: false);
     return (response as List).map((e) => Receipt.fromMap(e)).toList();
   }
 
@@ -128,9 +131,8 @@ class SupabaseDatabaseService {
   }
 
   Future<double> getMonthlyLimitOnce() async {
-    final uid = _userId;
-    if (uid == null) return 0;
-    final res = await _client.from('user_settings').select('monthly_limit').eq('user_id', uid).maybeSingle();
+    final ownerId = await _getScopeOwnerId();
+    final res = await _client.from('user_settings').select('monthly_limit').eq('user_id', ownerId).maybeSingle();
     return (res?['monthly_limit'] as num?)?.toDouble() ?? 0;
   }
 
@@ -247,16 +249,13 @@ class SupabaseDatabaseService {
 
   // --- KULLANICI AYARLARI ---
 
-  Stream<Map<String, dynamic>> getUserSettings() {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) {
-      return Stream.value({'monthly_limit': 5000.0, 'salary_day': 1});
-    }
+  Stream<Map<String, dynamic>> getUserSettings() async* {
+    final ownerId = await _getScopeOwnerId();
 
-    return _client
+    yield* _client
         .from('user_settings')
         .stream(primaryKey: ['user_id'])
-        .eq('user_id', uid)
+        .eq('user_id', ownerId)
         .map((event) {
           if (event.isNotEmpty) {
             return {
@@ -310,10 +309,64 @@ class SupabaseDatabaseService {
 
   Future<void> checkAndDowngradeIfExpired() async {
     try {
+      // Önce aile planını senkronize et (Eğer aile üyesiysen)
+      await syncFamilyPlanValidity();
+      
+      // Sonra sunucu tarafı süresi dolanları düşürsün
       await _client.rpc('check_my_expiration');
     } catch (e) {
       print("Expiration check failed: $e");
-      rethrow; // Hatayı yukarı fırlat ki UI yakalayabilsin
+      // Hata olsa bile devam et,rethrow yapma ki UI çökmesin
+    }
+  }
+
+  /// Aile üyelerinin planını, aile yöneticisiyle senkronize eder.
+  Future<void> syncFamilyPlanValidity() async {
+    try {
+      final familyId = await _getFamilyIdForCurrentUser();
+      if (familyId == null) return; // Ailede değil, işlem yapma
+
+      // Aile yöneticisini bul
+      final familyRes = await _client
+          .from('households')
+          .select('owner_id')
+          .eq('id', familyId)
+          .maybeSingle();
+      
+      final ownerId = familyRes?['owner_id'] as String?;
+      if (ownerId == null || ownerId == _userId) return; // Yönetici kendisi veya bulunamadı
+
+      // Yöneticinin rol bilgilerini al
+      final ownerRole = await _client
+          .from('user_roles')
+          .select('tier_id, expires_at')
+          .eq('user_id', ownerId)
+          .maybeSingle();
+      
+      if (ownerRole == null) return;
+
+      final ownerTier = ownerRole['tier_id'] as String?;
+      final ownerExpiresAtStr = ownerRole['expires_at'] as String?;
+
+      // Sadece yönetici 'limitless_family' ise senkronize et
+      if (ownerTier == 'limitless_family' && ownerExpiresAtStr != null) {
+        final ownerExpiresAt = DateTime.parse(ownerExpiresAtStr);
+        
+        // Eğer yöneticinin süresi hala geçerliyse
+        if (ownerExpiresAt.isAfter(DateTime.now())) {
+          print("🔄 Syncing family plan from owner ($ownerId)...");
+          
+          await _client.from('user_roles').update({
+            'tier_id': 'limitless_family',
+            'expires_at': ownerExpiresAtStr,
+            'update_date': DateTime.now().toIso8601String(),
+          }).eq('user_id', _userId);
+          
+          print("✅ Family plan synced successfully.");
+        }
+      }
+    } catch (e) {
+      print("Family plan sync error: $e");
     }
   }
 
@@ -336,11 +389,20 @@ class SupabaseDatabaseService {
 
   // --- FİŞ İŞLEMLERİ ---
 
-  Future<void> saveReceipt(Map<String, dynamic> aiData) async {
+  Future<void> saveReceipt(Map<String, dynamic> aiData, {String? city, String? district}) async {
     try {
       final String userId = _userId;
       final String? familyId = await _getFamilyIdForCurrentUser();
-      final location = await _getUserLocation();
+      
+      // Eğer konum parametre olarak gelmediyse veritabanından/profilden çek
+      String? finalCity = city;
+      String? finalDistrict = district;
+      
+      if (finalCity == null) {
+        final location = await _getUserLocation();
+        finalCity = location['city'];
+        finalDistrict = location['district'];
+      }
 
       final newReceipt = Receipt(
         id: const Uuid().v4(),
@@ -367,8 +429,8 @@ class SupabaseDatabaseService {
             .toList(),
         isManual: false,
         familyId: familyId,
-        city: location['city'],
-        district: location['district'],
+        city: finalCity,
+        district: finalDistrict,
       );
 
       await _client.from('receipts').insert(newReceipt.toMap());
@@ -409,11 +471,21 @@ class SupabaseDatabaseService {
     double discountAmount = 0.0,
     required String category,
     List<ReceiptItem>? items,
+    String? city,
+    String? district,
   }) async {
     try {
       final String userId = _userId;
       final String? familyId = await _getFamilyIdForCurrentUser();
-      final location = await _getUserLocation();
+      
+      String? finalCity = city;
+      String? finalDistrict = district;
+
+      if (finalCity == null) {
+        final location = await _getUserLocation();
+        finalCity = location['city'];
+        finalDistrict = location['district'];
+      }
 
       final newReceipt = Receipt(
         id: const Uuid().v4(),
@@ -428,8 +500,8 @@ class SupabaseDatabaseService {
         items: items ?? <ReceiptItem>[],
         isManual: true,
         familyId: familyId,
-        city: location['city'],
-        district: location['district'],
+        city: finalCity,
+        district: finalDistrict,
       );
 
       await _client.from('receipts').insert(newReceipt.toMap());
@@ -440,76 +512,179 @@ class SupabaseDatabaseService {
   }
 
   Stream<List<Receipt>> getReceipts() async* {
-    final userIds = await _getScopeUserIds();
+    final uid = _userId;
+    final familyId = await _getFamilyIdForCurrentUser();
 
-    // 1. Tek kullanıcı (Standart veya Aile Üyesi olmayan Admin)
-    if (userIds.length == 1) {
+    // Senkronizasyonu arka planda tetikle (Opsiyonel ama geçmiş veriler için kritik)
+    if (familyId != null) {
+      _syncFamilyReceipts(familyId).catchError((e) => print("Sync error: $e"));
+    }
+
+    if (familyId == null) {
+      // Sadece kendi fişleri
       yield* _client
           .from('receipts')
           .stream(primaryKey: ['id'])
-          .eq('user_id', userIds.first) // CRITICAL: Explicit filter
+          .eq('user_id', uid)
           .order('date', ascending: false)
           .map((data) => data.map((e) => Receipt.fromMap(e)).toList());
-    } 
-    // 2. Aile (Birden fazla kullanıcı)
-    else {
-      // Not: Stream 'in' filtresi eski sürümlerde sorunlu olabilir.
-      // Admin kullanıcısı RLS yüzünden TÜM verileri görebileceği için
-      // client-side filtreleme yapıyoruz.
+    } else {
+      // Tüm ailenin fişleri (household_id bazlı)
       yield* _client
           .from('receipts')
           .stream(primaryKey: ['id'])
+          .eq('household_id', familyId)
           .order('date', ascending: false)
-          .map((data) {
-            // Client-side filtering
-            final filtered = data.where((e) => userIds.contains(e['user_id']));
-            return filtered.map((e) => Receipt.fromMap(e)).toList();
-          });
+          .map((data) => data.map((e) => Receipt.fromMap(e)).toList());
+    }
+  }
+
+  Future<void> _syncFamilyReceipts(String familyId) async {
+    final userIds = await _getScopeUserIds();
+    if (userIds.isEmpty) return;
+
+    try {
+      // household_id'si null olan ve user_id'si listede olan fişleri güncelle
+      // Not: Supabase filter('user_id', 'in', userIds) + is('household_id', null) update'i destekler
+      await _client
+          .from('receipts')
+          .update({'household_id': familyId})
+          .filter('user_id', 'in', userIds)
+          .filter('household_id', 'is', null);
+      
+      print("Family receipts synced for $familyId");
+    } catch (e) {
+      // Sessiz hata (Loglama yeterli)
+      print("Sync receipts error: $e");
     }
   }
 
   /// Fişleri, abonelikleri ve kredi taksitlerini birleştirerek canlı yayınlar
-  Stream<List<Receipt>> getUnifiedReceiptsStream() async* {
+  /// Fişleri, abonelikleri ve kredi taksitlerini birleştirerek canlı yayınlar
+  Stream<List<Receipt>> getUnifiedReceiptsStream({DateTime? rangeStart, DateTime? rangeEnd}) {
+    final controller = StreamController<List<Receipt>>();
+    
+    // Varsayılan aralık: Son 12 ay ve gelecek 1 ay
+    final start = rangeStart ?? DateTime.now().subtract(const Duration(days: 365));
+    final end = rangeEnd ?? DateTime.now().add(const Duration(days: 31));
+
+    List<Receipt> lastReceipts = [];
+    List<Subscription> lastSubs = [];
+    List<Credit> lastCredits = [];
+    List<String> userIds = [];
+
+    void emit() {
+      if (userIds.isEmpty) return;
+      
+      final List<Receipt> all = List.from(lastReceipts);
+      
+      // Her ay için sanal fiş üret
+      int totalMonths = (end.year - start.year) * 12 + end.month - start.month;
+      for (int m = 0; m <= totalMonths; m++) {
+        final targetMonth = (start.month + m - 1) % 12 + 1;
+        final targetYear = start.year + (start.month + m - 1) ~/ 12;
+        
+        // Abonelikleri ekle
+        for (final sub in lastSubs) {
+           all.add(Receipt(
+             id: 'sub_${sub.id}_${targetYear}_${targetMonth}',
+             userId: userIds.first,
+             merchantName: sub.name,
+             date: DateTime(targetYear, targetMonth, sub.renewalDay),
+             totalAmount: sub.price,
+             taxAmount: 0,
+             category: 'Sabit Gider',
+             items: [],
+             isManual: true,
+           ));
+        }
+
+        // Kredileri ekle
+        for (final credit in lastCredits) {
+          final monthsPassed = (targetYear - credit.createdAt.year) * 12 + targetMonth - credit.createdAt.month;
+          
+          if (credit.totalInstallments == 999 || (monthsPassed >= 0 && monthsPassed < credit.totalInstallments)) {
+             all.add(Receipt(
+               id: 'credit_${credit.id}_${targetYear}_${targetMonth}',
+               userId: userIds.first,
+               merchantName: credit.title,
+               date: DateTime(targetYear, targetMonth, credit.paymentDay),
+               totalAmount: credit.monthlyAmount,
+               taxAmount: 0,
+               category: 'Sabit Gider',
+               items: [],
+               isManual: true,
+             ));
+          }
+        }
+      }
+
+      all.sort((a, b) => b.date.compareTo(a.date));
+      if (!controller.isClosed) {
+        controller.add(all);
+      }
+    }
+
+    _getScopeUserIds().then((ids) {
+      userIds = ids;
+      
+      final rSub = getReceipts().listen((r) { lastReceipts = r; emit(); });
+      final sSub = getSubscriptions().listen((s) { lastSubs = s; emit(); });
+      final cSub = getCredits().listen((c) { lastCredits = c; emit(); });
+
+      controller.onCancel = () {
+        rSub.cancel();
+        sSub.cancel();
+        cSub.cancel();
+      };
+    });
+
+    return controller.stream;
+  }
+
+  Future<List<Receipt>> getUnifiedReceiptsOnce({DateTime? rangeStart, DateTime? rangeEnd}) async {
+    final start = rangeStart ?? DateTime.now().subtract(const Duration(days: 365));
+    final end = rangeEnd ?? DateTime.now().add(const Duration(days: 31));
+
     final userIds = await _getScopeUserIds();
-    final now = DateTime.now();
+    if (userIds.isEmpty) return [];
 
-    // Diğer streamleri hazırla
-    final receiptsStream = getReceipts();
-    final subsStream = getSubscriptions();
-    final creditsStream = getCredits();
+    final receipts = await getReceiptsOnce();
+    final subscriptions = await getSubscriptionsOnce();
+    // Krediler için ayrı bir Once metodumuz yok ama stream'den ilkini alabiliriz veya sorgu atabiliriz
+    // Performans için doğrudan sorgu atalım
+    final credits = await _getCreditsOnce();
 
-    // Not: StreamZip veya combineLatest kullanılabilir ama rxdart bağımlılığı yoksa manuel birleştirme
-    await for (final receipts in receiptsStream) {
-       final List<Receipt> all = List.from(receipts);
-       
-       // Abonelikleri ekle (Statik listenin o anki hali)
-       final subs = await getSubscriptionsOnce();
-       for (final sub in subs) {
+    final List<Receipt> all = List.from(receipts);
+
+    // Her ay için sanal fiş üret
+    int totalMonths = (end.year - start.year) * 12 + end.month - start.month;
+    for (int m = 0; m <= totalMonths; m++) {
+      final targetMonth = (start.month + m - 1) % 12 + 1;
+      final targetYear = start.year + (start.month + m - 1) ~/ 12;
+      
+      // Abonelikleri ekle
+      for (final sub in subscriptions) {
           all.add(Receipt(
-            id: 'sub_${sub.id}',
+            id: 'sub_${sub.id}_${targetYear}_${targetMonth}',
             userId: userIds.first,
             merchantName: sub.name,
-            date: DateTime(receipts.isNotEmpty ? receipts.first.date.year : now.year, receipts.isNotEmpty ? receipts.first.date.month : now.month, sub.renewalDay),
+            date: DateTime(targetYear, targetMonth, sub.renewalDay),
             totalAmount: sub.price,
             taxAmount: 0,
             category: 'Sabit Gider',
             items: [],
             isManual: true,
           ));
-       }
+      }
 
-       // Kredileri ekle
-       final credits = await _client.from('user_credits').select().filter('user_id', 'in', userIds);
-       for (final cMap in credits) {
-         final credit = Credit.fromMap(cMap);
-         final targetMonth = receipts.isNotEmpty ? receipts.first.date.month : now.month;
-         final targetYear = receipts.isNotEmpty ? receipts.first.date.year : now.year;
-         
-         final monthsPassed = (targetYear - credit.createdAt.year) * 12 + targetMonth - credit.createdAt.month;
-         
-         if (credit.totalInstallments == 999 || (monthsPassed >= 0 && monthsPassed < credit.totalInstallments)) {
+      // Kredileri ekle
+      for (final credit in credits) {
+        final monthsPassed = (targetYear - credit.createdAt.year) * 12 + targetMonth - credit.createdAt.month;
+        
+        if (credit.totalInstallments == 999 || (monthsPassed >= 0 && monthsPassed < credit.totalInstallments)) {
             all.add(Receipt(
-              id: 'credit_${credit.id}',
+              id: 'credit_${credit.id}_${targetYear}_${targetMonth}',
               userId: userIds.first,
               merchantName: credit.title,
               date: DateTime(targetYear, targetMonth, credit.paymentDay),
@@ -519,12 +694,27 @@ class SupabaseDatabaseService {
               items: [],
               isManual: true,
             ));
-         }
-       }
-
-       all.sort((a, b) => b.date.compareTo(a.date));
-       yield all;
+        }
+      }
     }
+
+    // Tarih aralığına göre filtrele (Manuel fişler zaten veritabanından filtrelenebilir ama burada garantiye alalım)
+    final filtered = all.where((r) => 
+      r.date.isAfter(start.subtract(const Duration(seconds: 1))) && 
+      r.date.isBefore(end.add(const Duration(seconds: 1)))
+    ).toList();
+
+    filtered.sort((a, b) => b.date.compareTo(a.date));
+    return filtered;
+  }
+
+  Future<List<Credit>> _getCreditsOnce() async {
+    final ownerId = await _getScopeOwnerId();
+    final response = await _client
+        .from('user_credits')
+        .select()
+        .eq('user_id', ownerId);
+    return (response as List).map((e) => Credit.fromMap(e)).toList();
   }
 
   Stream<Receipt> getReceiptStream(String id) {
@@ -548,22 +738,21 @@ class SupabaseDatabaseService {
 
   Future<List<Receipt>> getAllReceiptsOnce() async {
     final userIds = await _getScopeUserIds();
-    
     final response = await _client
         .from('receipts')
         .select()
         .filter('user_id', 'in', userIds)
         .order('date', ascending: false);
-
     return (response as List).map((e) => Receipt.fromMap(e)).toList();
   }
 
   // --- GEÇMİŞ / TARİHÇE ---
 
   Future<List<DateTime>> getAvailableMonths() async {
-    final userIds = await _getScopeUserIds();
+    final uid = _userId;
+    final familyId = await _getFamilyIdForCurrentUser();
     
-    // Sadece tarihleri çekiyoruz
+    final userIds = await _getScopeUserIds();
     final response = await _client
         .from('receipts')
         .select('date')
@@ -589,11 +778,13 @@ class SupabaseDatabaseService {
   }
 
   Future<List<Receipt>> getReceiptsForMonth(DateTime month) async {
-    final userIds = await _getScopeUserIds();
+    final uid = _userId;
+    final familyId = await _getFamilyIdForCurrentUser();
     
     final startOfMonth = DateTime(month.year, month.month, 1);
     final endOfMonth = DateTime(month.year, month.month + 1, 1);
     
+    final userIds = await _getScopeUserIds();
     final response = await _client
         .from('receipts')
         .select()
@@ -619,15 +810,22 @@ class SupabaseDatabaseService {
 
   /// Belirli bir ay için tüm harcamaları (fişler, krediler, abonelikler) birleştirir
   Future<List<Receipt>> getMonthAnalysisData(DateTime month) async {
-    final userIds = await _getScopeUserIds();
+    final uid = _userId;
+    final familyId = await _getFamilyIdForCurrentUser();
+    final userIds = await _getScopeUserIds(); // Subs ve Credits için hala userIds listesine ihtiyacımız olabilir
+    
     final startOfMonth = DateTime(month.year, month.month, 1);
     final endOfMonth = DateTime(month.year, month.month + 1, 1);
     
     // 1. Fişleri çek
-    final receiptsResponse = await _client
-        .from('receipts')
-        .select()
-        .filter('user_id', 'in', userIds)
+    var query = _client.from('receipts').select();
+    if (familyId != null) {
+        query = query.eq('household_id', familyId);
+    } else {
+        query = query.eq('user_id', uid);
+    }
+
+    final receiptsResponse = await (query as PostgrestFilterBuilder)
         .gte('date', startOfMonth.toIso8601String())
         .lt('date', endOfMonth.toIso8601String());
         
@@ -733,14 +931,13 @@ class SupabaseDatabaseService {
 
   // --- KATEGORİ İŞLEMLERİ ---
 
-  Stream<List<Category>> getCategories() {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) return Stream.value(Category.defaultCategories);
+  Stream<List<Category>> getCategories() async* {
+    final ownerId = await _getScopeOwnerId();
 
-    return _client
+    yield* _client
         .from('user_categories')
         .stream(primaryKey: ['user_id'])
-        .eq('user_id', uid)
+        .eq('user_id', ownerId)
         .map((event) {
           if (event.isEmpty) return Category.defaultCategories;
           final List<dynamic> catList = event.first['categories'] ?? [];
@@ -800,16 +997,13 @@ class SupabaseDatabaseService {
     await _client.from('subscriptions').upsert(data);
   }
 
-  Stream<List<Subscription>> getSubscriptions() {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) {
-      return Stream.value([]);
-    }
+  Stream<List<Subscription>> getSubscriptions() async* {
+    final ownerId = await _getScopeOwnerId();
 
-    return _client
+    yield* _client
         .from('subscriptions')
         .stream(primaryKey: ['id'])
-        .eq('user_id', uid)  // CRITICAL: Filter by user_id to prevent data leakage
+        .eq('user_id', ownerId)
         .order('renewal_day', ascending: true)
         .map((event) => event.map((e) => Subscription.fromMap(e)).toList());
   }
@@ -1263,12 +1457,11 @@ class SupabaseDatabaseService {
     await _client.from('shopping_items').delete().eq('id', id);
   }
 
-  Future<void> clearCheckedItems() async {
+  Future<void> deleteAllShoppingItems() async {
     final userIds = await _getScopeUserIds();
     await _client.from('shopping_items')
         .delete()
-        .filter('user_id', 'in', userIds)
-        .eq('is_checked', true);
+        .filter('user_id', 'in', userIds);
   }
 
   /// Kullanıcının son 3 aydaki en sık aldığı 10 ürünün ismini döner (normalleştirilmiş)
@@ -1296,16 +1489,95 @@ class SupabaseDatabaseService {
 
   // --- BİLDİRİMLER ---
 
-  Stream<List<Map<String, dynamic>>> getNotifications() {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) return Stream.value([]);
+  // --- BİLDİRİMLER ---
+  Stream<List<Map<String, dynamic>>> getNotifications() async* {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      yield [];
+      return;
+    }
 
-    return _client
+    final email = user.email;
+    final uid = user.id;
+
+    // Supabase Realtime Notifications Stream
+    final notificationsStream = _client
         .from('notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', uid)
-        .order('created_at', ascending: false)
-        .map((data) => List<Map<String, dynamic>>.from(data));
+        .order('created_at', ascending: false);
+
+    // Periodic Family Invitations Poll (Davetler için realtime gerekirse tablo izlenmeli ama şimdilik polling yeterli)
+    final invitationsStream = Stream.periodic(const Duration(minutes: 1)).asyncMap((_) async {
+      if (email == null) return <Map<String, dynamic>>[];
+      try {
+        final res = await _client
+            .from('household_invitations')
+            .select('id, households(name)')
+            .eq('email', email.toLowerCase())
+            .eq('status', 'pending');
+        
+        if (res is List) {
+          return res.map((inv) {
+            final household = inv['households'] as Map?;
+            return {
+              'id': 'invite_${inv['id']}',
+              'user_id': uid,
+              'title': 'Aile Daveti',
+              'message': '${household?['name'] ?? 'Bilinmeyen'} ailesine davet edildiniz.',
+              'type': 'family_invite',
+              'is_read': false,
+              'created_at': DateTime.now().toIso8601String(),
+              'data': {
+                'invite_id': inv['id'],
+              }
+            };
+          }).toList();
+        }
+      } catch (e) {
+        print("Polling invitations error: $e");
+      }
+      return <Map<String, dynamic>>[];
+    });
+
+    // İki stream'i birleştir (Basit merge mantığı)
+    List<Map<String, dynamic>> lastNotifications = [];
+    List<Map<String, dynamic>> lastInvitations = [];
+
+    // Davetleri ilk etapta bir kez çek
+    if (email != null) {
+      try {
+        final res = await _client
+            .from('household_invitations')
+            .select('id, households(name)')
+            .eq('email', email.toLowerCase())
+            .eq('status', 'pending');
+        if (res is List) {
+          lastInvitations = res.map((inv) {
+             final household = inv['households'] as Map?;
+             return {
+              'id': 'invite_${inv['id']}',
+              'user_id': uid,
+              'title': 'Aile Daveti',
+              'message': '${household?['name'] ?? 'Bilinmeyen'} ailesine davet edildiniz.',
+              'type': 'family_invite',
+              'is_read': false,
+              'created_at': DateTime.now().toIso8601String(),
+              'data': {'invite_id': inv['id']}
+            };
+          }).toList();
+        }
+      } catch (_) {}
+    }
+
+    await for (final notifications in notificationsStream) {
+      lastNotifications = List<Map<String, dynamic>>.from(notifications);
+      yield [...lastInvitations, ...lastNotifications];
+      
+      // Her bildirim güncellemesinde davetleri de kontrol edebiliriz 
+      // veya yukarıdaki polling arkada çalışmaya devam eder.
+      // Şimdilik basitleştirelim:
+    }
   }
 
   Future<void> markNotificationAsRead(String notificationId) async {
@@ -1313,6 +1585,9 @@ class SupabaseDatabaseService {
   }
 
   Future<void> deleteNotification(String notificationId) async {
+    // Sanal davet bildirimi ise veritabanı işlemini atla (RPC zaten halledecek)
+    if (notificationId.startsWith('invite_')) return;
+
     try {
       await _client.from('notifications').delete().eq('id', notificationId);
     } catch (e) {
@@ -1413,6 +1688,7 @@ class SupabaseDatabaseService {
       return [];
     }
   }
+
 
   Future<void> upsertProductMapping({
     required String rawName,

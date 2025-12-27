@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/supabase_database_service.dart';
+import '../services/family_service.dart';
 import '../core/app_theme.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 
@@ -11,9 +11,10 @@ class FamilyPlanScreen extends StatefulWidget {
 }
 
 class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
-  final SupabaseDatabaseService _databaseService = SupabaseDatabaseService();
+  final FamilyService _familyService = FamilyService();
   bool _isLoading = true;
   Map<String, dynamic>? _familyStatus;
+  List<Map<String, dynamic>> _pendingInvitations = [];
 
   @override
   void initState() {
@@ -22,15 +23,21 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
   }
 
   Future<void> _loadFamilyStatus() async {
+    print("DEBUG: _loadFamilyStatus started");
     setState(() => _isLoading = true);
     try {
-      final status = await _databaseService.getFamilyStatus();
+      print("DEBUG: fetching getFamilyStatus...");
+      final status = await _familyService.getFamilyStatus();
+      print("DEBUG: fetching getPendingInvitations...");
+      final invitations = await _familyService.getPendingInvitations();
+      print("DEBUG: updating state with status: $status");
       setState(() {
         _familyStatus = status;
+        _pendingInvitations = invitations;
         _isLoading = false;
       });
     } catch (e) {
-      print("Aile durumu yüklenirken hata: $e");
+      print("DEBUG: Aile durumu yüklenirken hata: $e");
       setState(() => _isLoading = false);
     }
   }
@@ -79,14 +86,17 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
                 return;
               }
               
+              print("DEBUG: create family button clicked");
               Navigator.pop(context);
               setState(() => _isLoading = true);
               
               try {
-                final result = await _databaseService.createFamily(
+                print("DEBUG: calling createFamilyWrapper...");
+                final result = await _familyService.createFamilyWrapper(
                   nameController.text.isEmpty ? "Ailem" : nameController.text,
                   addressController.text,
                 );
+                print("DEBUG: createFamilyWrapper result: $result");
                 
                 if (result['success'] == true) {
                   await _loadFamilyStatus();
@@ -120,7 +130,6 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
   }
 
   Future<void> _inviteMember() async {
-    // Limit kontrolü (Yönetici + 4 üye = 5 kişi)
     final members = (_familyStatus?['members'] as List?) ?? [];
     if (members.length >= 5) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -164,19 +173,19 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
               if (emailController.text.isEmpty) return;
               
               Navigator.pop(context);
-              // Show loading indicator or snackbar
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(AppLocalizations.of(context)!.inviteSending)),
               );
 
               try {
-                final result = await _databaseService.sendFamilyInvite(emailController.text.trim());
+                final result = await _familyService.sendFamilyInvite(emailController.text.trim());
                 
                 if (mounted) {
                   if (result['success'] == true) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(AppLocalizations.of(context)!.inviteSentSuccess)),
                     );
+                    await _loadFamilyStatus();
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(result['message'] ?? "Hata oluştu"), backgroundColor: Colors.red),
@@ -221,7 +230,7 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
     if (confirm == true) {
       setState(() => _isLoading = true);
       try {
-        final result = await _databaseService.leaveFamily();
+        final result = await _familyService.leaveFamily();
         if (result['success'] == true) {
           await _loadFamilyStatus();
           if (mounted) {
@@ -271,7 +280,7 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
     if (confirm == true) {
       setState(() => _isLoading = true);
       try {
-        final result = await _databaseService.removeFamilyMember(userId);
+        final result = await _familyService.removeFamilyMemberById(userId);
         if (result['success'] == true) {
           await _loadFamilyStatus();
           if (mounted) {
@@ -315,52 +324,128 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
   Widget _buildBody() {
     final hasFamily = _familyStatus?['has_family'] == true;
 
-    if (!hasFamily) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.family_restroom, size: 80, color: AppColors.primary.withOpacity(0.5)),
-              const SizedBox(height: 24),
-              Text(
-                AppLocalizations.of(context)!.noFamilyYet,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                AppLocalizations.of(context)!.familyPlanDesc,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: _createFamily,
-                icon: const Icon(Icons.add),
-                label: Text(AppLocalizations.of(context)!.createFamily),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Active Family View
-    final householdName = _familyStatus?['household_name'] ?? 'Ailem';
-    final role = _familyStatus?['role'];
-    final members = (_familyStatus?['members'] as List?) ?? [];
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_pendingInvitations.isNotEmpty) _buildPendingInvitations(),
+          if (!hasFamily) _buildNoFamilyUI(),
+          if (hasFamily) _buildFamilyDetailsUI(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingInvitations() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Bekleyen Davetler",
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        ..._pendingInvitations.map((inv) => Card(
+          color: Colors.blue.shade50,
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ListTile(
+            title: Text("${inv['family_name']} Ailesi"),
+            subtitle: Text("Davet eden: ${inv['owner_email']}"),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.check, color: Colors.green),
+                  onPressed: () => _handleAcceptInvite(inv['family_id']),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.red),
+                  onPressed: () => _handleRejectInvite(inv['family_id']),
+                ),
+              ],
+            ),
+          ),
+        )),
+        const Divider(height: 32),
+      ],
+    );
+  }
+
+  Future<void> _handleAcceptInvite(String familyId) async {
+    setState(() => _isLoading = true);
+    final result = await _familyService.acceptFamilyInvite(familyId);
+    if (result['success']) {
+      await _loadFamilyStatus();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Aileye başarıyla katıldınız.")),
+        );
+      }
+    } else {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'])),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleRejectInvite(String familyId) async {
+    setState(() => _isLoading = true);
+    final result = await _familyService.rejectFamilyInvite(familyId);
+    if (result['success']) {
+      await _loadFamilyStatus();
+    } else {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Widget _buildNoFamilyUI() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.family_restroom, size: 80, color: AppColors.primary.withOpacity(0.5)),
+            const SizedBox(height: 24),
+            Text(
+              AppLocalizations.of(context)!.noFamilyYet,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              AppLocalizations.of(context)!.familyPlanDesc,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _createFamily,
+              icon: const Icon(Icons.add),
+              label: Text(AppLocalizations.of(context)!.createFamily),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFamilyDetailsUI() {
+    final householdName = _familyStatus?['household_name'] ?? 'Ailem';
+    final role = _familyStatus?['role'];
+    final members = (_familyStatus?['members'] as List?) ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           // Header Card
           Card(
             elevation: 4,
@@ -444,7 +529,7 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
             itemCount: members.length,
             itemBuilder: (context, index) {
               final member = members[index];
-              final isMe = member['user_id'] == _databaseService.currentUser?.id;
+              final isMe = member['user_id'] == _familyService.currentUser?.id;
               
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -452,12 +537,23 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
                   leading: CircleAvatar(
                     backgroundColor: Colors.grey[200],
                     child: Text(
-                      (member['email'] as String)[0].toUpperCase(),
+                      (member['email'] as String).isNotEmpty ? (member['email'] as String)[0].toUpperCase() : "?",
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                   title: Text(member['email']),
-                  subtitle: Text(member['role'] == 'owner' ? AppLocalizations.of(context)!.adminLabel : AppLocalizations.of(context)!.memberLabel),
+                  subtitle: Row(
+                    children: [
+                      Text(member['role'] == 'owner' ? AppLocalizations.of(context)!.adminLabel : AppLocalizations.of(context)!.memberLabel),
+                      if (member['status'] == 'pending') ...[
+                        const Text(" • "),
+                        Text(
+                          "Bekliyor",
+                          style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ],
+                    ],
+                  ),
                   trailing: (role == 'owner' && !isMe)
                       ? IconButton(
                           icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
@@ -500,7 +596,6 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
                 ),
               ),
         ],
-      ),
     );
   }
 }

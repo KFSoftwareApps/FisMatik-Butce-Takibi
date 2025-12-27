@@ -62,34 +62,66 @@ class IntelligenceService {
     int daysInMonth = daysInMonthArray[now.month];
     if (now.month == 2 && now.year % 4 == 0) daysInMonth = 29;
 
-    final allReceipts = await _dbService.getReceiptsOnce();
+    // Tüm birleştirilmiş harcamaları çek (Fiş + Taksit + Abonelik)
+    final allReceipts = await _dbService.getUnifiedReceiptsOnce();
     final currentMonthReceipts = allReceipts.where((r) => r.date.month == now.month && r.date.year == now.year).toList();
     final limit = await _dbService.getMonthlyLimitOnce();
     
-    double totalSpent = 0;
+    // 1. Mevcut Harcama (Bugüne kadar olanlar)
+    double currentSpent = 0;
     for (var r in currentMonthReceipts) {
-      totalSpent += r.totalAmount;
+      // Gelecek tarihli sabit giderleri "Şu an harcanmış" olarak sayma (UI ile tutarlı olması için)
+      if (r.date.isBefore(now.add(const Duration(days: 1)))) {
+        currentSpent += r.totalAmount;
+      }
+    }
+
+    // 2. Tahmin Algoritması (Fixed vs Variable)
+    double fixedTotal = 0;
+    double variableSpentSoFar = 0;
+    
+    for (var r in currentMonthReceipts) {
+      final isFixed = r.category == 'Sabit Gider' || r.id.startsWith('sub_') || r.id.startsWith('credit_');
+      
+      if (isFixed) {
+        // Sabit giderlerin tamamını (gelecektekiler dahil) kesin gider olarak ekle
+        fixedTotal += r.totalAmount;
+      } else {
+        // Değişken giderlerde sadece bugüne kadar olanları al
+        if (r.date.isBefore(now.add(const Duration(days: 1)))) {
+          variableSpentSoFar += r.totalAmount;
+        }
+      }
     }
 
     final passedDays = now.day;
-    final dailyAverage = passedDays > 0 ? totalSpent / passedDays : totalSpent;
-    final predictedTotal = dailyAverage * daysInMonth;
+    // Değişken giderler için günlük ortalama
+    final dailyVariableAverage = passedDays > 0 ? variableSpentSoFar / passedDays : variableSpentSoFar;
+    
+    // Kalan günler için değişken gider tahmini
+    final remainingDays = daysInMonth - passedDays;
+    final predictedVariableTotal = variableSpentSoFar + (dailyVariableAverage * remainingDays);
+    
+    // Toplam Tahmin = Kesinleşmiş Sabit Giderler + Tahmini Değişken Giderler
+    final predictedTotal = fixedTotal + predictedVariableTotal;
+    
     final isExceeding = predictedTotal > limit;
+    final dailyTotalAverage = passedDays > 0 ? currentSpent / passedDays : currentSpent; // Genel ortalama (gösterim için)
 
     return {
-      'currentSpent': totalSpent,
+      'currentSpent': currentSpent,
       'limit': limit,
       'predictedTotal': predictedTotal,
       'isExceeding': isExceeding,
-      'dailyAverage': dailyAverage,
-      'remainingDays': daysInMonth - passedDays,
+      'dailyAverage': dailyTotalAverage, 
+      'remainingDays': remainingDays,
     };
   }
 
   /// Kategori bazlı harcamalara göre tasarruf ipuçları döner.
   Future<List<String>> getPersonalizedSavingTips() async {
     final now = DateTime.now();
-    final allReceipts = await _dbService.getReceiptsOnce();
+    final allReceipts = await _dbService.getUnifiedReceiptsOnce();
     final currentMonthReceipts = allReceipts.where((r) => r.date.month == now.month && r.date.year == now.year).toList();
     
     final Map<String, double> categorySpent = {};

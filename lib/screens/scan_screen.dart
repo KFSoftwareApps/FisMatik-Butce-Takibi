@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../models/subscription_model.dart';
+import '../models/credit_model.dart';
 import '../models/membership_model.dart'; // Added
 import '../models/category_model.dart'; // Added
 import '../services/ocr_service.dart'; // Added
@@ -20,8 +21,9 @@ import '../services/ai_service.dart'; // Added
 import '../services/supabase_database_service.dart'; // Added
 import '../services/gamification_service.dart'; // Added
 import '../models/user_level.dart'; // Added
-import '../services/notification_service.dart'; // Added
-import '../core/app_theme.dart'; // Added
+import '../services/notification_service.dart';
+import '../services/location_service.dart';
+import '../core/app_theme.dart';
 
 import 'manual_entry_screen.dart';
 import 'upgrade_screen.dart';
@@ -56,6 +58,10 @@ class _ScanScreenState extends State<ScanScreen> {
   bool _scanQuotaLoaded = false; // Added this as it was referenced in errors
   MembershipTier? _currentTier; // [NEW] Cache tier
   DateTime? _lastAccessAt; // [NEW] For spam prevention
+
+  // Taksitli Gider State
+  bool _isInstallment = false;
+  int _installmentCount = 3;
 
   // Smart Retry Variables
   String? _lastScannedText;
@@ -268,6 +274,10 @@ class _ScanScreenState extends State<ScanScreen> {
             setState(() {
               _isScanning = false;
               if (aiResult != null) {
+                // [FIX] Tarih null gelirse bugünü varsayılan yap
+                if (aiResult['date'] == null || aiResult['date'] == "null" || aiResult['date'].toString().isEmpty) {
+                   aiResult['date'] = DateTime.now().toString().split(' ')[0]; // YYYY-MM-DD
+                }
                 _receiptData = aiResult;
                 _statusMessage = AppLocalizations.of(context)!.processSuccess;
                 _loadDailyUsage();
@@ -787,32 +797,39 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
             
             // --- DATE EDITING ---
-            Row(
-              children: [
-                Text(
-                  "${AppLocalizations.of(context)!.dateLabel} ${_receiptData!['date']}",
-                  style: const TextStyle(color: Colors.grey),
+            InkWell(
+              onTap: () async {
+                DateTime? initialDate = DateTime.tryParse(_receiptData!['date'] ?? '');
+                final DateTime? picked = await showDatePicker(
+                  context: context,
+                  initialDate: initialDate ?? DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) {
+                  setState(() {
+                    // Format: YYYY-MM-DD
+                    String formatted = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                    _receiptData!['date'] = formatted;
+                  });
+                }
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Text(
+                      "${AppLocalizations.of(context)!.dateLabel} ${_receiptData!['date'] ?? '---'}",
+                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.edit, size: 14, color: Colors.grey),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.edit_calendar, size: 20, color: Colors.grey),
-                  onPressed: () async {
-                    DateTime? initialDate = DateTime.tryParse(_receiptData!['date']);
-                    final DateTime? picked = await showDatePicker(
-                      context: context,
-                      initialDate: initialDate ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) {
-                      setState(() {
-                        // Format: YYYY-MM-DD
-                        String formatted = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
-                        _receiptData!['date'] = formatted;
-                      });
-                    }
-                  },
-                ),
-              ],
+              ),
             ),
 
             const SizedBox(height: 10),
@@ -1006,6 +1023,67 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
             
             const SizedBox(height: 20),
+            
+            // TAKSİTLİ HARCAMA SEÇENEĞİ (FİŞ TARAMA SONUCU)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade100),
+              ),
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: Text(
+                      AppLocalizations.of(context)!.installmentExpenseTitle ?? "Taksitli Harcama mı?",
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      AppLocalizations.of(context)!.installmentExpenseSub ?? "Bu fiş tutarı ay ay gider olarak yansıtılsın.",
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    value: _isInstallment,
+                    onChanged: (val) => setState(() => _isInstallment = val),
+                    secondary: const Icon(Icons.calendar_month, color: Colors.blue),
+                  ),
+                  if (_isInstallment)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Divider(),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(AppLocalizations.of(context)!.installmentCountLabel ?? "Taksit Sayısı:", style: const TextStyle(fontSize: 13)),
+                              Text(
+                                "$_installmentCount",
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
+                              ),
+                            ],
+                          ),
+                          Slider(
+                            value: _installmentCount.toDouble(),
+                            min: 2,
+                            max: 24,
+                            divisions: 22,
+                            label: _installmentCount.toString(),
+                            onChanged: (val) => setState(() => _installmentCount = val.toInt()),
+                          ),
+                          Text(
+                            "${AppLocalizations.of(context)!.monthlyPaymentAmount ?? 'Aylık Tutar'}: ₺${((double.tryParse(_totalController.text.replaceAll(',', '.')) ?? (_receiptData?['totalAmount']?.toDouble() ?? 0)) / _installmentCount).toStringAsFixed(2)}",
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -1110,8 +1188,48 @@ class _ScanScreenState extends State<ScanScreen> {
                         return;
                       }
 
-                      // Online mode - Supabase'e kaydet
-                      await _databaseService.saveReceipt(receiptDataToSave);
+                      // [NEW] Anlık Konum Etiketleme (GPS)
+                      String? currentCity;
+                      String? currentDistrict;
+                      try {
+                        final locationData = await LocationService().getCurrentCityAndDistrict();
+                        if (locationData != null) {
+                          currentCity = locationData['city'];
+                          currentDistrict = locationData['district'];
+                        }
+                      } catch (e) {
+                        debugPrint("Kayıt anında konum hatası (önemsiz): $e");
+                      }
+
+                      // Kaydetme Mantığı
+                      if (_isInstallment) {
+                        // Taksitli harcama olarak kaydet (user_credits tablosuna)
+                        final totalAmount = receiptDataToSave['totalAmount'] as double;
+                        final merchant = receiptDataToSave['merchantName']?.toString() ?? AppLocalizations.of(context)!.manualExpense;
+                        final dateStr = receiptDataToSave['date'] as String?;
+                        final receiptDate = DateTime.tryParse(dateStr ?? '') ?? DateTime.now();
+
+                        final credit = Credit(
+                          id: const Uuid().v4(),
+                          userId: '', // Servis dolduracak
+                          title: "[${AppLocalizations.of(context)!.installment}] $merchant",
+                          totalAmount: totalAmount,
+                          monthlyAmount: totalAmount / _installmentCount,
+                          totalInstallments: _installmentCount,
+                          remainingInstallments: _installmentCount,
+                          paymentDay: receiptDate.day,
+                          createdAt: receiptDate,
+                        );
+
+                        await _databaseService.addCredit(credit);
+                      } else {
+                        // Normal makbuz olarak kaydet
+                        await _databaseService.saveReceipt(
+                          receiptDataToSave,
+                          city: currentCity,
+                          district: currentDistrict
+                        );
+                      }
 
                       // Rozet Kontrolü - GamificationService içinde yapılıyor
 

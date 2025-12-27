@@ -111,14 +111,22 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Hero(
                             tag: 'app_logo',
                             child: Container(
-                              padding: const EdgeInsets.all(20),
+                              width: 140,
+                              height: 140,
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.1),
+                                color: AppColors.primary,
                                 shape: BoxShape.circle,
-                              ),
-                              child: const Text(
-                                '🧾',
-                                style: TextStyle(fontSize: 100),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primary.withOpacity(0.3),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                                image: const DecorationImage(
+                                  image: AssetImage('assets/images/login_hero.png'),
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
                           ),

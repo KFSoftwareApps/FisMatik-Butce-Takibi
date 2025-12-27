@@ -1,14 +1,15 @@
 
-
 class FamilyMember {
   final String userId;
   final String email;
   final String role; // 'owner' | 'member' vb.
+  final String status; // 'active' | 'pending' | 'rejected'
 
   const FamilyMember({
     required this.userId,
     required this.email,
     required this.role,
+    this.status = 'active',
   });
 
   Map<String, dynamic> toMap() {
@@ -16,6 +17,7 @@ class FamilyMember {
       'userId': userId,
       'email': email,
       'role': role,
+      'status': status,
     };
   }
 
@@ -24,6 +26,7 @@ class FamilyMember {
       userId: map['userId'] ?? '',
       email: map['email'] ?? '',
       role: map['role'] ?? 'member',
+      status: map['status'] ?? 'active',
     );
   }
 }

@@ -11,11 +11,13 @@ import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../core/app_theme.dart';
 import '../models/receipt_model.dart';
 import '../models/category_model.dart';
+import '../models/credit_model.dart';
 import '../models/user_level.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
 import '../services/ad_service.dart';
 import '../services/notification_service.dart';
+import '../services/location_service.dart';
 import '../services/gamification_service.dart';
 import 'upgrade_screen.dart';
 
@@ -56,6 +58,10 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
   int _usedManualEntries = 0;
   int? _manualLimit;
   bool _quotaLoaded = false;
+  
+  // Taksitli Gider State
+  bool _isInstallment = false;
+  int _installmentCount = 3;
 
   final SupabaseDatabaseService _databaseService = SupabaseDatabaseService();
   final AuthService _authService = AuthService();
@@ -252,51 +258,49 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
 
     try {
       final categoryName = _selectedCategoryName ?? AppLocalizations.of(context)!.other;
-      
-      // Ürün listesini hazırla
-      List<ReceiptItem> items = [];
-      if (_itemEntries.isNotEmpty) {
-        for (var entry in _itemEntries) {
-          final name = entry.nameController.text.trim();
-          final priceText = entry.priceController.text.replaceAll(',', '.').trim();
-          final price = double.tryParse(priceText) ?? 0;
-          
-          if (name.isNotEmpty && price > 0) {
-            items.add(ReceiptItem(name: name, price: price));
-          }
-        }
+
+      if (_isInstallment) {
+        // Taksitli harcama olarak kaydet (user_credits tablosuna)
+        final credit = Credit(
+          id: const Uuid().v4(),
+          userId: '', // Servis dolduracak
+          title: "[${AppLocalizations.of(context)!.installment}] ${merchant.isNotEmpty ? merchant : AppLocalizations.of(context)!.manualExpense}",
+          totalAmount: amount,
+          monthlyAmount: amount / _installmentCount,
+          totalInstallments: _installmentCount,
+          remainingInstallments: _installmentCount,
+          paymentDay: _selectedDate.day,
+          createdAt: _selectedDate,
+        );
+
+        await _databaseService.addCredit(credit);
       } else {
-        // Eğer ürün girilmediyse, tek bir kalem olarak ekle
-        final itemName = note.isNotEmpty ? note : AppLocalizations.of(context)!.manualExpense;
-        items.add(ReceiptItem(name: itemName, price: amount));
-      }
-
-      // Internet kontrolü (Basit check - Sadece Mobilde)
-      if (!kIsWeb) {
-        try {
-          await InternetAddress.lookup('google.com');
-        } on SocketException catch (_) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(AppLocalizations.of(context)!.noInternetError),
-                backgroundColor: AppColors.danger,
-              ),
-            );
+        // Normal makbuz olarak kaydet
+        List<ReceiptItem> items = [];
+        if (_itemEntries.isNotEmpty) {
+          for (var entry in _itemEntries) {
+            final name = entry.nameController.text.trim();
+            final priceText = entry.priceController.text.replaceAll(',', '.').trim();
+            final price = double.tryParse(priceText) ?? 0;
+            
+            if (name.isNotEmpty && price > 0) {
+              items.add(ReceiptItem(name: name, price: price));
+            }
           }
-          return;
+        } else {
+          final itemName = note.isNotEmpty ? note : AppLocalizations.of(context)!.manualExpense;
+          items.add(ReceiptItem(name: itemName, price: amount));
         }
-      }
 
-      // Online mode - Supabase'e kaydet
-      await _databaseService.saveManualReceipt(
-        merchantName: merchant.isNotEmpty ? merchant : AppLocalizations.of(context)!.manualExpense,
-        date: _selectedDate,
-        totalAmount: amount,
-        taxAmount: taxAmount,
-        category: categoryName,
-        items: items,
-      );
+        await _databaseService.saveManualReceipt(
+          merchantName: merchant.isNotEmpty ? merchant : AppLocalizations.of(context)!.manualExpense,
+          date: _selectedDate,
+          totalAmount: amount,
+          taxAmount: taxAmount,
+          category: categoryName,
+          items: items,
+        );
+      }
 
       // Bütçe Kontrolü
       try {
@@ -519,6 +523,63 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
                 },
               ),
               const SizedBox(height: 16),
+
+              // TAKSİTLİ HARCAMA SEÇENEĞİ
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade100),
+                ),
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      title: Text(
+                        AppLocalizations.of(context)!.installmentExpenseTitle ?? "Taksitli Harcama mı?",
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                      ),
+                      subtitle: Text(AppLocalizations.of(context)!.installmentExpenseSub ?? "Bu harcama ay ay gider olarak yansıtılsın."),
+                      value: _isInstallment,
+                      onChanged: (val) => setState(() => _isInstallment = val),
+                      secondary: const Icon(Icons.calendar_month, color: Colors.blue),
+                    ),
+                    if (_isInstallment)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(AppLocalizations.of(context)!.installmentCountLabel ?? "Taksit Sayısı:"),
+                                Text(
+                                  "$_installmentCount",
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue),
+                                ),
+                              ],
+                            ),
+                            Slider(
+                              value: _installmentCount.toDouble(),
+                              min: 2,
+                              max: 24,
+                              divisions: 22,
+                              label: _installmentCount.toString(),
+                              onChanged: (val) => setState(() => _installmentCount = val.toInt()),
+                            ),
+                            Text(
+                              "${AppLocalizations.of(context)!.monthlyPaymentAmount ?? 'Aylık Tutar'}: ₺${((double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0) / _installmentCount).toStringAsFixed(2)}",
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 13, fontStyle: FontStyle.italic),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
 
               // ÜRÜN EKLEME BÖLÜMÜ
               Text(

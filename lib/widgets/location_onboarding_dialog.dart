@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../services/profile_service.dart';
+import '../services/location_service.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 
 class LocationOnboardingDialog extends StatefulWidget {
@@ -26,13 +27,35 @@ class LocationOnboardingDialog extends StatefulWidget {
 class _LocationOnboardingDialogState extends State<LocationOnboardingDialog> {
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _districtController = TextEditingController();
+  bool _isDetecting = false;
   bool _isSaving = false;
 
-  @override
-  void dispose() {
-    _cityController.dispose();
-    _districtController.dispose();
-    super.dispose();
+  Future<void> _detectLocation() async {
+    setState(() => _isDetecting = true);
+    try {
+      final locationData = await LocationService().getCurrentCityAndDistrict();
+      if (locationData != null && mounted) {
+        setState(() {
+          _cityController.text = locationData['city'] ?? '';
+          _districtController.text = locationData['district'] ?? '';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.locationDetected(
+              locationData['city'] ?? '-',
+              locationData['district'] ?? '-',
+            )),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.locationError)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDetecting = false);
+    }
   }
 
   Future<void> _handleSave() async {
@@ -140,6 +163,24 @@ class _LocationOnboardingDialogState extends State<LocationOnboardingDialog> {
                   hintText: AppLocalizations.of(context)!.districtHint,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   prefixIcon: const Icon(Icons.place),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // OTOMATİK KONUM BUTONU
+              TextButton.icon(
+                onPressed: _isDetecting ? null : _detectLocation,
+                icon: _isDetecting 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.my_location, size: 18),
+                label: Text(
+                  _isDetecting 
+                    ? AppLocalizations.of(context)!.detecting 
+                    : AppLocalizations.of(context)!.detectLocation,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               ),
               const SizedBox(height: 32),

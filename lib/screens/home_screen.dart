@@ -12,6 +12,7 @@ import 'package:fismatik/services/supabase_database_service.dart';
 import 'package:fismatik/services/notification_service.dart';
 import 'package:fismatik/screens/scan_screen.dart';
 import 'package:fismatik/screens/receipt_detail_screen.dart';
+import 'package:fismatik/widgets/error_state.dart';
 import 'package:fismatik/screens/statistics_screen.dart';
 import 'package:fismatik/services/intelligence_service.dart';
 import 'package:fismatik/screens/subscriptions_screen.dart'; 
@@ -75,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     // Cache streams once to prevent reloading on setState
-    _receiptsStream = _databaseService.getReceipts();
+    _receiptsStream = _databaseService.getUnifiedReceiptsStream();
     _monthlyLimitStream = _databaseService.getMonthlyLimit();
     _subscriptionsStream = _databaseService.getSubscriptions();
     _creditsStream = _databaseService.getCredits();
@@ -226,237 +227,221 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Receipt>>(
-      stream: _receiptsStream, // Use cached stream
+      stream: _receiptsStream,
       builder: (context, receiptSnapshot) {
         return StreamBuilder<double>(
-          stream: _monthlyLimitStream, // Use cached stream
+          stream: _monthlyLimitStream,
           builder: (context, limitSnapshot) {
             return StreamBuilder<List<Subscription>>(
-              stream: _subscriptionsStream, // Use cached stream
+              stream: _subscriptionsStream,
               builder: (context, subSnapshot) {
                 return StreamBuilder<List<Credit>>(
-                  stream: _creditsStream, // Use cached stream
+                  stream: _creditsStream,
                   builder: (context, creditSnapshot) {
-                // Loading state
-                if (receiptSnapshot.connectionState == ConnectionState.waiting && receiptSnapshot.data == null) {
-                  // Only show loading if we have NO data yet (initial load)
-                  return const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                // Error state
-                if (receiptSnapshot.hasError) {
-                  return Scaffold(
-                    body: Center(
-                      child: Text(AppLocalizations.of(context)!.errorOccurred(receiptSnapshot.error.toString())),
-                    ),
-                  );
-                }
-
-                final allReceipts = receiptSnapshot.data ?? [];
-                final monthlyLimit = limitSnapshot.data ?? 5000.0;
-                final subscriptions = subSnapshot.data ?? [];
-                final credits = creditSnapshot.data ?? [];
-
-                // --- KULLANICI AYARLARI ÇEKME ---
-                return StreamBuilder<Map<String, dynamic>>(
-                  stream: _userSettingsStream, // Use cached stream
-                  builder: (context, settingsSnapshot) {
-                    final settings = settingsSnapshot.data ?? {'salary_day': 1};
-                    final int salaryDay = settings['salary_day'] as int;
-
-                    // --- FİLTRELEME İŞLEMİ ---
-                    final filteredReceipts = _filterReceipts(allReceipts, salaryDay);
-                    final totalSpending = _calculateTotal(filteredReceipts);
-
-                    // Sabit Giderler Toplamı (Abonelikler + Krediler)
-                    double totalFixedExpenses = 0;
-                    for (var sub in subscriptions) {
-                      totalFixedExpenses += sub.price;
-                    }
-                    for (var credit in credits) {
-                      totalFixedExpenses += credit.monthlyAmount;
-                    }
-
-                    // Bütçe Bildirimi Kontrolü (Ayda bir kez)
-                    final remainingBudget = monthlyLimit - totalSpending - totalFixedExpenses;
-                    
-                    // Widget Güncelleme
-                    WidgetService.updateWidget(
-                      totalSpending: totalSpending,
-                      remainingBudget: remainingBudget,
-                    );
-
-                    if (totalSpending > 0 && monthlyLimit > 0 && totalSpending > monthlyLimit) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) async {
-                        final prefs = await SharedPreferences.getInstance();
-                        final now = DateTime.now();
-                        final key = 'budget_warning_shown_${now.year}_${now.month}';
-                        
-                        final alreadyShown = prefs.getBool(key) ?? false;
-                        
-                        if (!alreadyShown) {
-                          if (monthlyLimit > 0) { // Use monthlyLimit as currentBudget
-                            // totalSpending is already calculated
-                            if (mounted) {
-                              await _notificationService.checkBudgetAndNotify(context, totalSpending, monthlyLimit);
-                            }
-                          }
-                          await prefs.setBool(key, true);
+                    return StreamBuilder<Map<String, dynamic>>(
+                      stream: _userSettingsStream,
+                      builder: (context, settingsSnapshot) {
+                        // Birincil yükleme durumu (En az fiş listesi gelene kadar bekle)
+                        if (receiptSnapshot.connectionState == ConnectionState.waiting && receiptSnapshot.data == null) {
+                          return const Scaffold(
+                            body: Center(child: CircularProgressIndicator()),
+                          );
                         }
-                      });
-                    }
 
-                    // AYLIK BÜTÇE BELİRLEME KONTROLÜ (Her ay başı)
-                    // Sadece oturum başına bir kez (veya rebuild başına değil) kontrol et
-                    if (!_initialBudgetCheckDone) {
-                      _initialBudgetCheckDone = true;
-                      WidgetsBinding.instance.addPostFrameCallback((_) async {
-                        final prefs = await SharedPreferences.getInstance();
-                        final now = DateTime.now();
-                        final key = 'budget_set_for_${now.year}_${now.month}';
-                        
-                        final isSet = prefs.getBool(key) ?? false;
-                        
-                        if (!isSet && context.mounted) {
-                          // Dialog göster
-                          _showMonthlyBudgetDialog(context, monthlyLimit, key);
+                        // Hata durumu
+                        if (receiptSnapshot.hasError) {
+                          final error = receiptSnapshot.error.toString();
+                          final isNetworkError = error.contains('SocketException') || error.contains('NetworkImage') || error.contains('ClientException');
+                          
+                          return Scaffold(
+                            backgroundColor: Colors.white,
+                            body: ErrorState(
+                              title: isNetworkError ? (AppLocalizations.of(context)!.noInternet ?? "Bağlantı Hatası") : (AppLocalizations.of(context)!.generalError ?? "Bir Hata Oluştu"),
+                              description: isNetworkError 
+                                  ? (AppLocalizations.of(context)!.networkError ?? "İnternet bağlantınızı kontrol edip tekrar deneyin.")
+                                  : error,
+                              icon: isNetworkError ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
+                              onRetry: () {
+                                if (mounted) {
+                                  setState(() {
+                                    _receiptsStream = _databaseService.getUnifiedReceiptsStream();
+                                  });
+                                }
+                              },
+                            ),
+                          );
                         }
-                      });
-                    }
 
-                    return Scaffold(
-                  backgroundColor: AppColors.background,
-                  body: SafeArea(
-                    top: false,
-                    child: ListView(
-                      padding: EdgeInsets.zero,
-                      children: [
-                        // Üst Kısım (Header + Özet)
-                        _buildHeaderSection(context, totalSpending, monthlyLimit, totalFixedExpenses),
+                        // Verileri hazırla (Fallback değerleri ile)
+                        final allReceipts = receiptSnapshot.data ?? [];
+                        final monthlyLimit = limitSnapshot.data ?? 5000.0;
+                        final subscriptions = subSnapshot.data ?? [];
+                        final credits = creditSnapshot.data ?? [];
+                        final settings = settingsSnapshot.data ?? {'salary_day': 1};
+                        final int salaryDay = settings['salary_day'] as int;
 
-                        const SizedBox(height: 16),
+                        // Filtreleme ve Hesaplama
+                        final filteredReceipts = _filterReceipts(allReceipts, salaryDay);
+                        
+                        // Header için sadece gerçek fişleri topla (Sabit giderler ayrıca hesaplanıyor)
+                        final realReceipts = filteredReceipts.where((r) => !r.id.startsWith('sub_') && !r.id.startsWith('credit_')).toList();
+                        final totalSpending = _calculateTotal(realReceipts);
 
-                        // Filtre Butonları
-                        _buildFilterTabs(),
+                        double totalFixedExpenses = 0;
+                        for (var sub in subscriptions) {
+                          totalFixedExpenses += sub.price;
+                        }
+                        for (var credit in credits) {
+                          totalFixedExpenses += credit.monthlyAmount;
+                        }
 
-                        // Phase 8: SMS Harcama Bildirimi
-                        if (_pendingSmsExpenses.isNotEmpty)
-                          _buildPendingSmsBanner(),
+                        final remainingBudget = monthlyLimit - totalSpending - totalFixedExpenses;
 
-                        // Liste İçeriği
-                        Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
+                        // Widget ve Bildirim Kontrolleri (Async)
+                        _performBackgroundChecks(context, totalSpending, monthlyLimit, remainingBudget);
+
+                        return Container(
+                          color: AppColors.background,
+                          child: ListView(
+                            padding: EdgeInsets.zero,
+                            physics: const AlwaysScrollableScrollPhysics(),
                             children: [
-                              // Hızlı İşlem Butonları
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildActionButton(
-                                      icon: Icons.camera_alt,
-                                      label: AppLocalizations.of(context)!.scanReceipt,
-                                      onTap: () async {
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const ScanScreen(),
-                                          ),
-                                        );
-                                        if (mounted) _refreshData();
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildActionButton(
-                                      icon: Icons.pie_chart,
-                                      label: AppLocalizations.of(context)!.statistics,
-                                      onTap: () async {
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const StatisticsScreen(),
-                                          ),
-                                        );
-                                        if (mounted) _refreshData();
-                                      },
-                                      isPrimary: false,
-                                      customColor: Colors.orange,
-                                      customBackgroundColor: Colors.orange.shade50,
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 24),
-
-
-                              // Başlık
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    "${AppLocalizations.of(context)!.expenses} (${_getFilterLabel(_selectedFilter)})",
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                  Text(
-                                    AppLocalizations.of(context)!.receiptCount(filteredReceipts.length),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(color: AppColors.primary),
-                                  ),
-                                ],
-                              ),
-
+                              _buildHeaderSection(context, totalSpending, monthlyLimit, totalFixedExpenses),
                               const SizedBox(height: 16),
-
-                              if (filteredReceipts.isEmpty)
-                                _buildEmptyState()
-                              else
-                                ...filteredReceipts.map(
-                                  (receipt) => _buildHomeReceiptTile(
-                                    context: context,
-                                    receipt: receipt,
+                              _buildFilterTabs(),
+                              if (_pendingSmsExpenses.isNotEmpty) _buildPendingSmsBanner(),
+                              Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  children: [
+                                    _buildQuickActions(context),
+                                    const SizedBox(height: 24),
+                                    _buildSectionHeader(context, filteredReceipts.length),
+                                    const SizedBox(height: 16),
+                                    if (filteredReceipts.isEmpty)
+                                      _buildEmptyState()
+                                    else
+                                      ...filteredReceipts.map(
+                                        (receipt) => _buildHomeReceiptTile(
+                                          context: context,
+                                          receipt: receipt,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              if (kIsWeb && _currentTierId == 'standart')
+                                const Center(
+                                  child: WebAdBanner(
+                                    adSlot: '8945074304',
+                                    width: 320,
+                                    height: 100,
                                   ),
                                 ),
+                              const SizedBox(height: 40),
                             ],
                           ),
-                        ),
-                        
-                        // Alt boşluk (Padding)
-                        const SizedBox(height: 16),
-
-                        if (kIsWeb && _currentTierId == 'standart')
-                          const Center(
-                            child: WebAdBanner(
-                              adSlot: '8945074304',
-                              width: 320,
-                              height: 100,
-                            ),
-                          ),
-
-                        const SizedBox(height: 40),
-                      ],
-                    ),
-                  ),
+                        );
+                      },
+                    );
+                  },
                 );
-                  }
-                );
-              }
+              },
             );
           },
         );
       },
     );
   }
+
+  void _performBackgroundChecks(BuildContext context, double totalSpending, double monthlyLimit, double remainingBudget) {
+    // Widget Güncelleme
+    WidgetService.updateWidget(
+      totalSpending: totalSpending,
+      remainingBudget: remainingBudget,
+    );
+
+    // Bütçe aşımı kontrolü
+    if (totalSpending > 0 && monthlyLimit > 0 && totalSpending > monthlyLimit) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final prefs = await SharedPreferences.getInstance();
+        final now = DateTime.now();
+        final key = 'budget_warning_shown_${now.year}_${now.month}';
+        final alreadyShown = prefs.getBool(key) ?? false;
+
+        if (!alreadyShown && mounted) {
+          await _notificationService.checkBudgetAndNotify(context, totalSpending, monthlyLimit);
+          await prefs.setBool(key, true);
+        }
+      });
+    }
+
+    // Aylık Limit Belirleme Dialogu (İlk kez)
+    if (!_initialBudgetCheckDone) {
+      _initialBudgetCheckDone = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final prefs = await SharedPreferences.getInstance();
+        final now = DateTime.now();
+        final key = 'budget_set_for_${now.year}_${now.month}';
+        final isSet = prefs.getBool(key) ?? false;
+        if (!isSet && context.mounted) {
+          _showMonthlyBudgetDialog(context, monthlyLimit, key);
+        }
+      });
+    }
+  }
+
+  Widget _buildQuickActions(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.camera_alt,
+            label: AppLocalizations.of(context)!.scanReceipt,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ScanScreen()),
+              );
+              if (mounted) _refreshData();
+            },
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.pie_chart,
+            label: AppLocalizations.of(context)!.statistics,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const StatisticsScreen()),
+              );
+              if (mounted) _refreshData();
+            },
+            isPrimary: false,
+            customColor: Colors.orange,
+            customBackgroundColor: Colors.orange.shade50,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(BuildContext context, int count) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          "${AppLocalizations.of(context)!.expenses} (${_getFilterLabel(_selectedFilter)})",
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        Text(
+          AppLocalizations.of(context)!.receiptCount(count),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+        ),
+      ],
     );
   }
 
@@ -469,7 +454,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final remaining = monthlyLimit - totalSpending - totalFixedExpenses;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + 20,
+        left: 24,
+        right: 24,
+        bottom: 24,
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
@@ -483,7 +473,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Column(
         children: [
-          const SizedBox(height: 40),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

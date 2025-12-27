@@ -4,6 +4,7 @@ import 'package:fismatik/core/app_theme.dart';
 import 'package:fismatik/models/shopping_item_model.dart';
 import 'package:fismatik/services/supabase_database_service.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
+import '../widgets/error_state.dart';
 
 class ShoppingListScreen extends StatefulWidget {
   const ShoppingListScreen({super.key});
@@ -124,17 +125,17 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: Text(AppLocalizations.of(context)!.clearChecked),
-                  content: Text(AppLocalizations.of(context)!.clearCheckedConfirm),
+                  title: Text(AppLocalizations.of(context)!.deleteAllTitle ?? "Hepsini Sil"),
+                  content: Text(AppLocalizations.of(context)!.deleteAllConfirm ?? "Listedeki tüm ürünler silinecektir. Emin misiniz?"),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   actions: [
                     TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppLocalizations.of(context)!.cancel)),
-                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(AppLocalizations.of(context)!.yes, style: const TextStyle(color: Colors.red))),
+                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(AppLocalizations.of(context)!.delete, style: const TextStyle(color: Colors.red))),
                   ],
                 ),
               );
               if (confirm == true) {
-                await _databaseService.clearCheckedItems();
+                await _databaseService.deleteAllShoppingItems();
               }
             },
           ),
@@ -150,6 +151,21 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  final error = snapshot.error.toString();
+                  final isNetworkError = error.contains('SocketException') || error.contains('NetworkImage') || error.contains('ClientException');
+                  return ErrorState(
+                    title: isNetworkError ? (AppLocalizations.of(context)!.noInternet ?? "Bağlantı Hatası") : (AppLocalizations.of(context)!.generalError ?? "Bir Hata Oluştu"),
+                    description: isNetworkError 
+                        ? (AppLocalizations.of(context)!.networkError ?? "İnternet bağlantınızı kontrol edip tekrar deneyin.")
+                        : error,
+                    icon: isNetworkError ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
+                    onRetry: () {
+                      setState(() {});
+                    },
+                  );
                 }
 
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {

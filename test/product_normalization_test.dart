@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fismatik/services/supabase_database_service.dart';
 import 'package:fismatik/services/product_normalization_service.dart';
 

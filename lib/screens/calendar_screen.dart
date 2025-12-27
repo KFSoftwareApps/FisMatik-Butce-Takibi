@@ -6,6 +6,7 @@ import '../models/receipt_model.dart';
 import '../services/supabase_database_service.dart';
 import 'receipt_detail_screen.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
+import '../widgets/error_state.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -29,7 +30,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
-    _receiptsStream = _databaseService.getReceipts();
+    _receiptsStream = _databaseService.getUnifiedReceiptsStream();
   }
 
   // Tüm fişleri güne göre gruplayan fonksiyon
@@ -84,6 +85,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+             final error = snapshot.error.toString();
+             final isNetworkError = error.contains('SocketException') || error.contains('NetworkImage') || error.contains('ClientException');
+             return ErrorState(
+               title: isNetworkError ? (AppLocalizations.of(context)!.noInternet ?? "Bağlantı Hatası") : (AppLocalizations.of(context)!.generalError ?? "Bir Hata Oluştu"),
+               description: isNetworkError 
+                   ? (AppLocalizations.of(context)!.networkError ?? "İnternet bağlantınızı kontrol edip tekrar deneyin.")
+                   : error,
+               icon: isNetworkError ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
+               onRetry: () {
+                 setState(() {
+                   _receiptsStream = _databaseService.getUnifiedReceiptsStream();
+                 });
+               },
+             );
           }
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(

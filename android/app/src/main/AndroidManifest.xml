@@ -13,6 +13,10 @@
     <!-- Biometrik -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- Konum (Phase 32) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- SMS (Phase 8) -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
@@ -62,7 +66,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <!-- Supabase Redirect URL şeması -->
-                <data android:scheme="io.supabase.flutterquickstart" />
+                <data android:scheme="fismatik" />
             </intent-filter>
 
             <!-- Custom Deep Link for Widget -->
@@ -81,6 +85,14 @@
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="ocr" />
+
+        <receiver android:name="com.shounakmulay.telephony.SmsReceiver"
+            android:permission="android.permission.BROADCAST_SMS"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
 
         <receiver android:name=".FismatikWidget" android:exported="true">
             <intent-filter>

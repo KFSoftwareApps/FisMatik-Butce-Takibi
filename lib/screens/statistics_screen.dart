@@ -38,7 +38,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   @override
   void initState() {
     super.initState();
-    _receiptsStream = _databaseService.getReceipts();
+    _receiptsStream = _databaseService.getUnifiedReceiptsStream();
     _userSettingsStream = _databaseService.getUserSettings();
     _checkInitialFilter();
   }
