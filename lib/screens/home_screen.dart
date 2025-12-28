@@ -71,6 +71,8 @@ class _HomeScreenState extends State<HomeScreen> {
   // Özel Tarih Aralığı
   DateTime? _customStartDate;
   DateTime? _customEndDate;
+  
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -83,6 +85,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _userSettingsStream = _databaseService.getUserSettings();
     
     _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadInitialData() async {
@@ -309,8 +317,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         return Container(
                           color: AppColors.background,
                           child: ListView(
+                            controller: _scrollController,
                             padding: EdgeInsets.zero,
-                            physics: const AlwaysScrollableScrollPhysics(),
+                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                             children: [
                               _buildHeaderSection(context, totalSpending, monthlyLimit, totalFixedExpenses),
                               const SizedBox(height: 16),
