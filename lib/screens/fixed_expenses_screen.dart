@@ -23,6 +23,7 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
   late Stream<List<Subscription>> _subscriptionsStream;
   late Stream<List<Credit>> _creditsStream;
   double _totalMonthlyCost = 0.0;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -38,6 +39,12 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
         }
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _refreshData() {
@@ -616,6 +623,8 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
         iconTheme: const IconThemeData(color: AppColors.textDark),
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         padding: const EdgeInsets.only(bottom: 100),
         child: Column(
           children: [
