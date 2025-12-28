@@ -75,7 +75,10 @@ class _MainWrapperState extends State<MainWrapper> {
   Widget build(BuildContext context) {
     return Scaffold(
       // Seçili sayfayı göster
-      body: _pages[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
 
       // ORTADAKİ SCAN (TARAMA) BUTONU
       floatingActionButton: FloatingActionButton(

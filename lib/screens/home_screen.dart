@@ -316,45 +316,66 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         return Container(
                           color: AppColors.background,
-                          child: ListView(
+                          child: CustomScrollView(
                             controller: _scrollController,
-                            padding: EdgeInsets.zero,
                             physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                            children: [
-                              _buildHeaderSection(context, totalSpending, monthlyLimit, totalFixedExpenses),
-                              const SizedBox(height: 16),
-                              _buildFilterTabs(),
-                              if (_pendingSmsExpenses.isNotEmpty) _buildPendingSmsBanner(),
-                              Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  children: [
+                            slivers: [
+                              SliverToBoxAdapter(
+                                child: _buildHeaderSection(context, totalSpending, monthlyLimit, totalFixedExpenses),
+                              ),
+                              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                              SliverToBoxAdapter(
+                                child: _buildFilterTabs(),
+                              ),
+                              if (_pendingSmsExpenses.isNotEmpty) 
+                                SliverToBoxAdapter(child: _buildPendingSmsBanner()),
+                              
+                              SliverPadding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                                sliver: SliverList(
+                                  delegate: SliverChildListDelegate([
                                     _buildQuickActions(context),
                                     const SizedBox(height: 24),
                                     _buildSectionHeader(context, filteredReceipts.length),
                                     const SizedBox(height: 16),
-                                    if (filteredReceipts.isEmpty)
-                                      _buildEmptyState()
-                                    else
-                                      ...filteredReceipts.map(
-                                        (receipt) => _buildHomeReceiptTile(
-                                          context: context,
-                                          receipt: receipt,
-                                        ),
-                                      ),
-                                  ],
+                                  ]),
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              if (kIsWeb && _currentTierId == 'standart')
-                                const Center(
-                                  child: WebAdBanner(
-                                    adSlot: '8945074304',
-                                    width: 320,
-                                    height: 100,
+
+                              if (filteredReceipts.isEmpty)
+                                SliverToBoxAdapter(child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: _buildEmptyState(),
+                                ))
+                              else
+                                SliverPadding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  sliver: SliverList(
+                                    delegate: SliverChildBuilderDelegate(
+                                      (context, index) {
+                                        final receipt = filteredReceipts[index];
+                                        return _buildHomeReceiptTile(
+                                          context: context,
+                                          receipt: receipt,
+                                        );
+                                      },
+                                      childCount: filteredReceipts.length,
+                                    ),
                                   ),
                                 ),
-                              const SizedBox(height: 40),
+
+                              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                              if (kIsWeb && _currentTierId == 'standart')
+                                const SliverToBoxAdapter(
+                                  child: Center(
+                                    child: WebAdBanner(
+                                      adSlot: '8945074304',
+                                      width: 320,
+                                      height: 100,
+                                    ),
+                                  ),
+                                ),
+                              const SliverToBoxAdapter(child: SizedBox(height: 40)),
                             ],
                           ),
                         );
