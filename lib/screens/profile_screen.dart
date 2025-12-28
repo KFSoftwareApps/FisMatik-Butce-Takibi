@@ -276,26 +276,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 20),
                             _buildSectionTitle(AppLocalizations.of(context)!.accountSection),
-                            _buildSettingsTile(
-                              context,
-                              icon: Icons.family_restroom,
-                              title: AppLocalizations.of(context)!.familyPlan,
-                              color: Colors.pink,
-                              trailing: FutureBuilder<List<Map<String, dynamic>>>(
-                                future: FamilyService().getPendingInvitations(),
-                                builder: (context, snapshot) {
-                                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                                    return Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                                      child: Text("${snapshot.data!.length}", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                    );
-                                  }
-                                  return const Icon(Icons.arrow_forward_ios, size: 16);
-                                },
+                            if (tierId == 'limitless_family')
+                              _buildSettingsTile(
+                                context,
+                                icon: Icons.family_restroom,
+                                title: AppLocalizations.of(context)!.familyPlan,
+                                color: Colors.pink,
+                                trailing: FutureBuilder<List<Map<String, dynamic>>>(
+                                  future: FamilyService().getPendingInvitations(),
+                                  builder: (context, snapshot) {
+                                    if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                                      return Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                                        child: Text("${snapshot.data!.length}", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                      );
+                                    }
+                                    return const Icon(Icons.arrow_forward_ios, size: 16);
+                                  },
+                                ),
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FamilyPlanScreen())),
                               ),
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FamilyPlanScreen())),
-                            ),
                             if (tierId == 'limitless' || tierId == 'limitless_family' || tierId == 'premium')
                             _buildSettingsTile(
                               context,
