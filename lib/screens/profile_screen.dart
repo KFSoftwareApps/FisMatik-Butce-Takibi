@@ -901,16 +901,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final colors = tierColors[tier.id] ?? tierColors['standart']!;
     final icon = tierIcons[tier.id] ?? Icons.person;
 
-    String description;
-    if (tier.id == 'limitless_family') {
-      description = AppLocalizations.of(context)!.familyPlanMembersLimit;
-    } else if (tier.id == 'limitless') {
-      description = AppLocalizations.of(context)!.limitlessPlanLimit;
-    } else if (tier.id == 'premium') {
-      description = AppLocalizations.of(context)!.premiumPlanLimit;
-    } else {
-      description = AppLocalizations.of(context)!.standardPlanLimit;
-    }
 
     return Container(
       padding: const EdgeInsets.all(20),
