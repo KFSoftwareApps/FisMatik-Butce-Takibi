@@ -204,9 +204,15 @@ class _HomeScreenState extends State<HomeScreen> {
         return receipt.date.isAfter(startOfWeek.subtract(const Duration(seconds: 1))) && 
                receipt.date.isBefore(endOfWeek);
       } else if (_selectedFilter == FILTER_MONTH) {
-         return receipt.date.year == now.year && receipt.date.month == now.month;
+         final startOfMonth = DateTime(now.year, now.month, 1);
+         final endOfMonth = DateTime(now.year, now.month + 1, 1).subtract(const Duration(seconds: 1));
+         return receipt.date.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && 
+                receipt.date.isBefore(endOfMonth.add(const Duration(seconds: 1)));
       } else if (_selectedFilter == FILTER_YEAR) {
-         return receipt.date.year == now.year;
+         final startOfYear = DateTime(now.year, 1, 1);
+         final endOfYear = DateTime(now.year + 1, 1, 1).subtract(const Duration(seconds: 1));
+         return receipt.date.isAfter(startOfYear.subtract(const Duration(seconds: 1))) && 
+                receipt.date.isBefore(endOfYear.add(const Duration(seconds: 1)));
       } else if (_selectedFilter == 'custom') { // Assuming 'custom' key for custom calendar if used
          if (_customStartDate != null && _customEndDate != null) {
            return receipt.date.isAfter(_customStartDate!.subtract(const Duration(seconds: 1))) &&
