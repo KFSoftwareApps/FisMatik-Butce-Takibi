@@ -242,7 +242,14 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                                     style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
                                 ],
                               ),
-                              onTap: () => _showAddInstallmentDialog(credit: credit),
+                              onTap: () {
+                                if (credit.totalInstallments == 999) {
+                                  // Kredi kartı silme/düzenleme (şimdilik silme)
+                                  _deleteInstallment(credit.id);
+                                } else {
+                                  _showAddInstallmentDialog(credit: credit);
+                                }
+                              }, 
                               onLongPress: () => _deleteInstallment(credit.id),
                             ),
                           );
@@ -254,11 +261,154 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddInstallmentDialog(),
+        onPressed: _showAddSelectionSheet,
         backgroundColor: Colors.blue,
-        label: Text(AppLocalizations.of(context)!.addManualExpense, style: const TextStyle(color: Colors.white)),
+        label: Text(AppLocalizations.of(context)!.add, style: const TextStyle(color: Colors.white)),
         icon: const Icon(Icons.add, color: Colors.white),
       ),
+    );
+  }
+
+  // --- KREDİ KARTI EKLEME ---
+  Future<void> _showAddCreditCardDialog() async {
+    final bankController = TextEditingController();
+    final limitController = TextEditingController();
+    final debtController = TextEditingController();
+    final dayController = TextEditingController(text: '1');
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(AppLocalizations.of(context)!.addCreditCard),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: bankController,
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.bankNameHint,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.account_balance),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: limitController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.cardLimit,
+                  suffixText: "TL",
+                  helperText: AppLocalizations.of(context)!.cardLimitHelper,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.speed),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: debtController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.currentStatementDebt,
+                  suffixText: "TL",
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.money_off),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: dayController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.lastPaymentDayHint,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.calendar_today),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(AppLocalizations.of(context)!.cancel)),
+          ElevatedButton(
+            onPressed: () async {
+              if (bankController.text.isEmpty || debtController.text.isEmpty || limitController.text.isEmpty) return;
+
+              final limit = double.tryParse(limitController.text.replaceAll(',', '.')) ?? 0;
+              final debt = double.tryParse(debtController.text.replaceAll(',', '.')) ?? 0;
+              final day = int.tryParse(dayController.text) ?? 1;
+
+              // Asgari Tutar Hesabı
+              // Limit > 20.000 ise %40, değilse %20
+              final rate = limit > 20000 ? 0.40 : 0.20;
+              final minPayment = debt * rate;
+
+              final newCredit = Credit(
+                id: const Uuid().v4(),
+                userId: '', // Service fills this
+                title: "${bankController.text} (${AppLocalizations.of(context)!.creditCard ?? 'Kredi Kartı'})",
+                totalAmount: debt, // Toplam Borç
+                monthlyAmount: minPayment, // Asgari Ödeme
+                totalInstallments: 999, // Sürekli
+                paymentDay: day.clamp(1, 31),
+                createdAt: DateTime.now(),
+              );
+
+              await _databaseService.addCredit(newCredit);
+
+              if (mounted) {
+                Navigator.pop(ctx);
+                _refreshData();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(AppLocalizations.of(context)!.minPaymentCalculated(minPayment.toStringAsFixed(2))),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+            child: Text(AppLocalizations.of(context)!.save),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddSelectionSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.calendar_month, color: Colors.blue, size: 32),
+                title: Text(AppLocalizations.of(context)!.addCreditInstallment, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(AppLocalizations.of(context)!.addCreditInstallmentSub),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAddInstallmentDialog();
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.credit_card, color: Colors.orange, size: 32),
+                title: Text(AppLocalizations.of(context)!.addCreditCard, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(AppLocalizations.of(context)!.addCreditCardSub),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAddCreditCardDialog();
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
     );
   }
 }

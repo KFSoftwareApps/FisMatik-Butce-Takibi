@@ -3,14 +3,11 @@ import 'package:uuid/uuid.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../core/app_theme.dart';
 import '../models/subscription_model.dart';
-import '../models/credit_model.dart';
 import '../services/supabase_database_service.dart';
 import '../services/notification_service.dart';
 
 class FixedExpensesScreen extends StatefulWidget {
-  final bool openAddCreditDialogOnInit;
-
-  const FixedExpensesScreen({super.key, this.openAddCreditDialogOnInit = false});
+  const FixedExpensesScreen({super.key});
 
   @override
   State<FixedExpensesScreen> createState() => _FixedExpensesScreenState();
@@ -21,7 +18,6 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
   final NotificationService _notificationService = NotificationService();
   
   late Stream<List<Subscription>> _subscriptionsStream;
-  late Stream<List<Credit>> _creditsStream;
   double _totalMonthlyCost = 0.0;
   final ScrollController _scrollController = ScrollController();
 
@@ -29,16 +25,6 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
   void initState() {
     super.initState();
     _refreshData();
-    
-    if (widget.openAddCreditDialogOnInit) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        // Ufak bir gecikme ekleyerek sayfanın tam yüklenmesini ve çizilmesini bekleyelim
-        await Future.delayed(const Duration(milliseconds: 300));
-        if (mounted) {
-          _showAddCreditDialog();
-        }
-      });
-    }
   }
 
   @override
@@ -50,278 +36,7 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
   void _refreshData() {
     setState(() {
       _subscriptionsStream = _databaseService.getSubscriptions();
-      _creditsStream = _databaseService.getCredits();
     });
-  }
-
-  // --- KREDİ EKLEME/DÜZENLEME ---
-  Future<void> _showAddCreditDialog({Credit? credit}) async {
-    final isEditing = credit != null;
-    final isCreditCard = credit?.totalInstallments == 999;
-    
-    final titleController = TextEditingController(text: credit?.title);
-    final totalAmountController = TextEditingController(text: credit?.totalAmount.toString());
-    final monthlyAmountController = TextEditingController(text: credit?.monthlyAmount.toString());
-    final totalInstallmentsController = TextEditingController(text: credit?.totalInstallments.toString());
-    final remainingInstallmentsController = TextEditingController(text: credit?.remainingInstallments.toString());
-    final dayController = TextEditingController(text: credit?.paymentDay.toString() ?? '15');
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isCreditCard 
-            ? AppLocalizations.of(context)!.editCreditCard 
-            : (isEditing ? AppLocalizations.of(context)!.editCredit : AppLocalizations.of(context)!.addNewCredit)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context)!.creditNameHint,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.label),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: totalAmountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: isCreditCard 
-                      ? AppLocalizations.of(context)!.currentTotalDebt 
-                      : AppLocalizations.of(context)!.totalCreditAmount,
-                  suffixText: "TL",
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.money),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: monthlyAmountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: isCreditCard 
-                      ? AppLocalizations.of(context)!.minimumPaymentAmount 
-                      : AppLocalizations.of(context)!.monthlyInstallmentAmount,
-                  suffixText: "TL",
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.calendar_view_day),
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (!isCreditCard) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: totalInstallmentsController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: AppLocalizations.of(context)!.totalInstallmentsLabel,
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: remainingInstallmentsController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: AppLocalizations.of(context)!.remainingInstallmentsLabel,
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-              ],
-              TextField(
-                controller: dayController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context)!.paymentDayHint,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.calendar_today),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(AppLocalizations.of(context)!.cancel)),
-          ElevatedButton(
-            onPressed: () async {
-              if (titleController.text.isEmpty || monthlyAmountController.text.isEmpty) return;
-
-              final total = double.tryParse(totalAmountController.text.replaceAll(',', '.')) ?? 0;
-              final monthly = double.tryParse(monthlyAmountController.text.replaceAll(',', '.')) ?? 0;
-              // If it's a credit card, force 999. If not, parse or default to 12.
-              final totalInst = isCreditCard ? 999 : (int.tryParse(totalInstallmentsController.text) ?? 12);
-              final remainingInst = isCreditCard ? 999 : (int.tryParse(remainingInstallmentsController.text) ?? totalInst);
-              final day = int.tryParse(dayController.text) ?? 15;
-
-              final newCredit = Credit(
-                id: credit?.id ?? const Uuid().v4(),
-                userId: '', // Service fills this
-                title: titleController.text,
-                totalAmount: total,
-                monthlyAmount: monthly,
-                totalInstallments: totalInst,
-
-                paymentDay: day.clamp(1, 31),
-                createdAt: credit?.createdAt ?? DateTime.now(),
-              );
-
-              if (isEditing) {
-                await _databaseService.deleteCredit(newCredit.id);
-              }
-              await _databaseService.addCredit(newCredit);
-
-              if (mounted) {
-                Navigator.pop(ctx);
-                _refreshData();
-              }
-            },
-            child: Text(AppLocalizations.of(context)!.save),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- KREDİ KARTI EKLEME ---
-  Future<void> _showAddCreditCardDialog() async {
-    final bankController = TextEditingController();
-    final limitController = TextEditingController();
-    final debtController = TextEditingController();
-    final dayController = TextEditingController(text: '1');
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.addCreditCard),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: bankController,
-                decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context)!.bankNameHint,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.account_balance),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: limitController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context)!.cardLimit,
-                  suffixText: "TL",
-                  helperText: AppLocalizations.of(context)!.cardLimitHelper,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.speed),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: debtController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context)!.currentStatementDebt,
-                  suffixText: "TL",
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.money_off),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: dayController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context)!.lastPaymentDayHint,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.calendar_today),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(AppLocalizations.of(context)!.cancel)),
-          ElevatedButton(
-            onPressed: () async {
-              if (bankController.text.isEmpty || debtController.text.isEmpty || limitController.text.isEmpty) return;
-
-              final limit = double.tryParse(limitController.text.replaceAll(',', '.')) ?? 0;
-              final debt = double.tryParse(debtController.text.replaceAll(',', '.')) ?? 0;
-              final day = int.tryParse(dayController.text) ?? 1;
-
-              // Asgari Tutar Hesabı
-              // Limit > 20.000 ise %40, değilse %20
-              final rate = limit > 20000 ? 0.40 : 0.20;
-              final minPayment = debt * rate;
-
-              final newCredit = Credit(
-                id: const Uuid().v4(),
-                userId: '', // Service fills this
-                title: "${bankController.text} (${AppLocalizations.of(context)!.addCreditCard})",
-                totalAmount: debt, // Toplam Borç
-                monthlyAmount: minPayment, // Asgari Ödeme
-                totalInstallments: 999, // Sürekli
-
-                paymentDay: day.clamp(1, 31),
-                createdAt: DateTime.now(),
-              );
-
-              await _databaseService.addCredit(newCredit);
-
-              if (mounted) {
-                Navigator.pop(ctx);
-                _refreshData();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(AppLocalizations.of(context)!.minPaymentCalculated(minPayment.toStringAsFixed(2))),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
-            },
-            child: Text(AppLocalizations.of(context)!.save),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-
-  // --- DELETE CONFIRMATION ---
-  Future<void> _deleteCredit(String id) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.deleteConfirmTitle),
-        content: Text(AppLocalizations.of(context)!.deleteCreditMessage),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppLocalizations.of(context)!.cancel)),
-          
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true), 
-            child: Text(AppLocalizations.of(context)!.delete, style: const TextStyle(color: Colors.red))
-          ),
-        ],
-      ),
-    );
-    if (confirm == true) {
-      await _databaseService.deleteCredit(id);
-      if (mounted) _refreshData();
-    }
   }
 
   // --- SUBSCRIPTIONS LOGIC (Existing) ---
@@ -461,37 +176,13 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
                     ],
                   ),
                 ),
-                if (!isSearching && searchQuery.isEmpty) ...[
-                   ListTile(
-                    leading: const Icon(Icons.credit_card, color: AppColors.primary, size: 32),
-                    title: Text(AppLocalizations.of(context)!.addCreditInstallment, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(AppLocalizations.of(context)!.addCreditInstallmentSub),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _showAddCreditDialog();
-                    },
-                  ),
-                   ListTile(
-                    leading: const Icon(Icons.credit_score, color: Colors.orange, size: 32),
-                    title: Text(AppLocalizations.of(context)!.addCreditCard, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(AppLocalizations.of(context)!.addCreditCardSub),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _showAddCreditCardDialog();
-                    },
-                  ),
-                  const Divider(),
-                ],
                 Expanded(
                   child: filteredExpenses.isEmpty
                       ? Center(child: Text(AppLocalizations.of(context)!.noResultsFound))
                       : ListView(
                           children: filteredExpenses.entries.expand((entry) {
-                            // Show Header only if searching? Or always? Always is better context.
                             return [
-                              if (searchQuery.isNotEmpty) // Optional: Show category header during search
+                              if (searchQuery.isNotEmpty) 
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   child: Text(entry.key, style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
@@ -553,7 +244,6 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
   }
 
   Future<void> _addOrUpdateSubscription({Subscription? subscription, String? prefilledName}) async {
-    // Same logic as before
     final isEditing = subscription != null;
     final nameController = TextEditingController(text: subscription?.name ?? prefilledName);
     final priceController = TextEditingController(text: subscription?.price.toString());
@@ -622,171 +312,100 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textDark),
       ),
-      body: SingleChildScrollView(
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-        padding: const EdgeInsets.only(bottom: 100),
-        child: Column(
-          children: [
-            // --- HEADER SUMMARY ---
-            // --- HEADER SUMMARY ---
-            StreamBuilder<List<Subscription>>(
-              stream: _subscriptionsStream,
-              builder: (context, subSnapshot) {
-                return StreamBuilder<List<Credit>>(
-                  stream: _creditsStream,
-                  builder: (context, creditSnapshot) {
-                    double total = 0;
-                    
-                    if (subSnapshot.hasData) {
-                      total += subSnapshot.data!.fold(0.0, (sum, item) => sum + item.price);
-                    }
-                    
-                    if (creditSnapshot.hasData) {
-                      total += creditSnapshot.data!.fold(0.0, (sum, item) => sum + item.monthlyAmount);
-                    }
+      body: StreamBuilder<List<Subscription>>(
+        stream: _subscriptionsStream,
+        builder: (context, snapshot) {
+          // Wrap logic to simplify
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          
+          final subscriptions = snapshot.data ?? [];
+          final total = subscriptions.fold(0.0, (sum, item) => sum + item.price);
 
-                    return Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.all(20),
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          Text(AppLocalizations.of(context)!.totalMonthlyFixedExpenses, style: const TextStyle(color: Colors.white70)),
-                          Text("₺${total.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-             
-             // --- KREDİLER SECTION ---
-             Padding(
-               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-               child: Row(
-                 children: [
-                   const Icon(Icons.credit_card, size: 20),
-                   const SizedBox(width: 8),
-                   Text(AppLocalizations.of(context)!.myCredits, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                 ],
-               ),
-             ),
-             StreamBuilder<List<Credit>>(
-               stream: _creditsStream,
-               builder: (context, snapshot) {
-                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                   return Padding(
-                     padding: const EdgeInsets.all(20.0),
-                     child: Text(AppLocalizations.of(context)!.noCreditsAdded, style: const TextStyle(color: Colors.grey)),
-                   );
-                 }
-                 return ListView.builder(
-                   shrinkWrap: true,
-                   physics: const NeverScrollableScrollPhysics(),
-                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                   itemCount: snapshot.data!.length,
-                   itemBuilder: (context, index) {
-                     final credit = snapshot.data![index];
-                     return Card(
-                       margin: const EdgeInsets.only(bottom: 12),
-                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                       child: ListTile(
-                         leading: CircleAvatar(
-                           backgroundColor: Colors.red.shade50,
-                           child: Icon(
-                              credit.totalInstallments == 999 ? Icons.credit_card : Icons.account_balance, 
-                              color: Colors.red
-                           ),
-                         ),
-                         title: Text(credit.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text(
-                            credit.totalInstallments == 999 
-                              ? AppLocalizations.of(context)!.creditCardDetail(credit.paymentDay.toString())
-                                  : AppLocalizations.of(context)!.creditInstallmentDetail(credit.paymentDay.toString(), credit.remainingInstallments.toString(), credit.totalInstallments.toString())
+          return CustomScrollView(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Text(AppLocalizations.of(context)!.totalMonthlyFixedExpenses, style: const TextStyle(color: Colors.white70)),
+                      Text("₺${total.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+              
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                sliver: SliverToBoxAdapter(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.subscriptions_outlined, size: 20),
+                      const SizedBox(width: 8),
+                      Text(AppLocalizations.of(context)!.subscriptionsOther, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+
+              if (subscriptions.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Center(
+                      child: Text(AppLocalizations.of(context)!.noSubscriptionsAdded, style: const TextStyle(color: Colors.grey))
+                    ),
+                  ),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final sub = subscriptions[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.blue.shade50,
+                              child: Text(sub.name[0], style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                            ),
+                            title: Text(sub.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                             subtitle: Text(AppLocalizations.of(context)!.dayOfMonth(sub.renewalDay.toString())),
+                            trailing: Text("₺${sub.price.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            onTap: () => _addOrUpdateSubscription(subscription: sub),
+                            onLongPress: () => _deleteSubscription(sub.id),
                           ),
-                         trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                               Text("₺${credit.monthlyAmount.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                Text(
-                                  credit.totalInstallments == 999 ? AppLocalizations.of(context)!.estimatedMonthly : AppLocalizations.of(context)!.monthly, 
-                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 10)
-                                ),
-                            ],
-                         ),
-                         onTap: () => _showAddCreditDialog(credit: credit),
-                         onLongPress: () => _deleteCredit(credit.id),
-                       ),
-                     );
-                   },
-                 );
-               },
-             ),
-             
-             const Divider(height: 40, thickness: 1),
-
-             // --- ABONELİKLER SECTION ---
-             Padding(
-               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-               child: Row(
-                 children: [
-                   const Icon(Icons.subscriptions_outlined, size: 20),
-                   const SizedBox(width: 8),
-                   Text(AppLocalizations.of(context)!.subscriptionsOther, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                 ],
-               ),
-             ),
-             StreamBuilder<List<Subscription>>(
-               stream: _subscriptionsStream,
-               builder: (context, snapshot) {
-                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                   return Padding(
-                     padding: const EdgeInsets.all(20.0),
-                     child: Text(AppLocalizations.of(context)!.noSubscriptionsAdded, style: const TextStyle(color: Colors.grey)),
-                   );
-                 }
-                 return ListView.builder(
-                   shrinkWrap: true,
-                   physics: const NeverScrollableScrollPhysics(),
-                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                   itemCount: snapshot.data!.length,
-                   itemBuilder: (context, index) {
-                     final sub = snapshot.data![index];
-                     return Card(
-                       margin: const EdgeInsets.only(bottom: 12),
-                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                       child: ListTile(
-                         leading: CircleAvatar(
-                           backgroundColor: Colors.blue.shade50,
-                           child: Text(sub.name[0], style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-                         ),
-                         title: Text(sub.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text(AppLocalizations.of(context)!.dayOfMonth(sub.renewalDay.toString())),
-                         trailing: Text("₺${sub.price.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                         onTap: () => _addOrUpdateSubscription(subscription: sub),
-                         onLongPress: () => _deleteSubscription(sub.id),
-                       ),
-                     );
-                   },
-                 );
-               },
-             ),
-          ],
-        ),
+                        ),
+                      );
+                    },
+                    childCount: subscriptions.length,
+                  ),
+                ),
+              
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showExpenseSelectionSheet,

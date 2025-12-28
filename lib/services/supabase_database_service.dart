@@ -10,6 +10,7 @@ import 'package:fismatik/services/notification_service.dart';
 import 'package:fismatik/services/auth_service.dart';
 import 'package:fismatik/models/membership_model.dart';
 import 'package:fismatik/services/product_normalization_service.dart';
+import 'package:fismatik/services/network_time_service.dart';
 
 class SupabaseDatabaseService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -302,21 +303,46 @@ class SupabaseDatabaseService {
         .stream(primaryKey: ['user_id'])
         .eq('user_id', uid)
         .map((event) {
-          if (event.isEmpty) return {};
-          return event.first;
         });
   }
 
-  Future<void> checkAndDowngradeIfExpired() async {
+    Future<void> checkAndDowngradeIfExpired() async {
     try {
-      // Önce aile planını senkronize et (Eğer aile üyesiysen)
+      // 1. Önce yerel kontrol yap (Safe Guard)
+      // Eğer kullanıcının süresi zaten varsa, sunucu check işlemini yapma.
+      final currentTier = await getCurrentTier();
+      final userRole = await _client
+          .from('user_roles')
+          .select('expires_at')
+          .eq('user_id', _userId)
+          .maybeSingle();
+      
+      final expiresAtStr = userRole?['expires_at'] as String?;
+      if (currentTier.id != 'standart' && expiresAtStr != null) {
+        final now = await NetworkTimeService.now;
+        final expiresAt = DateTime.parse(expiresAtStr);
+        
+        // Eğer süre henüz dolmadıysa, RPC çağırarak risk alma.
+        // 24 saatten az kaldıysa kontrol edebilirsin.
+        if (expiresAt.difference(now).inHours > 24) {
+          print("✅ Üyelik geçerli (${expiresAt.toIso8601String()}), sunucu kontrolü atlanıyor.");
+          
+          // Yine de arkada bir ara Family Sync dene ama await etme (Fire & Forget)
+          syncFamilyPlanValidity().catchError((e) => print("Background sync error: $e"));
+          return;
+        }
+      }
+
+      // 2. Aile planını senkronize et (Eğer aile üyesiysen)
+      // Burası kritik: Aile senkronizasyonu başarısız olursa (internet vs),
+      // hemen düşürme işlemi yapmamalıyız.
       await syncFamilyPlanValidity();
       
-      // Sonra sunucu tarafı süresi dolanları düşürsün
+      // 3. Sonra sunucu tarafı süresi dolanları düşürsün
+      // Bu RPC aggressive davranıyorsa, üstteki local check bunu engellemiş olacak.
       await _client.rpc('check_my_expiration');
     } catch (e) {
       print("Expiration check failed: $e");
-      // Hata olsa bile devam et,rethrow yapma ki UI çökmesin
     }
   }
 
@@ -350,10 +376,11 @@ class SupabaseDatabaseService {
 
       // Sadece yönetici 'limitless_family' ise senkronize et
       if (ownerTier == 'limitless_family' && ownerExpiresAtStr != null) {
+        final now = await NetworkTimeService.now;
         final ownerExpiresAt = DateTime.parse(ownerExpiresAtStr);
         
         // Eğer yöneticinin süresi hala geçerliyse
-        if (ownerExpiresAt.isAfter(DateTime.now())) {
+        if (ownerExpiresAt.isAfter(now)) {
           print("🔄 Syncing family plan from owner ($ownerId)...");
           
           await _client.from('user_roles').update({
@@ -1490,35 +1517,57 @@ class SupabaseDatabaseService {
   // --- BİLDİRİMLER ---
 
   // --- BİLDİRİMLER ---
-  Stream<List<Map<String, dynamic>>> getNotifications() async* {
+    Stream<List<Map<String, dynamic>>> getNotifications() {
+    final controller = StreamController<List<Map<String, dynamic>>>();
     final user = _client.auth.currentUser;
+
     if (user == null) {
-      yield [];
-      return;
+      controller.add([]);
+      return controller.stream;
     }
 
     final email = user.email;
     final uid = user.id;
+    List<Map<String, dynamic>> latestNotifications = [];
+    List<Map<String, dynamic>> latestInvitations = [];
 
-    // Supabase Realtime Notifications Stream
-    final notificationsStream = _client
+    // Helper to emit combined list
+    void emitCombined() {
+      // Sort by date descending
+      final combined = [...latestInvitations, ...latestNotifications]..sort((a, b) {
+        final dateA = DateTime.tryParse(a['created_at'].toString()) ?? DateTime.now();
+        final dateB = DateTime.tryParse(b['created_at'].toString()) ?? DateTime.now();
+        return dateB.compareTo(dateA);
+      });
+      if (!controller.isClosed) {
+        controller.add(combined);
+      }
+    }
+
+    // 1. Realtime Notifications Stream
+    final subNotifications = _client
         .from('notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', uid)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .listen((data) {
+          latestNotifications = List<Map<String, dynamic>>.from(data);
+          emitCombined();
+        });
 
-    // Periodic Family Invitations Poll (Davetler için realtime gerekirse tablo izlenmeli ama şimdilik polling yeterli)
-    final invitationsStream = Stream.periodic(const Duration(minutes: 1)).asyncMap((_) async {
-      if (email == null) return <Map<String, dynamic>>[];
+    // 2. Periodic Family Invitations Poll
+    // Initial fetch
+    Future<void> fetchInvitations() async {
+      if (email == null) return;
       try {
         final res = await _client
             .from('household_invitations')
-            .select('id, households(name)')
+            .select('id, households(name), created_at')
             .eq('email', email.toLowerCase())
             .eq('status', 'pending');
         
         if (res is List) {
-          return res.map((inv) {
+          latestInvitations = res.map((inv) {
             final household = inv['households'] as Map?;
             return {
               'id': 'invite_${inv['id']}',
@@ -1527,57 +1576,30 @@ class SupabaseDatabaseService {
               'message': '${household?['name'] ?? 'Bilinmeyen'} ailesine davet edildiniz.',
               'type': 'family_invite',
               'is_read': false,
-              'created_at': DateTime.now().toIso8601String(),
-              'data': {
-                'invite_id': inv['id'],
-              }
+              'created_at': inv['created_at'] ?? DateTime.now().toIso8601String(),
+              'data': {'invite_id': inv['id']}
             };
-          }).toList();
+          }).toList().cast<Map<String, dynamic>>();
+          emitCombined();
         }
       } catch (e) {
         print("Polling invitations error: $e");
       }
-      return <Map<String, dynamic>>[];
-    });
-
-    // İki stream'i birleştir (Basit merge mantığı)
-    List<Map<String, dynamic>> lastNotifications = [];
-    List<Map<String, dynamic>> lastInvitations = [];
-
-    // Davetleri ilk etapta bir kez çek
-    if (email != null) {
-      try {
-        final res = await _client
-            .from('household_invitations')
-            .select('id, households(name)')
-            .eq('email', email.toLowerCase())
-            .eq('status', 'pending');
-        if (res is List) {
-          lastInvitations = res.map((inv) {
-             final household = inv['households'] as Map?;
-             return {
-              'id': 'invite_${inv['id']}',
-              'user_id': uid,
-              'title': 'Aile Daveti',
-              'message': '${household?['name'] ?? 'Bilinmeyen'} ailesine davet edildiniz.',
-              'type': 'family_invite',
-              'is_read': false,
-              'created_at': DateTime.now().toIso8601String(),
-              'data': {'invite_id': inv['id']}
-            };
-          }).toList();
-        }
-      } catch (_) {}
     }
+    
+    // Initial fetch immediately
+    fetchInvitations();
 
-    await for (final notifications in notificationsStream) {
-      lastNotifications = List<Map<String, dynamic>>.from(notifications);
-      yield [...lastInvitations, ...lastNotifications];
-      
-      // Her bildirim güncellemesinde davetleri de kontrol edebiliriz 
-      // veya yukarıdaki polling arkada çalışmaya devam eder.
-      // Şimdilik basitleştirelim:
-    }
+    // Poll every minute
+    final timer = Timer.periodic(const Duration(minutes: 1), (_) => fetchInvitations());
+
+    controller.onCancel = () {
+      subNotifications.cancel();
+      timer.cancel();
+      controller.close();
+    };
+
+    return controller.stream;
   }
 
   Future<void> markNotificationAsRead(String notificationId) async {
