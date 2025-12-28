@@ -268,7 +268,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
           totalAmount: amount,
           monthlyAmount: amount / _installmentCount,
           totalInstallments: _installmentCount,
-          remainingInstallments: _installmentCount,
+
           paymentDay: _selectedDate.day,
           createdAt: _selectedDate,
         );

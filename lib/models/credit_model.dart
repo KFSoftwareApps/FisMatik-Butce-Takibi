@@ -5,7 +5,6 @@ class Credit {
   final double totalAmount;
   final double monthlyAmount;
   final int totalInstallments;
-  final int remainingInstallments;
   final int paymentDay;
   final DateTime createdAt;
 

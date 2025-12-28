@@ -1216,7 +1216,7 @@ class _ScanScreenState extends State<ScanScreen> {
                           totalAmount: totalAmount,
                           monthlyAmount: totalAmount / _installmentCount,
                           totalInstallments: _installmentCount,
-                          remainingInstallments: _installmentCount,
+
                           paymentDay: receiptDate.day,
                           createdAt: receiptDate,
                         );

@@ -171,7 +171,7 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
                 totalAmount: total,
                 monthlyAmount: monthly,
                 totalInstallments: totalInst,
-                remainingInstallments: remainingInst,
+
                 paymentDay: day.clamp(1, 31),
                 createdAt: credit?.createdAt ?? DateTime.now(),
               );
@@ -274,7 +274,7 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
                 totalAmount: debt, // Toplam Borç
                 monthlyAmount: minPayment, // Asgari Ödeme
                 totalInstallments: 999, // Sürekli
-                remainingInstallments: 999,
+
                 paymentDay: day.clamp(1, 31),
                 createdAt: DateTime.now(),
               );

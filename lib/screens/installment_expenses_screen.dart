@@ -226,14 +226,12 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                                 ),
                               ),
                               title: Text(credit.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text(
-                                credit.totalInstallments == 999 
-                                  ? AppLocalizations.of(context)!.creditCardDetail(credit.paymentDay.toString())
+                              subtitle: credit.totalInstallments == 999 
+                                  ? Text(AppLocalizations.of(context)!.creditCardDetail(credit.paymentDay.toString()))
                                   : Text(
                                       "Ayın ${credit.paymentDay}. günü • ${credit.currentInstallment} / ${credit.totalInstallments} Taksit",
                                       style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                                     ),
-                              ),
                               trailing: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.end,
