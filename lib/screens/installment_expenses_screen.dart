@@ -103,7 +103,6 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                 totalAmount: total,
                 monthlyAmount: total / count,
                 totalInstallments: count,
-                remainingInstallments: isEditing ? credit.remainingInstallments : count,
                 paymentDay: day.clamp(1, 31),
                 createdAt: credit?.createdAt ?? DateTime.now(),
               );
@@ -230,11 +229,10 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                               subtitle: Text(
                                 credit.totalInstallments == 999 
                                   ? AppLocalizations.of(context)!.creditCardDetail(credit.paymentDay.toString())
-                                  : AppLocalizations.of(context)!.creditInstallmentDetail(
-                                      credit.paymentDay.toString(),
-                                      credit.remainingInstallments.toString(), 
-                                      credit.totalInstallments.toString()
-                                    )
+                                  : Text(
+                                      "Ayın ${credit.paymentDay}. günü • ${credit.currentInstallment} / ${credit.totalInstallments} Taksit",
+                                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                    ),
                               ),
                               trailing: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
