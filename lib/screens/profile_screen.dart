@@ -492,7 +492,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _launchSubscriptionManagement() async {
-    final Uri url = Uri.parse('https://play.google.com/store/account/subscriptions');
+    Uri url;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      url = Uri.parse('https://apps.apple.com/account/subscriptions');
+    } else {
+      url = Uri.parse('https://play.google.com/store/account/subscriptions');
+    }
+
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
