@@ -689,8 +689,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                                    Padding(
                                      padding: const EdgeInsets.only(top: 2),
                                      child: Text(
-                                       ? AppLocalizations.of(context)!.cheapestInCity(_userCity!) + ": ${CurrencyFormatter.format(globalData['min_price'])} (${globalData['cheapest_merchant']})"
-                                       : AppLocalizations.of(context)!.cheapestInCommunity + ": ${CurrencyFormatter.format(globalData['min_price'])} (${globalData['cheapest_merchant']})",
+                                       _userCity != null 
+                                         ? AppLocalizations.of(context)!.cheapestInCity(_userCity!) + ": ${CurrencyFormatter.format(globalData['min_price'])} (${globalData['cheapest_merchant']})"
+                                         : AppLocalizations.of(context)!.cheapestInCommunity + ": ${CurrencyFormatter.format(globalData['min_price'])} (${globalData['cheapest_merchant']})",
                                        style: TextStyle(fontSize: 10, color: hasBetterDeal ? Colors.green : Colors.grey[500], fontWeight: hasBetterDeal ? FontWeight.bold : FontWeight.normal),
                                      ),
                                    ),

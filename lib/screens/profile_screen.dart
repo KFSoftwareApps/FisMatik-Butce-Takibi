@@ -862,7 +862,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Expanded(
           child: _buildStatCard(
             title: AppLocalizations.of(context)!.statsAverage,
-            value: currencyFormat.format(avgPerReceipt),
+            value: CurrencyFormatter.format(avgPerReceipt),
             icon: Icons.trending_up,
             color: Colors.orange,
           ),

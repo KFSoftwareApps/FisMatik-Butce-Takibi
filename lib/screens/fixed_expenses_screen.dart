@@ -8,6 +8,7 @@ import '../core/app_theme.dart';
 import '../models/subscription_model.dart';
 import '../services/supabase_database_service.dart';
 import '../services/notification_service.dart';
+import '../utils/currency_formatter.dart';
 
 class FixedExpensesScreen extends StatefulWidget {
   const FixedExpensesScreen({super.key});
@@ -257,7 +258,7 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
     final isEditing = subscription != null;
     final nameController = TextEditingController(text: subscription?.name ?? prefilledName);
     final priceController = TextEditingController(
-      text: subscription != null ? CurrencyFormatter.formatDecimal(subscription.price) : \"\",
+      text: subscription != null ? CurrencyFormatter.formatDecimal(subscription.price) : '',
     );
     final dayController = TextEditingController(text: subscription?.renewalDay.toString() ?? '1');
     

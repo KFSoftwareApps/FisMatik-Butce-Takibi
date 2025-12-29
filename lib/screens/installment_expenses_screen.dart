@@ -34,10 +34,10 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
     
     final titleController = TextEditingController(text: credit?.title);
     final totalAmountController = TextEditingController(
-      text: credit != null ? CurrencyFormatter.formatDecimal(credit.totalAmount) : \"\",
+      text: credit != null ? CurrencyFormatter.formatDecimal(credit.totalAmount) : '',
     );
     final monthlyAmountController = TextEditingController(
-      text: credit != null ? CurrencyFormatter.formatDecimal(credit.monthlyAmount) : \"\",
+      text: credit != null ? CurrencyFormatter.formatDecimal(credit.monthlyAmount) : '',
     );
     final installmentCountController = TextEditingController(text: credit?.totalInstallments.toString() ?? '12');
     final remainingController = TextEditingController(text: credit?.remainingInstallments.toString() ?? '12');

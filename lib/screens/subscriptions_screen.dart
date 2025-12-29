@@ -4,6 +4,7 @@ import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../core/app_theme.dart';
 import '../models/subscription_model.dart';
 import '../services/notification_service.dart';
+import '../services/supabase_database_service.dart';
 import '../utils/currency_formatter.dart';
 import 'fixed_expenses_screen.dart';
 
@@ -255,7 +256,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     final isEditing = subscription != null;
     final nameController = TextEditingController(text: subscription?.name ?? prefilledName);
     final priceController = TextEditingController(
-      text: subscription != null ? CurrencyFormatter.formatDecimal(subscription.price) : (prefilledPrice != null ? CurrencyFormatter.formatDecimal(prefilledPrice) : \"\"),
+      text: subscription != null ? CurrencyFormatter.formatDecimal(subscription.price) : (prefilledPrice != null ? CurrencyFormatter.formatDecimal(prefilledPrice) : ''),
     );
     final dayController = TextEditingController(text: subscription?.renewalDay.toString() ?? '1');
     

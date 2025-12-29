@@ -426,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // --- HEADER SECTION ---
   Widget _buildHeaderSection(BuildContext context, double totalSpending, double monthlyLimit, double totalFixedExpenses, double totalSubscriptions, double totalInstallments) {
-    final percent = monthlyLimit == 0 ? 0.0 : (totalUsed / monthlyLimit).clamp(0.0, 1.0);
+    final percent = monthlyLimit == 0 ? 0.0 : ((totalSpending + totalFixedExpenses) / monthlyLimit).clamp(0.0, 1.0);
     // Kalan bütçeden sabit giderleri de düş
     final remaining = monthlyLimit - totalSpending - totalFixedExpenses;
 
@@ -527,7 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Icon(Icons.calendar_today, color: Colors.white.withOpacity(0.9), size: 14),
                           const SizedBox(width: 4),
                           Text(
-                            "${AppLocalizations.of(context)!.fixedExpenses}: ${currencyFormat.format(totalFixedExpenses)}",
+                            "${AppLocalizations.of(context)!.fixedExpenses}: ${CurrencyFormatter.format(totalFixedExpenses)}",
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.9),
                               fontSize: 13,
@@ -1508,7 +1508,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                         Text(
-                          currencyFormat.format(expense['amount'] ?? 0),
+                          CurrencyFormatter.format(expense['amount'] ?? 0),
                           style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold),
                         ),
                       ],
