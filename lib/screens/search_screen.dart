@@ -7,6 +7,8 @@ import 'edit_receipt_screen.dart';
 import '../utils/currency_formatter.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import 'package:fismatik/services/product_normalization_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -257,6 +259,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

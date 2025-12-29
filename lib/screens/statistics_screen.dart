@@ -14,6 +14,8 @@ import '../utils/currency_formatter.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'upgrade_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 enum DateFilterType { daily, monthly, yearly, custom, salaryDay }
 
@@ -68,6 +70,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

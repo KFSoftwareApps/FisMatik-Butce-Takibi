@@ -500,6 +500,7 @@ class SupabaseDatabaseService {
                   price: (item['price'] is int)
                       ? (item['price'] as int).toDouble()
                       : (item['price'] ?? 0.0),
+                  quantity: (item['quantity'] is int) ? (item['quantity'] as int) : 1,
                 ))
             .toList(),
         isManual: false,

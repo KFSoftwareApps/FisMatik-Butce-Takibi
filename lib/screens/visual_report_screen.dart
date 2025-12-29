@@ -6,6 +6,8 @@ import '../models/receipt_model.dart';
 import '../core/app_theme.dart';
 import '../services/supabase_database_service.dart';
 import '../utils/currency_formatter.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 class VisualReportScreen extends StatelessWidget {
   final DateTime month;
@@ -14,6 +16,7 @@ class VisualReportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     final SupabaseDatabaseService databaseService = SupabaseDatabaseService();
     final formattedDate = DateFormat.yMMMM(Localizations.localeOf(context).toString()).format(month);
 

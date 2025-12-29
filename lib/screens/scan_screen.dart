@@ -30,6 +30,8 @@ import 'manual_entry_screen.dart';
 import 'upgrade_screen.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../utils/string_similarity.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -82,6 +84,7 @@ class _ScanScreenState extends State<ScanScreen> {
   final TextEditingController _taxController = TextEditingController();
   final Map<int, TextEditingController> _itemNameControllers = {};
   final Map<int, TextEditingController> _itemPriceControllers = {};
+  final Map<int, TextEditingController> _itemQuantityControllers = {}; // [NEW] Added missing controller map
 
   @override
   void dispose() {
@@ -90,6 +93,7 @@ class _ScanScreenState extends State<ScanScreen> {
     _taxController.dispose();
     for (var c in _itemNameControllers.values) c.dispose();
     for (var c in _itemPriceControllers.values) c.dispose();
+    for (var c in _itemQuantityControllers.values) c.dispose(); // [NEW] Dispose qty controllers
     super.dispose();
   }
 
@@ -420,6 +424,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     return Scaffold(
       appBar: AppBar(title: Text(AppLocalizations.of(context)!.scanReceipt)),
       body: SingleChildScrollView(
@@ -657,8 +662,8 @@ class _ScanScreenState extends State<ScanScreen> {
                             child: TextFormField(
                               controller: _totalController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(
-                                prefixText: '₺',
+                              decoration: InputDecoration( // This might be fine if prefixText is not used, but let's check
+                                prefixText: CurrencyFormatter.currencySymbol,
                                 isDense: true,
                                 contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                                 border: OutlineInputBorder(),
@@ -690,7 +695,7 @@ class _ScanScreenState extends State<ScanScreen> {
                         child: Padding(
                            padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
                            child: Text(
-                            "₺${_receiptData!['totalAmount']}",
+                            "${CurrencyFormatter.currencySymbol}${_receiptData!['totalAmount']}",
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w900,
@@ -718,8 +723,8 @@ class _ScanScreenState extends State<ScanScreen> {
                             child: TextFormField(
                               controller: _taxController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(
-                                prefixText: '₺',
+                              decoration: InputDecoration( // Same here
+                                prefixText: CurrencyFormatter.currencySymbol,
                                 isDense: true,
                                 contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                                 border: OutlineInputBorder(),
@@ -751,7 +756,7 @@ class _ScanScreenState extends State<ScanScreen> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
                           child: Text(
-                            "₺${_receiptData!['taxAmount'] ?? 0.0}",
+                            "${CurrencyFormatter.currencySymbol}${_receiptData!['taxAmount'] ?? 0.0}",
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
@@ -834,174 +839,232 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
 
             const SizedBox(height: 10),
-            Text(
-              AppLocalizations.of(context)!.productsLabel,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            
             // --- ITEMS EDITING ---
+            const SizedBox(height: 10),
+            Text(AppLocalizations.of(context)!.products, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Divider(),
             ...items.asMap().entries.map((entry) {
-              int index = entry.key;
-              Map<String, dynamic> item = entry.value;
-              bool isEditing = _editingItemIndices.contains(index);
+                int index = entry.key;
+                Map<String, dynamic> item = entry.value;
+                return Dismissible(
+                  key: ValueKey("item_${index}_${item['name']}"),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    color: Colors.red, 
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20),
+                    child: const Icon(Icons.delete, color: Colors.white),
+                  ),
+                  onDismissed: (direction) {
+                     setState(() {
+                        items.removeAt(index);
+                        // Recalculate total
+                        double newTotal = 0;
+                        for (var i in items) {
+                          double p = (i['price'] is int) ? (i['price'] as int).toDouble() : (i['price'] as double);
+                          int q = (i['quantity'] is int) ? (i['quantity'] as int) : 1;
+                          newTotal += p * q;
+                        }
+                        _receiptData!['totalAmount'] = newTotal;
+                        _receiptData!['taxAmount'] = newTotal / 1.10 * 0.10;
+                     });
+                  },
+                  child: Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: _editingItemIndices.contains(index)
+                      ? Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                  controller: _itemNameControllers[index],
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                flex: 1,
+                                child: TextFormField(
+                                  controller: _itemQuantityControllers[index],
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                    border: OutlineInputBorder(),
+                                    suffixText: 'x',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                  controller: _itemPriceControllers[index],
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: InputDecoration(
+                                    prefixText: CurrencyFormatter.currencySymbol,
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              // Dropdown container
+                              Expanded(
+                                flex: 2,
+                                child: Container(
+                                  height: 40,
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    border: Border.all(color: Colors.grey.shade300),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: DropdownButton<String>(
+                                    value: (item['category'] != null && 
+                                            ["Gıda", "Et & Tavuk", "İçecek", "Baharat & Çeşni", "Meyve & Sebze", "Atıştırmalık", "Temizlik & Bakım", "Sigara", "Alkol", "Akaryakıt", "Kişisel Bakım", "Ev Eşyası", "Giyim", "Elektronik", "Hizmet", "Diğer"].contains(item['category']))
+                                        ? item['category']
+                                        : 'Diğer',
+                                    underline: const SizedBox(),
+                                    style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+                                    items: ["Gıda", "Et & Tavuk", "İçecek", "Baharat & Çeşni", "Meyve & Sebze", "Atıştırmalık", "Temizlik & Bakım", "Sigara", "Alkol", "Akaryakıt", "Kişisel Bakım", "Ev Eşyası", "Giyim", "Elektronik", "Hizmet", "Diğer"].map((cat) {
+                                      return DropdownMenuItem(value: cat, child: Text(cat));
+                                    }).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setState(() {
+                                          item['category'] = val;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.check, color: AppColors.success),
+                                onPressed: () {
+                                  setState(() {
+                                    item['name'] = _itemNameControllers[index]!.text;
+                                    
+                                    // Parse Price
+                                    double? val = double.tryParse(_itemPriceControllers[index]!.text.replaceAll(',', '.'));
+                                    if (val != null) item['price'] = val;
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: isEditing
-                    ? Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: TextFormField(
-                              controller: _itemNameControllers[index],
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _itemPriceControllers[index],
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(
-                                prefixText: '₺',
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Item Category mini-dropdown
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: DropdownButton<String>(
-                              value: (item['category'] != null && 
-                                      ["Gıda", "Et & Tavuk", "İçecek", "Baharat & Çeşni", "Meyve & Sebze", "Atıştırmalık", "Temizlik & Bakım", "Sigara", "Alkol", "Akaryakıt", "Kişisel Bakım", "Ev Eşyası", "Giyim", "Elektronik", "Hizmet", "Diğer"].contains(item['category']))
-                                  ? item['category']
-                                  : 'Diğer',
-                              underline: const SizedBox(),
-                              style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
-                              items: ["Gıda", "Et & Tavuk", "İçecek", "Baharat & Çeşni", "Meyve & Sebze", "Atıştırmalık", "Temizlik & Bakım", "Sigara", "Alkol", "Akaryakıt", "Kişisel Bakım", "Ev Eşyası", "Giyim", "Elektronik", "Hizmet", "Diğer"].map((cat) {
-                                return DropdownMenuItem(value: cat, child: Text(cat));
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() {
-                                    item['category'] = val;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.check, color: AppColors.success),
-                            onPressed: () {
-                              setState(() {
-                                item['name'] = _itemNameControllers[index]!.text;
-                                double? val = double.tryParse(_itemPriceControllers[index]!.text.replaceAll(',', '.'));
-                                if (val != null) {
-                                  item['price'] = val;
-                                }
-                                _editingItemIndices.remove(index);
-                                
-                                // Clean up controllers
-                                _itemNameControllers[index]?.dispose();
-                                _itemPriceControllers[index]?.dispose();
-                                _itemNameControllers.remove(index);
-                                _itemPriceControllers.remove(index);
-                              
-                                // Optionally recalculate total
-                                double newTotal = 0;
-                                for (var i in items) {
-                                  newTotal += (i['price'] is int) ? (i['price'] as int).toDouble() : (i['price'] as double);
-                                }
-                                _receiptData!['totalAmount'] = newTotal;
-                                _receiptData!['taxAmount'] = newTotal / 1.10 * 0.10;
-                              });
-                            },
-                          ),
-                        ],
-                      )
-                    : ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(item['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                        subtitle: Row(
-                          children: [
-                            Text(
-                              item['category'] ?? 'Diğer',
-                              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                            ),
-                             if (_priceHistory.containsKey(item['name'].toString().toLowerCase())) 
-                                _buildPriceComparison(item['name'].toString(), item['price']),
-                          ],
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              "₺${item['price']}",
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                            const SizedBox(width: 8),
-                            PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, color: Colors.grey),
-                              onSelected: (value) {
-                                if (value == 'edit') {
-                                  setState(() {
-                                    _itemNameControllers[index] = TextEditingController(text: item['name']);
-                                    _itemPriceControllers[index] = TextEditingController(text: item['price'].toString());
-                                    // Dropdown otomatik olarak item['category']'den alacak
-                                    _editingItemIndices.add(index);
-                                  });
-                                } else if (value == 'delete') {
-                                  setState(() {
-                                    items.removeAt(index);
-                                    // Yeniden hesapla
+                                    // Parse Quantity
+                                    int? qty = int.tryParse(_itemQuantityControllers[index]!.text);
+                                    item['quantity'] = (qty != null && qty > 0) ? qty : 1;
+
+                                    _editingItemIndices.remove(index);
+                                    
+                                    // Clean up controllers
+                                    _itemNameControllers[index]?.dispose();
+                                    _itemPriceControllers[index]?.dispose();
+                                    _itemQuantityControllers[index]?.dispose();
+                                    _itemNameControllers.remove(index);
+                                    _itemPriceControllers.remove(index);
+                                    _itemQuantityControllers.remove(index);
+                                  
+                                    // Recalculate total: sum(price * quantity)
                                     double newTotal = 0;
                                     for (var i in items) {
-                                      newTotal += (i['price'] is int) ? (i['price'] as int).toDouble() : (i['price'] as double);
+                                      double p = (i['price'] is int) ? (i['price'] as int).toDouble() : (i['price'] as double);
+                                      int q = (i['quantity'] is int) ? (i['quantity'] as int) : 1;
+                                      newTotal += p * q;
                                     }
                                     _receiptData!['totalAmount'] = newTotal;
-                                    _receiptData!['taxAmount'] = newTotal / 1.10 * 0.10;
+                                    _receiptData!['taxAmount'] = newTotal / 1.10 * 0.10; // Simple VAT est.
                                   });
-                                }
-                              },
-                              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                                PopupMenuItem<String>(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit, size: 20, color: Colors.blueGrey),
-                                      SizedBox(width: 8),
-                                      Text(AppLocalizations.of(context)!.edit),
+                                },
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(item['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          subtitle: Row(
+                            children: [
+                              Text(
+                                item['category'] ?? 'Diğer',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                              ),
+                              if (_priceHistory.containsKey(item['name'].toString().toLowerCase())) 
+                                _buildPriceComparison(item['name'].toString(), item['price']),
+                            ],
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                                  if ((item['quantity'] ?? 1) > 1)
+                                    Text(
+                                      "${item['quantity']}x ",
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                                    ),
+                                  Text(
+                                    "${CurrencyFormatter.currencySymbol}${item['price']}",
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert, color: Colors.grey),
+                                    onSelected: (value) {
+                                      if (value == 'edit') {
+                                        setState(() {
+                                          _itemNameControllers[index] = TextEditingController(text: item['name']);
+                                          _itemPriceControllers[index] = TextEditingController(text: item['price'].toString());
+                                          _itemQuantityControllers[index] = TextEditingController(text: (item['quantity'] ?? 1).toString());
+                                          _editingItemIndices.add(index);
+                                        });
+                                      } else if (value == 'delete') {
+                                        setState(() {
+                                          items.removeAt(index);
+                                          // Recalculate total
+                                          double newTotal = 0;
+                                          for (var i in items) {
+                                            double p = (i['price'] is int) ? (i['price'] as int).toDouble() : (i['price'] as double);
+                                            int q = (i['quantity'] is int) ? (i['quantity'] as int) : 1;
+                                            newTotal += p * q;
+                                          }
+                                          _receiptData!['totalAmount'] = newTotal;
+                                          _receiptData!['taxAmount'] = newTotal / 1.10 * 0.10;
+                                        });
+                                      }
+                                    },
+                                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                                      PopupMenuItem<String>(
+                                        value: 'edit',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.edit, size: 20, color: Colors.blueGrey),
+                                            SizedBox(width: 8),
+                                            Text(AppLocalizations.of(context)!.edit),
+                                          ],
+                                        ),
+                                      ),
+                                      PopupMenuItem<String>(
+                                        value: 'delete',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.delete, size: 20, color: AppColors.danger),
+                                            SizedBox(width: 8),
+                                            Text(AppLocalizations.of(context)!.delete, style: TextStyle(color: AppColors.danger)),
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                ),
-                                PopupMenuItem<String>(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete, size: 20, color: AppColors.danger),
-                                      SizedBox(width: 8),
-                                      Text(AppLocalizations.of(context)!.delete, style: TextStyle(color: AppColors.danger)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                ],
+                          ),
                         ),
-                      ),
-              );
+                  ),
+                );
             }).toList(),
             
             const SizedBox(height: 10),
@@ -1011,10 +1074,11 @@ class _ScanScreenState extends State<ScanScreen> {
               child: TextButton.icon(
                 onPressed: () {
                   setState(() {
-                    items.add({'name': 'Yeni Ürün', 'price': 0.0});
+                    items.add({'name': 'Yeni Ürün', 'price': 0.0, 'quantity': 1}); // Default qty 1
                     int newIndex = items.length - 1;
                     _itemNameControllers[newIndex] = TextEditingController(text: 'Yeni Ürün');
                     _itemPriceControllers[newIndex] = TextEditingController(text: '0.0');
+                    _itemQuantityControllers[newIndex] = TextEditingController(text: '1'); // Init qty controller
                     _editingItemIndices.add(newIndex);
                   });
                 },
@@ -1129,6 +1193,14 @@ class _ScanScreenState extends State<ScanScreen> {
                           } else if (itemMap['price'] is String) {
                             itemMap['price'] = double.tryParse(itemMap['price']) ?? 0.0;
                           }
+                          
+                          // [NEW] Parse Quantity
+                          if (itemMap['quantity'] is String) {
+                             itemMap['quantity'] = int.tryParse(itemMap['quantity']) ?? 1;
+                          } else if (itemMap['quantity'] == null) {
+                             itemMap['quantity'] = 1;
+                          }
+                          
                           return itemMap;
                         }).toList();
                       }

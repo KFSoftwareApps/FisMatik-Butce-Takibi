@@ -19,6 +19,8 @@ struct Provider: TimelineProvider {
 
     private func getEntry() -> SimpleEntry {
         let userDefaults = UserDefaults(suiteName: "group.fismatik.widget")
+        
+        // Use better defaults if values are missing
         let totalSpending = userDefaults?.string(forKey: "total_spending") ?? "₺0,00"
         let remainingBudget = userDefaults?.string(forKey: "remaining_budget") ?? "₺0,00"
         let usagePercent = userDefaults?.integer(forKey: "usage_percent") ?? 0

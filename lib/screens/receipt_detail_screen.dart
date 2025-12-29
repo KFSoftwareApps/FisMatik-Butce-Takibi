@@ -7,6 +7,8 @@ import '../services/supabase_database_service.dart';
 import '../services/product_normalization_service.dart';
 import 'edit_receipt_screen.dart';
 import '../utils/currency_formatter.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 class ReceiptDetailScreen extends StatefulWidget {
   final Receipt receipt; // Başlangıç verisi (Listeden gelen)
@@ -46,6 +48,7 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     final bool isVirtual = widget.receipt.id.startsWith('sub_') || widget.receipt.id.startsWith('credit_');
 
     // StreamBuilder ile veritabanını canlı dinliyoruz (Sanal değilse)

@@ -5,6 +5,9 @@ import '../core/app_theme.dart';
 import '../models/category_model.dart';
 import '../models/membership_model.dart'; 
 import '../services/supabase_database_service.dart';
+import '../utils/currency_formatter.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 import '../services/auth_service.dart'; 
 import '../core/app_icons.dart'; 
 
@@ -78,7 +81,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 labelText: AppLocalizations.of(context)!.monthlyBudgetLimitOptional,
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.attach_money),
-                suffixText: "TL",
+                suffixText: CurrencyFormatter.currencySymbol,
               ),
             ),
           ],
@@ -123,7 +126,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             labelText: AppLocalizations.of(context)!.monthlyBudgetLimit,
             border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.attach_money),
-            suffixText: "TL",
+            suffixText: CurrencyFormatter.currencySymbol,
           ),
         ),
         actions: [
@@ -159,6 +162,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     // 1. Kullanıcının üyelik yetkisini dinle
     return StreamBuilder<MembershipTier>(
       stream: _databaseService.getUserTierStream().map((tierId) => MembershipTier.Tiers[tierId] ?? MembershipTier.Tiers['standart']!), 
@@ -234,7 +238,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                 children: [
                                   if (limit > 0)
                                     Text(
-                                      AppLocalizations.of(context)!.spendingVsLimit(spending.toStringAsFixed(0), limit.toStringAsFixed(0)),
+                                      AppLocalizations.of(context)!.spendingVsLimit(spending.toStringAsFixed(0), limit.toStringAsFixed(0), CurrencyFormatter.currencySymbol),
                                       style: TextStyle(
                                         fontSize: 12, 
                                         color: spending >= limit ? Colors.red : Colors.grey.shade700,

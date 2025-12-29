@@ -1367,8 +1367,8 @@ abstract class AppLocalizations {
   /// No description provided for @priceRange.
   ///
   /// In en, this message translates to:
-  /// **'₺{min} - ₺{max}'**
-  String priceRange(Object max, Object min);
+  /// **'{min} {symbol} - {max} {symbol}'**
+  String priceRange(Object max, Object min, Object symbol);
 
   /// No description provided for @cheapestAt.
   ///
@@ -1631,8 +1631,8 @@ abstract class AppLocalizations {
   /// No description provided for @spendingVsLimit.
   ///
   /// In en, this message translates to:
-  /// **'Spending: {spending} / {limit} TL'**
-  String spendingVsLimit(Object limit, Object spending);
+  /// **'Spending: {spending} / {limit} {symbol}'**
+  String spendingVsLimit(Object limit, Object spending, Object symbol);
 
   /// No description provided for @noLimit.
   ///

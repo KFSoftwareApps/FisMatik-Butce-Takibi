@@ -62,4 +62,5 @@ class CurrencyFormatter {
 
   static String get currencySymbol => _currentSymbol;
   static String get currencyCode => _currentCurrency;
+  static String get locale => _currentLocale; // [NEW] Added missing getter
 }

@@ -5,6 +5,8 @@ import '../core/app_theme.dart';
 import '../models/credit_model.dart';
 import '../services/supabase_database_service.dart';
 import '../utils/currency_formatter.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 class InstallmentExpensesScreen extends StatefulWidget {
   const InstallmentExpensesScreen({super.key});
@@ -79,7 +81,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
               _buildRoundedField(
                 controller: totalAmountController,
                 label: "Toplam Tutar",
-                suffix: "TL",
+                suffix: CurrencyFormatter.currencySymbol,
                 icon: Icons.attach_money,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (_) => calculateMonthly(),
@@ -90,7 +92,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
               _buildRoundedField(
                 controller: monthlyAmountController,
                 label: "Aylık Taksit Tutarı",
-                suffix: "TL",
+                suffix: CurrencyFormatter.currencySymbol,
                 icon: Icons.payment,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
@@ -209,6 +211,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -447,9 +450,9 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
             children: [
               _buildRoundedField(controller: bankController, label: AppLocalizations.of(context)!.bankNameHint, icon: Icons.account_balance),
               const SizedBox(height: 12),
-              _buildRoundedField(controller: limitController, label: AppLocalizations.of(context)!.cardLimit, suffix: "TL", icon: Icons.speed, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+              _buildRoundedField(controller: limitController, label: AppLocalizations.of(context)!.cardLimit, suffix: CurrencyFormatter.currencySymbol, icon: Icons.speed, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
               const SizedBox(height: 12),
-              _buildRoundedField(controller: debtController, label: AppLocalizations.of(context)!.currentStatementDebt, suffix: "TL", icon: Icons.money_off, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+              _buildRoundedField(controller: debtController, label: AppLocalizations.of(context)!.currentStatementDebt, suffix: CurrencyFormatter.currencySymbol, icon: Icons.money_off, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
               const SizedBox(height: 12),
               _buildRoundedField(controller: dayController, label: AppLocalizations.of(context)!.lastPaymentDayHint, icon: Icons.calendar_today, keyboardType: TextInputType.number),
             ],

@@ -7,6 +7,8 @@ import '../services/supabase_database_service.dart';
 import '../core/app_icons.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../utils/currency_formatter.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 class EditReceiptScreen extends StatefulWidget {
   final Receipt receipt;
@@ -96,6 +98,7 @@ class _EditReceiptScreenState extends State<EditReceiptScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -149,7 +152,7 @@ class _EditReceiptScreenState extends State<EditReceiptScreen> {
                   labelText: AppLocalizations.of(context)!.totalAmountLabel,
                   border: const OutlineInputBorder(),
                   prefixIcon: const Icon(Icons.attach_money),
-                  suffixText: "TL",
+                  suffixText: CurrencyFormatter.currencySymbol,
                 ),
               ),
               const SizedBox(height: 20),

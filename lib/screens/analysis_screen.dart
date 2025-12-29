@@ -24,6 +24,8 @@ import 'package:fismatik/services/product_normalization_service.dart';
 import '../models/membership_model.dart';
 import 'upgrade_screen.dart';
 import 'package:fismatik/services/profile_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
@@ -134,6 +136,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

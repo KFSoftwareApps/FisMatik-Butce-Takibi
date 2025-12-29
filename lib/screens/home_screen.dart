@@ -27,6 +27,7 @@ import 'package:fismatik/screens/installment_expenses_screen.dart';
 import 'package:fismatik/screens/manual_entry_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fismatik/services/data_refresh_service.dart';
+import 'package:fismatik/services/widget_service.dart';
 import 'package:fismatik/utils/currency_formatter.dart';
 import '../providers/currency_provider.dart';
 import 'package:provider/provider.dart';
@@ -363,6 +364,12 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     }
+
+    // Update iOS/Android Widget
+    await WidgetService.updateWidget(
+      totalSpending: totalSpending,
+      remainingBudget: remainingBudget,
+    );
   }
 
   Widget _buildQuickActions(BuildContext context) {
@@ -872,7 +879,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: InputDecoration(
                     labelText: AppLocalizations.of(context)!.monthlyLimitAmount,
                     border: const OutlineInputBorder(),
-                    prefixText: "₺",
+                    prefixText: CurrencyFormatter.currencySymbol,
                   ),
                   enabled: !isLoading,
                 ),
@@ -1265,8 +1272,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final String sourceText =
         isManual ? AppLocalizations.of(context)!.manualEntryLabel : AppLocalizations.of(context)!.scanReceiptLabel;
 
-    final currencyFormat =
-        NumberFormat.currency(locale: Localizations.localeOf(context).toString(), symbol: '₺', decimalDigits: 2);
+        CurrencyFormatter.format(0); // Dummy call to ensure formatter is ready, but we should use the dynamic one below
+        final currencyFormat = NumberFormat.currency(locale: CurrencyFormatter.locale, symbol: CurrencyFormatter.currencySymbol, decimalDigits: 2);
     final dateText =
         DateFormat('d MMM yyyy', Localizations.localeOf(context).toString()).format(receipt.date);
 
@@ -1411,7 +1418,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
                   labelText: AppLocalizations.of(context)!.monthlyBudget,
-                  prefixText: '₺',
+                  prefixText: CurrencyFormatter.currencySymbol,
                   border: const OutlineInputBorder(),
                 ),
               ),

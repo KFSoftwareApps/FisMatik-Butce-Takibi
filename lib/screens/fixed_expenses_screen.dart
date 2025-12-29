@@ -9,6 +9,8 @@ import '../models/subscription_model.dart';
 import '../services/supabase_database_service.dart';
 import '../services/notification_service.dart';
 import '../utils/currency_formatter.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 class FixedExpensesScreen extends StatefulWidget {
   const FixedExpensesScreen({super.key});
@@ -317,6 +319,7 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

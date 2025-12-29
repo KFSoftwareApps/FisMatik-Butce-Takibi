@@ -130,18 +130,16 @@ SADECE saf JSON formatında yanıt ver. Markdown (\`\`\`json) kullanma.
  "Giyim", "Elektronik", "Hizmet", "Diğer"]
 
 ÖNEMLİ KURALLAR:
-1. "İndirim", "KDV", "Vergi", "İskonto" gibi kelimeler ASLA kategori olarak kullanılmamalı
-2. "İndirim" kelimesi içeren satırlar → discountAmount alanına eklenmelidir, items listesine eklenmemelidir
-3. Her ürün mutlaka bir kategori almalıdır (varsayılan: "Diğer")
-4. Marka ve ürün isimlerine göre kategorileme yap:
-   - "Banvit", "Piliç", "Tavuk", "Et", "Sucuk", "Salam", "Sosis" → "Et & Tavuk"
-   - "Kahve Dünyası", "Red Bull", "Coca Cola", "Pepsi", "Fanta", "Sprite", "Su", "Çay", "Kahve", "Ayran", "Meyve Suyu" → "İçecek"
-   - "Sumak", "Baharat", "Kimyon", "Karabiber", "Tuz", "Şeker", "Sos", "Ketçap", "Mayonez" → "Baharat & Çeşni"
-   - "Cips", "Çikolata", "Bisküvi", "Gofret", "Kuruyemiş" → "Atıştırmalık"
-   - "Domates", "Salatalık", "Elma", "Muz", "Portakal", "Meyve", "Sebze" → "Meyve & Sebze"
-   - "Ekmek", "Süt", "Yumurta", "Peynir", "Yoğurt", "Tereyağ", "Zeytin", "Reçel", "Bal" → "Gıda"
+1. "İndirim", "KDV", "Vergi", "İskonto" gibi kelimeler ASLA kategori olarak kullanılmamalı.
+2. "İndirim" kelimesi içeren satırlar → discountAmount alanına eklenmelidir, items listesine eklenmemelidir.
+3. Her ürün mutlaka bir kategori almalıdır (varsayılan: "Diğer").
+4. Marka ve ürün isimlerine göre kategorileme yap.
 
-Ayrıca fişteki "KDV", "Vergi" veya "%" oranlarına bakarak toplam vergi tutarını (taxAmount) ve varsa indirim tutarını (discountAmount) çıkar.
+ÖNEMLİ GÖREV 3 (Adet ve Birim Fiyat):
+- Eğer bir üründen birden fazla alınmışsa (örn: "2x 50,00" veya "3 Adet"), "quantity" alanına adedi (int) yaz.
+- "price" alanına ÜRÜNÜN BİRİM (ADET) FİYATINI yaz. Toplam fiyatı değil.
+- Örnek: "2 ADET EKMEK 20.00" -> quantity: 2, price: 10.00 (Birim fiyatı bulmak için toplamı adede böl).
+- Eğer adet belirtilmemişse quantity: 1 olarak al.
 
 İstenen JSON Formatı:
 {
@@ -152,7 +150,7 @@ Ayrıca fişteki "KDV", "Vergi" veya "%" oranlarına bakarak toplam vergi tutar�
   "discountAmount": 0.0,
   "category": "Genel Fiş Kategorisi",
   "items": [
-    {"name": "Ürün Adı", "price": 0.0, "category": "Ürün Kategorisi"}
+    {"name": "Ürün Adı", "price": 0.0, "quantity": 1, "category": "Ürün Kategorisi"}
   ]
 }
 

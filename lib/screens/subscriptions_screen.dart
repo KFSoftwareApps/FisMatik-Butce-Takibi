@@ -7,6 +7,8 @@ import '../services/notification_service.dart';
 import '../services/supabase_database_service.dart';
 import '../utils/currency_formatter.dart';
 import 'fixed_expenses_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
   const SubscriptionsScreen({super.key});
@@ -285,7 +287,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
                   labelText: AppLocalizations.of(context)!.amountLabel,
-                  suffixText: "TL",
+                  suffixText: CurrencyFormatter.currencySymbol,
                   prefixIcon: const Icon(Icons.attach_money),
                   border: const OutlineInputBorder(),
                 ),
@@ -369,6 +371,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

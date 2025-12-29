@@ -21,6 +21,8 @@ import '../services/location_service.dart';
 import '../services/gamification_service.dart';
 import '../utils/currency_formatter.dart';
 import 'upgrade_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 class ManualEntryScreen extends StatefulWidget {
   const ManualEntryScreen({super.key});
@@ -404,6 +406,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>(); // Rebuilds when currency changes
     return Scaffold(
       appBar: AppBar(title: Text(AppLocalizations.of(context)!.addManualExpense)),
       body: SingleChildScrollView(
@@ -452,7 +455,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
                 decoration: InputDecoration(
                   labelText: "KDV (Opsiyonel)",
                   hintText: "Vergi tutarı (Boşsa %10 hesaplanır)",
-                  prefixText: "₺",
+                  prefixText: CurrencyFormatter.currencySymbol,
                   border: const OutlineInputBorder(),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),

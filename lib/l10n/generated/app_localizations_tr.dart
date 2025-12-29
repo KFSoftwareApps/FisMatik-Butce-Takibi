@@ -706,8 +706,8 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
-  String priceRange(Object max, Object min) {
-    return '₺$min - ₺$max';
+  String priceRange(Object max, Object min, Object symbol) {
+    return '$min $symbol - $max $symbol';
   }
 
   @override
@@ -852,8 +852,8 @@ class AppLocalizationsTr extends AppLocalizations {
   String get myCategories => 'Kategorilerim';
 
   @override
-  String spendingVsLimit(Object limit, Object spending) {
-    return 'Harcama: $spending / $limit TL';
+  String spendingVsLimit(Object limit, Object spending, Object symbol) {
+    return 'Harcama: $spending / $limit $symbol';
   }
 
   @override
