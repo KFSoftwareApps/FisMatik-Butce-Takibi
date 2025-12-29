@@ -107,7 +107,7 @@ extension View {
     }
 }
 
-@main
+
 struct FismatikWidget: Widget {
     let kind: String = "FismatikWidget"
 

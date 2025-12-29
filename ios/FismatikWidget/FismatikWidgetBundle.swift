@@ -12,7 +12,5 @@ import SwiftUI
 struct FismatikWidgetBundle: WidgetBundle {
     var body: some Widget {
         FismatikWidget()
-        FismatikWidgetControl()
-        FismatikWidgetLiveActivity()
     }
 }
