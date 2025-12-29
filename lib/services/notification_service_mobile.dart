@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import '../models/subscription_model.dart';
+import '../utils/currency_formatter.dart';
 
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
@@ -304,7 +305,7 @@ class NotificationService {
       await _plugin.zonedSchedule(
         notificationId,
         _getRandomVariant(l10n.notificationSubscriptionReminderTitle(sub.name)),
-        _getRandomVariant(l10n.notificationSubscriptionReminderBody(sub.name, sub.price.toStringAsFixed(2))),
+        _getRandomVariant(l10n.notificationSubscriptionReminderBody(sub.name, CurrencyFormatter.format(sub.price))),
         scheduledDate,
         details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -352,7 +353,7 @@ class NotificationService {
         if (currentPrice < prevPrice * 0.8) {
            await showInstantNotification(
              title: "🔥 ${l10n.priceDropAlertTitle} ($name)",
-             body: "${l10n.priceDropAlertBody(name, prevPrice.toStringAsFixed(2), currentPrice.toStringAsFixed(2))}",
+             body: "${l10n.priceDropAlertBody(name, CurrencyFormatter.format(prevPrice), CurrencyFormatter.format(currentPrice))}",
            );
            // Bir bildirim yeterli, kullanıcıyı boğmayalım
            return; 
@@ -362,7 +363,7 @@ class NotificationService {
         if (currentPrice > prevPrice * 1.3) {
            await showInstantNotification(
              title: "📈 ${l10n.priceRiseAlertTitle} ($name)",
-             body: "${l10n.priceRiseAlertBody(name, prevPrice.toStringAsFixed(2), currentPrice.toStringAsFixed(2))}",
+             body: "${l10n.priceRiseAlertBody(name, CurrencyFormatter.format(prevPrice), CurrencyFormatter.format(currentPrice))}",
            );
            return;
         }

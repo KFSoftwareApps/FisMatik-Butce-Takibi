@@ -11,6 +11,9 @@ import '../models/user_profile_model.dart';
 import '../services/profile_service.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
+import '../utils/currency_formatter.dart';
 import 'login_screen.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -41,6 +44,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _initializedFromProfile = false;
   File? _selectedImage;
   String? _avatarUrl;
+  String _selectedCurrency = 'TRY';
+
+  final List<Map<String, String>> _currencies = [
+    {'code': 'TRY', 'name': 'Türk Lirası (₺)'},
+    {'code': 'USD', 'name': 'Amerikan Doları (\$)'},
+    {'code': 'EUR', 'name': 'Euro (€)'},
+    {'code': 'GBP', 'name': 'İngiliz Sterlini (£)'},
+  ];
 
   @override
   void initState() {
@@ -58,6 +69,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _phoneController.text = profile.phone;
         _cityController.text = profile.city ?? '';
         _districtController.text = profile.district ?? '';
+        _selectedCurrency = profile.currency;
       });
     }
   }
@@ -170,6 +182,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             'phone': phone,
             'city': city.isNotEmpty ? city : null,
             'district': district.isNotEmpty ? district : null,
+            'currency': _selectedCurrency,
           },
         ),
       );
@@ -181,7 +194,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         phone: phone,
         city: city.isNotEmpty ? city : null,
         district: district.isNotEmpty ? district : null,
+        currency: _selectedCurrency,
       );
+
+      // Update Currency Provider
+      if (mounted) {
+        Provider.of<CurrencyProvider>(context, listen: false).setCurrency(_selectedCurrency);
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -670,7 +689,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           _buildStatItem(
                             icon: Icons.attach_money,
                             label: AppLocalizations.of(context)!.totalSpendingLabel,
-                            value: '₺${totalSpent.toStringAsFixed(0)}',
+                            value: CurrencyFormatter.format(totalSpent),
                           ),
                         ],
                       ),
@@ -735,6 +754,39 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               label: AppLocalizations.of(context)!.district,
               icon: Icons.place_outlined,
               hintText: AppLocalizations.of(context)!.districtHint,
+            ),
+            const SizedBox(height: 16),
+
+            // PARA BİRİMİ SEÇİMİ
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButtonFormField<String>(
+                  value: _selectedCurrency,
+                  decoration: InputDecoration(
+                    labelText: 'Para Birimi',
+                    icon: const Icon(Icons.currency_exchange_outlined, color: AppColors.primary),
+                    border: InputBorder.none,
+                    labelStyle: TextStyle(color: Colors.grey.shade600),
+                  ),
+                  items: _currencies.map((c) {
+                    return DropdownMenuItem<String>(
+                      value: c['code'],
+                      child: Text(c['name']!),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _selectedCurrency = val);
+                    }
+                  },
+                ),
+              ),
             ),
 
             const SizedBox(height: 20),

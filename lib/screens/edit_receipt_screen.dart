@@ -6,6 +6,7 @@ import '../models/category_model.dart'; // Kategori modelini ekledik
 import '../services/supabase_database_service.dart';
 import '../core/app_icons.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
+import '../utils/currency_formatter.dart';
 
 class EditReceiptScreen extends StatefulWidget {
   final Receipt receipt;
@@ -28,7 +29,7 @@ class _EditReceiptScreenState extends State<EditReceiptScreen> {
   void initState() {
     super.initState();
     _merchantController = TextEditingController(text: widget.receipt.merchantName);
-    _amountController = TextEditingController(text: widget.receipt.totalAmount.toString());
+    _amountController = TextEditingController(text: CurrencyFormatter.formatDecimal(widget.receipt.totalAmount));
     _selectedDate = widget.receipt.date;
     _selectedCategory = widget.receipt.category;
   }

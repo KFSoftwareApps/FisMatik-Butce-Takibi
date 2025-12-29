@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/receipt_model.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
+import '../utils/currency_formatter.dart';
 import '../core/app_theme.dart';
 
 class AdminUserDetailScreen extends StatefulWidget {
@@ -539,7 +540,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              "${receipt.totalAmount.toStringAsFixed(2)} ₺",
+                            CurrencyFormatter.format(receipt.totalAmount),
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
                             const SizedBox(width: 8),
@@ -582,7 +583,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                                         ),
                                       ),
                                       Text(
-                                        "${(item.price * item.quantity).toStringAsFixed(2)} ₺",
+                                        CurrencyFormatter.format(item.price * item.quantity),
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                       ),
                                     ],

@@ -4,6 +4,7 @@ import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../core/app_theme.dart';
 import '../models/credit_model.dart';
 import '../services/supabase_database_service.dart';
+import '../utils/currency_formatter.dart';
 
 class InstallmentExpensesScreen extends StatefulWidget {
   const InstallmentExpensesScreen({super.key});
@@ -32,8 +33,12 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
     final isEditing = credit != null;
     
     final titleController = TextEditingController(text: credit?.title);
-    final totalAmountController = TextEditingController(text: credit?.totalAmount.toStringAsFixed(2));
-    final monthlyAmountController = TextEditingController(text: credit?.monthlyAmount.toStringAsFixed(2));
+    final totalAmountController = TextEditingController(
+      text: credit != null ? CurrencyFormatter.formatDecimal(credit.totalAmount) : \"\",
+    );
+    final monthlyAmountController = TextEditingController(
+      text: credit != null ? CurrencyFormatter.formatDecimal(credit.monthlyAmount) : \"\",
+    );
     final installmentCountController = TextEditingController(text: credit?.totalInstallments.toString() ?? '12');
     final remainingController = TextEditingController(text: credit?.remainingInstallments.toString() ?? '12');
     final dayController = TextEditingController(text: credit?.paymentDay.toString() ?? '15');
@@ -43,7 +48,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
       final total = double.tryParse(totalAmountController.text.replaceAll(',', '.')) ?? 0;
       final count = int.tryParse(installmentCountController.text) ?? 1;
       if (count > 0 && total > 0) {
-        monthlyAmountController.text = (total / count).toStringAsFixed(2);
+        monthlyAmountController.text = CurrencyFormatter.formatDecimal(total / count);
       }
     }
 
@@ -347,7 +352,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                 children: [
                   const Text("Aylık Tutar", style: TextStyle(fontSize: 12, color: Colors.grey)),
                   Text(
-                    "${credit.monthlyAmount.toStringAsFixed(2)} ₺",
+                    CurrencyFormatter.format(credit.monthlyAmount),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ],
@@ -357,7 +362,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                 children: [
                   const Text("Toplam", style: TextStyle(fontSize: 12, color: Colors.grey)),
                   Text(
-                    "${credit.totalAmount.toStringAsFixed(2)} ₺",
+                    CurrencyFormatter.format(credit.totalAmount),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ],

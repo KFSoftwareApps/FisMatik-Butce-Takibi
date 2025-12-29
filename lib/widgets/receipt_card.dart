@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Tarih ve Para formatı için
 import '../core/app_theme.dart';
 import '../models/receipt_model.dart';
+import '../utils/currency_formatter.dart';
 
 class ReceiptCard extends StatelessWidget {
   final Receipt receipt;
@@ -18,7 +19,7 @@ class ReceiptCard extends StatelessWidget {
     // Tarih formatlayıcı (Örn: 20 Kasım 2023)
     final dateFormat = DateFormat('dd MMMM yyyy', 'tr_TR');
     // Para formatlayıcı (Örn: ₺254,50)
-    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+    // Using CurrencyFormatter
 
     return GestureDetector(
       onTap: onTap,
@@ -68,7 +69,7 @@ class ReceiptCard extends StatelessWidget {
             
             // 3. SAĞ KISIM (Tutar)
             Text(
-              currencyFormat.format(receipt.totalAmount),
+              CurrencyFormatter.format(receipt.totalAmount),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w900, // Daha kalın yazı
                 color: AppColors.textDark,

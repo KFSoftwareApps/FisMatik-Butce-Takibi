@@ -27,6 +27,9 @@ import 'package:fismatik/screens/installment_expenses_screen.dart';
 import 'package:fismatik/screens/manual_entry_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fismatik/services/data_refresh_service.dart';
+import 'package:fismatik/utils/currency_formatter.dart';
+import '../providers/currency_provider.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -217,6 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>();
     return StreamBuilder<HomeData>(
       stream: _homeDataStream,
       builder: (context, snapshot) {
@@ -422,8 +426,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // --- HEADER SECTION ---
   Widget _buildHeaderSection(BuildContext context, double totalSpending, double monthlyLimit, double totalFixedExpenses, double totalSubscriptions, double totalInstallments) {
-    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2);
-    final totalUsed = totalSpending + totalFixedExpenses;
     final percent = monthlyLimit == 0 ? 0.0 : (totalUsed / monthlyLimit).clamp(0.0, 1.0);
     // Kalan bütçeden sabit giderleri de düş
     final remaining = monthlyLimit - totalSpending - totalFixedExpenses;
@@ -460,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    currencyFormat.format(totalSpending),
+                    CurrencyFormatter.format(totalSpending),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 32,
@@ -649,7 +651,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Flexible(
                 child: Text(
-                  "${AppLocalizations.of(context)!.monthlyLimit}: ${currencyFormat.format(monthlyLimit)}",
+                  "${AppLocalizations.of(context)!.monthlyLimit}: ${CurrencyFormatter.format(monthlyLimit)}",
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -659,7 +661,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: GestureDetector(
                   onTap: () => _showEditLimitDialog(context, monthlyLimit),
                   child: Text(
-                    "${AppLocalizations.of(context)!.remainingBudget}: ${currencyFormat.format(remaining)}",
+                    "${AppLocalizations.of(context)!.remainingBudget}: ${CurrencyFormatter.format(remaining)}",
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -1377,7 +1379,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 8),
             Text(
-              currencyFormat.format(receipt.totalAmount),
+              CurrencyFormatter.format(receipt.totalAmount),
               style: const TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 14,
@@ -1391,7 +1393,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _showMonthlyBudgetDialog(BuildContext context, double currentLimit, String key) async {
-    final TextEditingController controller = TextEditingController(text: currentLimit.toStringAsFixed(2));
+    final TextEditingController controller = TextEditingController(text: CurrencyFormatter.formatDecimal(currentLimit));
 
     await showDialog(
       context: context,
@@ -1449,7 +1451,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPendingSmsBanner() {
-    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+    // Using CurrencyFormatter
     
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),

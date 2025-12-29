@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../core/app_theme.dart';
 import '../models/receipt_model.dart';
 import '../services/supabase_database_service.dart';
+import '../utils/currency_formatter.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 
 /// Harcama Trendleri Ekranı
@@ -233,7 +234,7 @@ class _SpendingTrendsScreenState extends State<SpendingTrendsScreen> {
                       reservedSize: 50,
                       getTitlesWidget: (value, meta) {
                         return Text(
-                          '₺${value.toInt()}',
+                          CurrencyFormatter.format(value),
                           style: const TextStyle(fontSize: 10),
                         );
                       },
@@ -265,6 +266,23 @@ class _SpendingTrendsScreenState extends State<SpendingTrendsScreen> {
                 maxX: (labels.length - 1).toDouble(),
                 minY: 0,
                 maxY: maxY,
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => AppColors.primary,
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) {
+                        return LineTooltipItem(
+                          CurrencyFormatter.format(spot.y),
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
                 lineBarsData: [
                   LineChartBarData(
                     spots: spots,
@@ -311,9 +329,10 @@ class _SpendingTrendsScreenState extends State<SpendingTrendsScreen> {
                 maxY: maxY,
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (_) => AppColors.primary,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       return BarTooltipItem(
-                        '₺${rod.toY.toInt()}',
+                        CurrencyFormatter.format(rod.toY),
                         const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       );
                     },
@@ -326,7 +345,7 @@ class _SpendingTrendsScreenState extends State<SpendingTrendsScreen> {
                       reservedSize: 50,
                       getTitlesWidget: (value, meta) {
                         return Text(
-                          '₺${value.toInt()}',
+                          CurrencyFormatter.format(value),
                           style: const TextStyle(fontSize: 10),
                         );
                       },

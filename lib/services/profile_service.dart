@@ -56,13 +56,13 @@ class ProfileService {
     }
   }
 
-  // Profil kaydet / güncelle
   Future<void> saveProfile({
     required String firstName,
     required String lastName,
     required String phone,
     String? city,
     String? district,
+    String currency = 'TRY',
   }) async {
     final uid = _uid;
     final email = _email;
@@ -75,6 +75,7 @@ class ProfileService {
       'phone': phone,
       'city': city,
       'district': district,
+      'currency': currency,
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }

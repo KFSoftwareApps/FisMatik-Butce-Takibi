@@ -3,6 +3,7 @@ import 'package:fismatik/l10n/generated/app_localizations.dart';
 import 'package:intl/intl.dart';
 import '../core/app_theme.dart';
 import '../models/receipt_model.dart';
+import '../utils/currency_formatter.dart';
 import 'package:fismatik/services/product_normalization_service.dart';
 import 'package:fismatik/services/supabase_database_service.dart';
 import 'profile_screen.dart';
@@ -26,7 +27,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   String _viewMode = 'generic'; // 'brand' or 'generic'
   bool _isLoadingPreference = true;
   final _dbService = SupabaseDatabaseService();
-  final _currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+  // Using CurrencyFormatter
 
   List<Map<String, dynamic>> _allGenericData = [];
   List<String> _allBrandData = [];
@@ -418,7 +419,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                       if (minPrice > 0) ...[
                         const SizedBox(height: 4),
                         Text(
-                          '${_currencyFormat.format(minPrice)} - ${_currencyFormat.format(maxPrice)}',
+                          '${CurrencyFormatter.format(minPrice)} - ${CurrencyFormatter.format(maxPrice)}',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,

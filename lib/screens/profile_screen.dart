@@ -5,9 +5,14 @@ import 'package:fismatik/l10n/generated/app_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import '../providers/currency_provider.dart';
+import 'package:provider/provider.dart';
+import '../utils/currency_formatter.dart';
 import '../services/network_time_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 import '../core/app_theme.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
@@ -161,6 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>();
     return StreamBuilder<Map<String, dynamic>>(
       stream: SupabaseDatabaseService().getUserRoleDataStream(),
       builder: (context, roleSnapshot) {
@@ -802,7 +808,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: Text(h['merchant'] as String, style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(DateFormat('dd MMMM yyyy').format(h['date'] as DateTime)),
                     trailing: Text(
-                      "${(h['price'] as double).toStringAsFixed(2)} ₺",
+                      CurrencyFormatter.format(h['price'] as double),
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
                     ),
                   );
@@ -831,14 +837,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
   Widget _buildStatsCards(double monthlySpent, int totalReceipts, double avgPerReceipt) {
-    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+    // Using CurrencyFormatter
 
     return Row(
       children: [
         Expanded(
           child: _buildStatCard(
             title: AppLocalizations.of(context)!.statsThisMonth,
-            value: currencyFormat.format(monthlySpent),
+            value: CurrencyFormatter.format(monthlySpent),
             icon: Icons.calendar_today,
             color: Colors.blue,
           ),
@@ -1095,7 +1101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildMonthlyProgress(double monthlySpent, double monthlyLimit) {
-    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+    // Using CurrencyFormatter
     final progress = monthlyLimit > 0 ? monthlySpent / monthlyLimit : 0.0;
     final isOverBudget = monthlySpent > monthlyLimit && monthlyLimit > 0;
 
@@ -1129,7 +1135,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Row(
                   children: [
                     Text(
-                      '${currencyFormat.format(monthlySpent)} / ${currencyFormat.format(monthlyLimit)}',
+                      '${CurrencyFormatter.format(monthlySpent)} / ${CurrencyFormatter.format(monthlyLimit)}',
                       style: const TextStyle(fontSize: 14),
                     ),
                     const SizedBox(width: 4),
@@ -1154,9 +1160,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 8),
           Text(
             isOverBudget
-                ? AppLocalizations.of(context)!.budgetExceeded(currencyFormat.format(monthlySpent - monthlyLimit))
+                ? AppLocalizations.of(context)!.budgetExceeded(CurrencyFormatter.format(monthlySpent - monthlyLimit))
                 : monthlyLimit > 0
-                    ? AppLocalizations.of(context)!.remainingLabel(currencyFormat.format(monthlyLimit - monthlySpent))
+                    ? AppLocalizations.of(context)!.remainingLabel(CurrencyFormatter.format(monthlyLimit - monthlySpent))
                     : AppLocalizations.of(context)!.setBudgetLimitPrompt,
             style: TextStyle(
               fontSize: 12,
@@ -1170,7 +1176,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildRecentActivity(List<Receipt> recentReceipts) {
-    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1258,7 +1263,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   Text(
-                    currencyFormat.format(receipt.totalAmount),
+                    CurrencyFormatter.format(receipt.totalAmount),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                     ),
@@ -1366,7 +1371,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           decoration: InputDecoration(
             labelText: AppLocalizations.of(context)!.monthlyLimitAmount,
             border: const OutlineInputBorder(),
-            prefixText: "₺",
+            prefixText: "${CurrencyFormatter.currencySymbol} ",
           ),
         ),
         actions: [

@@ -5,6 +5,7 @@ import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../models/receipt_model.dart';
 import '../core/app_theme.dart';
 import '../services/supabase_database_service.dart';
+import '../utils/currency_formatter.dart';
 
 class VisualReportScreen extends StatelessWidget {
   final DateTime month;
@@ -72,7 +73,7 @@ class VisualReportScreen extends StatelessWidget {
           const Text("Toplam Gider", style: TextStyle(color: Colors.white70, fontSize: 16)),
           const SizedBox(height: 8),
           Text(
-            NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(total),
+            CurrencyFormatter.format(total),
             style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
           ),
         ],
@@ -117,7 +118,7 @@ class VisualReportScreen extends StatelessWidget {
             title: Text(e.key, style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text("% $percent"),
             trailing: Text(
-              NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(e.value),
+              CurrencyFormatter.format(e.value),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),

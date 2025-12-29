@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
+import 'package:intl/intl.dart';
+import '../utils/currency_formatter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:fismatik/models/receipt_model.dart';
 import 'package:fismatik/models/credit_model.dart';
@@ -1304,11 +1306,11 @@ class SupabaseDatabaseService {
       
       final buffer = StringBuffer();
       buffer.writeln("Mevcut Ay Finansal Özeti:");
-      buffer.writeln("- Toplam Harcama: ${total.toStringAsFixed(2)} TL");
+      buffer.writeln("- Toplam Harcama: ${CurrencyFormatter.format(total)}");
       buffer.writeln("- Kategori Dağılımı:");
       
       categories.forEach((key, value) {
-        buffer.writeln("  * $key: ${value.toStringAsFixed(2)} TL");
+        buffer.writeln("  * $key: ${CurrencyFormatter.format(value)}");
       });
       
       return buffer.toString();

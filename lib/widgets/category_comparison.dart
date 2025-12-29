@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../core/app_theme.dart';
 import '../models/receipt_model.dart';
 import '../services/supabase_database_service.dart';
+import '../utils/currency_formatter.dart';
 
 /// Kategori Karşılaştırma Widget'ı
 /// Analiz ekranında kullanılmak üzere
@@ -111,7 +112,7 @@ class CategoryComparisonWidget extends StatelessWidget {
   }
 
   Widget _buildComparisonCard(String category, ComparisonData data) {
-    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+    // Using CurrencyFormatter
     final isIncrease = data.changePercent > 0;
     final isDecrease = data.changePercent < 0;
     
@@ -171,7 +172,7 @@ class CategoryComparisonWidget extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      currencyFormat.format(data.current),
+                      CurrencyFormatter.format(data.current),
                       style: const TextStyle(
                         fontSize: 13,
                         color: Colors.grey,
@@ -180,7 +181,7 @@ class CategoryComparisonWidget extends StatelessWidget {
                     if (data.previous > 0) ...[
                       const Text(' ← ', style: TextStyle(color: Colors.grey)),
                       Text(
-                        currencyFormat.format(data.previous),
+                        CurrencyFormatter.format(data.previous),
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.grey,

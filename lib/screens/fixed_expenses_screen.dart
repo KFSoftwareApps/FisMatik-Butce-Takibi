@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'package:fismatik/services/data_refresh_service.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
+import 'package:fismatik/utils/currency_formatter.dart';
 import '../core/app_theme.dart';
 import '../models/subscription_model.dart';
 import '../services/supabase_database_service.dart';
@@ -255,7 +256,9 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
   Future<void> _addOrUpdateSubscription({Subscription? subscription, String? prefilledName}) async {
     final isEditing = subscription != null;
     final nameController = TextEditingController(text: subscription?.name ?? prefilledName);
-    final priceController = TextEditingController(text: subscription?.price.toString());
+    final priceController = TextEditingController(
+      text: subscription != null ? CurrencyFormatter.formatDecimal(subscription.price) : \"\",
+    );
     final dayController = TextEditingController(text: subscription?.renewalDay.toString() ?? '1');
     
     await showDialog(
@@ -355,7 +358,7 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
                   child: Column(
                     children: [
                       Text(AppLocalizations.of(context)!.totalMonthlyFixedExpenses, style: const TextStyle(color: Colors.white70)),
-                      Text("₺${total.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                      Text(CurrencyFormatter.format(total), style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -400,7 +403,7 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
                             ),
                             title: Text(sub.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                              subtitle: Text(AppLocalizations.of(context)!.dayOfMonth(sub.renewalDay.toString())),
-                            trailing: Text("₺${sub.price.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            trailing: Text(CurrencyFormatter.format(sub.price), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                             onTap: () => _addOrUpdateSubscription(subscription: sub),
                             onLongPress: () => _deleteSubscription(sub.id),
                           ),

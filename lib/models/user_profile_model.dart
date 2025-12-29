@@ -8,6 +8,7 @@ class UserProfile {
   final String phone;
   final String? city;
   final String? district;
+  final String currency;
 
   const UserProfile({
     required this.id,
@@ -17,6 +18,7 @@ class UserProfile {
     required this.phone,
     this.city,
     this.district,
+    this.currency = 'TRY',
   });
 
   String get fullName {
@@ -34,6 +36,7 @@ class UserProfile {
       'phone': phone,
       'city': city,
       'district': district,
+      'currency': currency,
     };
   }
 
@@ -46,6 +49,7 @@ class UserProfile {
       phone: (map['phone'] ?? '') as String,
       city: map['city'] as String?,
       district: map['district'] as String?,
+      currency: map['currency'] as String? ?? 'TRY',
     );
   }
 }

@@ -6,6 +6,7 @@ import '../models/receipt_model.dart';
 import '../services/supabase_database_service.dart';
 import '../services/product_normalization_service.dart';
 import 'edit_receipt_screen.dart';
+import '../utils/currency_formatter.dart';
 
 class ReceiptDetailScreen extends StatefulWidget {
   final Receipt receipt; // Başlangıç verisi (Listeden gelen)
@@ -62,8 +63,6 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
 
         final currentReceipt = snapshot.data!;
         final locale = Localizations.localeOf(context).toString();
-        final currencyFormat =
-            NumberFormat.currency(locale: locale, symbol: '₺');
         final dateFormat =
             DateFormat('dd MMMM yyyy • HH:mm', locale);
 
@@ -285,7 +284,7 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
                                   ),
                                 ),
                                 Text(
-                                  currencyFormat.format(item.price),
+                                  CurrencyFormatter.format(item.price),
                                   style: const TextStyle(
                                     color: AppColors.textDark,
                                     fontWeight: FontWeight.bold,
@@ -316,8 +315,7 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
                               ),
                             ),
                             Text(
-                              currencyFormat
-                                  .format(currentReceipt.totalAmount),
+                              CurrencyFormatter.format(currentReceipt.totalAmount),
                               style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w900,

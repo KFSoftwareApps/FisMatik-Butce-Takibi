@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import 'package:intl/intl.dart';
+import '../utils/currency_formatter.dart';
 
 import 'package:flutter/foundation.dart'; // For compute
 import '../utils/product_merger.dart';
@@ -303,7 +304,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   }
 
   Widget _buildCategoryTab(List<Receipt> receipts) {
-    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
 
     final categoryData = _calculateCategoryData(receipts);
     final totalSpent =
@@ -344,7 +344,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                 ),
                 Text(
-                  currencyFormat.format(totalSpent),
+                  CurrencyFormatter.format(totalSpent),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -413,7 +413,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        currencyFormat.format(categoryTotal),
+                        CurrencyFormatter.format(categoryTotal),
                         style: const TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ],
@@ -493,7 +493,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                currencyFormat.format(receipt.totalAmount),
+                                CurrencyFormatter.format(receipt.totalAmount),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
@@ -635,7 +635,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       const SizedBox(width: 12),
                       Text(
                          // Need to access formatted total here or calculate it
-                         NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(categoryTotals[index].value),
+                         CurrencyFormatter.format(categoryTotals[index].value),
                          style: const TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ],
@@ -689,16 +689,15 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                                    Padding(
                                      padding: const EdgeInsets.only(top: 2),
                                      child: Text(
-                                       hasLocationAccess && _userCity != null && globalData['city'] == _userCity
-                                         ? AppLocalizations.of(context)!.cheapestInCity(_userCity!) + ": ${NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(globalData['min_price'])} (${globalData['cheapest_merchant']})"
-                                         : AppLocalizations.of(context)!.cheapestInCommunity + ": ${NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(globalData['min_price'])} (${globalData['cheapest_merchant']})",
+                                       ? AppLocalizations.of(context)!.cheapestInCity(_userCity!) + ": ${CurrencyFormatter.format(globalData['min_price'])} (${globalData['cheapest_merchant']})"
+                                       : AppLocalizations.of(context)!.cheapestInCommunity + ": ${CurrencyFormatter.format(globalData['min_price'])} (${globalData['cheapest_merchant']})",
                                        style: TextStyle(fontSize: 10, color: hasBetterDeal ? Colors.green : Colors.grey[500], fontWeight: hasBetterDeal ? FontWeight.bold : FontWeight.normal),
                                      ),
                                    ),
                                ],
                              ),
                             trailing: Text(
-                              NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(stat.totalAmount),
+                              CurrencyFormatter.format(stat.totalAmount),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -980,7 +979,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       children: [
                         Text(
                           AppLocalizations.of(context)!.predictedEndOfMonth(
-                            (prediction['predictedTotal'] as double).toStringAsFixed(0)
+                            CurrencyFormatter.format((prediction['predictedTotal'] as double))
                           ),
                           style: TextStyle(
                             fontSize: 12, 
@@ -1049,7 +1048,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(sub['merchant'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                Text("${sub['price'].toStringAsFixed(2)} ₺ • Her ayın ${sub['renewalDay']}. günü", style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Text("${CurrencyFormatter.format(sub['price'])} • Her ayın ${sub['renewalDay']}. günü", style: const TextStyle(fontSize: 11, color: Colors.grey)),
               ],
             ),
           ),

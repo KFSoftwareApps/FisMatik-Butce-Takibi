@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/app_theme.dart';
 import 'providers/theme_provider.dart';
+import 'providers/currency_provider.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
@@ -99,6 +100,7 @@ void main() async {
       MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
+          ChangeNotifierProvider(create: (_) => CurrencyProvider()),
         ],
         child: const FismatikApp(),
       ),
@@ -261,6 +263,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     // 6. Check for Family Invitations [NEW]
     FamilyService().attachCurrentUserToFamilyIfInvited();
+
+    // 7. Initialize Currency Preference
+    if (mounted) {
+      Provider.of<CurrencyProvider>(context, listen: false).init();
+    }
   }
 
   void _handleUserLogout() {

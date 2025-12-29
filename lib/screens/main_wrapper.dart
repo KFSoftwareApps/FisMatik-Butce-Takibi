@@ -12,6 +12,8 @@ import 'package:home_widget/home_widget.dart';
 import '../services/supabase_database_service.dart';
 import '../services/smart_reminder_service.dart'; // [NEW]
 import '../services/data_refresh_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -74,6 +76,7 @@ class _MainWrapperState extends State<MainWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>();
     return Scaffold(
       // Seçili sayfayı göster
       body: IndexedStack(

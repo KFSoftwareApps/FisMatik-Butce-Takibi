@@ -2,6 +2,7 @@ import 'package:universal_io/io.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import '../utils/currency_formatter.dart';
 import 'package:printing/printing.dart';
 import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
@@ -18,7 +19,7 @@ class ReportService {
     final font = await PdfGoogleFonts.robotoRegular();
     final boldFont = await PdfGoogleFonts.robotoBold();
 
-    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2);
+    // Using CurrencyFormatter
     final dateFormat = DateFormat('d MMM yyyy', 'tr_TR');
 
     double totalAmount = receipts.fold(0, (sum, item) => sum + item.totalAmount);
@@ -66,8 +67,8 @@ class ReportService {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                _buildSummaryBox('Toplam Gider', currencyFormat.format(totalAmount), primaryColor),
-                _buildSummaryBox('Toplam KDV', currencyFormat.format(totalTax), PdfColors.teal700),
+                _buildSummaryBox('Toplam Gider', CurrencyFormatter.format(totalAmount), primaryColor),
+                _buildSummaryBox('Toplam KDV', CurrencyFormatter.format(totalTax), PdfColors.teal700),
                 _buildSummaryBox('İşlem Sayısı', receipts.length.toString(), PdfColors.blueGrey700),
               ],
             ),
@@ -80,7 +81,7 @@ class ReportService {
               headers: ['Kategori', 'Tutar', 'Oran'],
               data: sortedCategories.take(5).map((e) {
                 final percent = (e.value / totalAmount * 100).toStringAsFixed(1);
-                return [e.key, currencyFormat.format(e.value), '%$percent'];
+                return [e.key, CurrencyFormatter.format(e.value), '%$percent'];
               }).toList(),
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
               headerDecoration: pw.BoxDecoration(color: primaryColor),
@@ -106,16 +107,16 @@ class ReportService {
                   return [
                     dateFormat.format(r.date),
                     r.merchantName,
-                    currencyFormat.format(matrah),
-                    currencyFormat.format(tax),
-                    currencyFormat.format(r.totalAmount),
+                    CurrencyFormatter.format(matrah),
+                    CurrencyFormatter.format(tax),
+                    CurrencyFormatter.format(r.totalAmount),
                   ];
                 }
                 return [
                   dateFormat.format(r.date),
                   r.merchantName,
                   r.category,
-                  currencyFormat.format(r.totalAmount),
+                  CurrencyFormatter.format(r.totalAmount),
                 ];
               }).toList(),
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),

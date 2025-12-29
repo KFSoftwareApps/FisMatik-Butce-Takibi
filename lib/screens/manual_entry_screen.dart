@@ -19,6 +19,7 @@ import '../services/ad_service.dart';
 import '../services/notification_service.dart';
 import '../services/location_service.dart';
 import '../services/gamification_service.dart';
+import '../utils/currency_formatter.dart';
 import 'upgrade_screen.dart';
 
 class ManualEntryScreen extends StatefulWidget {
@@ -114,10 +115,10 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     }
     
     if (total > 0) {
-      _amountController.text = total.toStringAsFixed(2);
+      _amountController.text = CurrencyFormatter.formatDecimal(total);
       // Toplam değişince KDV'yi de %10 olarak güncelle (Eğer boşsa veya kullanıcı henüz elle girmemişse?)
       // Şimdilik sadece toplamı güncelleyelim, KDV'yi kullanıcıya bırakalım veya kaydederken fallback yapalım.
-      _taxController.text = (total / 11).toStringAsFixed(2);
+      _taxController.text = CurrencyFormatter.formatDecimal(total / 11);
     } else if (_itemEntries.isEmpty) {
       // Liste boşaldıysa manuel girişe izin ver, elle silinmediyse
     }
@@ -570,7 +571,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
                               onChanged: (val) => setState(() => _installmentCount = val.toInt()),
                             ),
                             Text(
-                              "${AppLocalizations.of(context)!.monthlyPaymentAmount ?? 'Aylık Tutar'}: ₺${((double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0) / _installmentCount).toStringAsFixed(2)}",
+                              "${AppLocalizations.of(context)!.monthlyPaymentAmount ?? 'Aylık Tutar'}: ${CurrencyFormatter.format(((double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0) / _installmentCount))}",
                               style: TextStyle(color: Colors.grey.shade600, fontSize: 13, fontStyle: FontStyle.italic),
                             ),
                           ],

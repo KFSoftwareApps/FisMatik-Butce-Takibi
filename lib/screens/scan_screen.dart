@@ -24,6 +24,7 @@ import '../models/user_level.dart'; // Added
 import '../services/notification_service.dart';
 import '../services/location_service.dart';
 import '../core/app_theme.dart';
+import '../utils/currency_formatter.dart';
 
 import 'manual_entry_screen.dart';
 import 'upgrade_screen.dart';
@@ -1073,7 +1074,7 @@ class _ScanScreenState extends State<ScanScreen> {
                             onChanged: (val) => setState(() => _installmentCount = val.toInt()),
                           ),
                           Text(
-                            "${AppLocalizations.of(context)!.monthlyPaymentAmount ?? 'Aylık Tutar'}: ₺${((double.tryParse(_totalController.text.replaceAll(',', '.')) ?? (_receiptData?['totalAmount']?.toDouble() ?? 0)) / _installmentCount).toStringAsFixed(2)}",
+                            "${AppLocalizations.of(context)!.monthlyPaymentAmount ?? 'Aylık Tutar'}: ${CurrencyFormatter.format(((double.tryParse(_totalController.text.replaceAll(',', '.')) ?? (_receiptData?['totalAmount']?.toDouble() ?? 0)) / _installmentCount))}",
                             style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontStyle: FontStyle.italic),
                           ),
                         ],
@@ -1438,7 +1439,7 @@ class _ScanScreenState extends State<ScanScreen> {
           children: [
             const Icon(Icons.arrow_drop_up, color: Colors.red, size: 16),
             Text(
-              "${diff.toStringAsFixed(2)}₺", 
+              CurrencyFormatter.format(diff), 
               style: const TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold)
             ),
           ],
@@ -1453,7 +1454,7 @@ class _ScanScreenState extends State<ScanScreen> {
           children: [
             const Icon(Icons.arrow_drop_down, color: Colors.green, size: 16),
             Text(
-              "${diff.toStringAsFixed(2)}₺", 
+              CurrencyFormatter.format(diff), 
               style: const TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)
             ),
           ],

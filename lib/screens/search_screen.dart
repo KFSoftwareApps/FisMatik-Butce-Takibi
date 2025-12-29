@@ -4,6 +4,7 @@ import '../core/app_theme.dart';
 import '../models/receipt_model.dart';
 import '../services/supabase_database_service.dart';
 import 'edit_receipt_screen.dart';
+import '../utils/currency_formatter.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import 'package:fismatik/services/product_normalization_service.dart';
 
@@ -333,7 +334,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
             title: Text(receipt.merchantName, style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text(DateFormat('dd MMMM yyyy', Localizations.localeOf(context).toString()).format(receipt.date)),
             trailing: Text(
-              "${receipt.totalAmount.toStringAsFixed(2)} ₺",
+              CurrencyFormatter.format(receipt.totalAmount),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             onTap: () {
@@ -445,7 +446,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
                       ],
                     ),
                     Text(
-                      "${(item['price'] as double).toStringAsFixed(2)} ₺",
+                      CurrencyFormatter.format(item['price'] as double),
                       style: TextStyle(
                         fontWeight: FontWeight.bold, 
                         fontSize: 20,
@@ -509,7 +510,7 @@ Future<void> _showProductHistory(BuildContext context, String productName) async
                   title: Text(h['merchant'] as String),
                   subtitle: Text(DateFormat('dd MMM yyyy', Localizations.localeOf(context).toString()).format(h['date'] as DateTime)),
                   trailing: Text(
-                    "${(h['price'] as double).toStringAsFixed(2)} ₺",
+                    CurrencyFormatter.format(h['price'] as double),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 );

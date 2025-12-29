@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../core/app_theme.dart';
 import '../models/receipt_model.dart';
 import '../services/supabase_database_service.dart';
+import '../utils/currency_formatter.dart';
 import 'receipt_detail_screen.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../widgets/error_state.dart';
@@ -189,8 +190,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           final selectedDayReceipts = _getEventsForDay(selectedDay);
           final totalDailySpending = _getDailyTotal(selectedDay);
           final locale = Localizations.localeOf(context).toString();
-          final currencyFormat =
-              NumberFormat.currency(locale: locale, symbol: '₺');
+          // Using CurrencyFormatter
 
           return Column(
             children: [
@@ -284,7 +284,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ),
                     ),
                     Text(
-                      currencyFormat.format(totalDailySpending),
+                      CurrencyFormatter.format(totalDailySpending),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -331,8 +331,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final String sourceText =
         isManual ? AppLocalizations.of(context)!.manualEntryLabel : AppLocalizations.of(context)!.scanReceiptLabel;
 
-    final currencyFormat =
-        NumberFormat.currency(locale: Localizations.localeOf(context).toString(), symbol: '₺', decimalDigits: 2);
+    // Using CurrencyFormatter
     final dateText =
         DateFormat('HH:mm', Localizations.localeOf(context).toString()).format(receipt.date);
 
@@ -446,7 +445,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
             const SizedBox(width: 8),
             Text(
-              currencyFormat.format(receipt.totalAmount),
+              CurrencyFormatter.format(receipt.totalAmount),
               style: const TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 14,

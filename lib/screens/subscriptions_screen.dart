@@ -3,8 +3,8 @@ import 'package:uuid/uuid.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../core/app_theme.dart';
 import '../models/subscription_model.dart';
-import '../services/supabase_database_service.dart';
 import '../services/notification_service.dart';
+import '../utils/currency_formatter.dart';
 import 'fixed_expenses_screen.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
@@ -203,7 +203,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                       style: const TextStyle(fontWeight: FontWeight.w600),
                                     ),
                                     subtitle: item['price'] > 0 
-                                        ? Text("Ort. ${item['price'].toStringAsFixed(2)} TL", style: TextStyle(color: Colors.grey[500], fontSize: 12))
+                                        ? Text("Ort. ${CurrencyFormatter.format(item['price'])}", style: const TextStyle(color: Colors.grey, fontSize: 12))
                                         : null,
                                     trailing: const Icon(Icons.add_circle_outline, color: AppColors.primary),
                                     onTap: () {
@@ -254,7 +254,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   Future<void> _addOrUpdateSubscription({Subscription? subscription, String? prefilledName, double? prefilledPrice}) async {
     final isEditing = subscription != null;
     final nameController = TextEditingController(text: subscription?.name ?? prefilledName);
-    final priceController = TextEditingController(text: subscription?.price.toString() ?? prefilledPrice?.toString());
+    final priceController = TextEditingController(
+      text: subscription != null ? CurrencyFormatter.formatDecimal(subscription.price) : (prefilledPrice != null ? CurrencyFormatter.formatDecimal(prefilledPrice) : \"\"),
+    );
     final dayController = TextEditingController(text: subscription?.renewalDay.toString() ?? '1');
     
     // Basit renk seçimi için varsayılanlar
@@ -416,7 +418,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "₺${_totalMonthlyCost.toStringAsFixed(2)}",
+                      CurrencyFormatter.format(_totalMonthlyCost),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 36,
@@ -491,7 +493,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    "₺${sub.price.toStringAsFixed(2)}",
+                                    CurrencyFormatter.format(sub.price),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,

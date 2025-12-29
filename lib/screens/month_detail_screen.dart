@@ -8,6 +8,7 @@ import '../services/report_service.dart';
 import 'visual_report_screen.dart';
 import 'upgrade_screen.dart';
 import 'receipt_detail_screen.dart';
+import '../utils/currency_formatter.dart';
 
 class MonthDetailScreen extends StatelessWidget {
   final DateTime month;
@@ -50,7 +51,6 @@ class MonthDetailScreen extends StatelessWidget {
           }
 
           final totalSpending = receipts.fold(0.0, (sum, item) => sum + item.totalAmount);
-          final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
 
           return Column(
             children: [
@@ -81,7 +81,7 @@ class MonthDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      currencyFormat.format(totalSpending),
+                      CurrencyFormatter.format(totalSpending),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 32,
@@ -119,7 +119,7 @@ class MonthDetailScreen extends StatelessWidget {
                           DateFormat('dd MMM yyyy', Localizations.localeOf(context).toString()).format(receipt.date),
                         ),
                         trailing: Text(
-                          currencyFormat.format(receipt.totalAmount),
+                          CurrencyFormatter.format(receipt.totalAmount),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,

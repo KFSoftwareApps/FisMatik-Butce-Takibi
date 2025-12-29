@@ -10,6 +10,7 @@ import '../services/report_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/web_ad_banner.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/currency_formatter.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'upgrade_screen.dart';
@@ -153,7 +154,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     Expanded(
                       child: _buildSummaryCard(
                         title: AppLocalizations.of(context)!.totalSpending,
-                        value: NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(totalSpending),
+                        value: CurrencyFormatter.format(totalSpending),
                         icon: Icons.account_balance_wallet,
                         color: Colors.blue,
                         backgroundColor: Colors.blue.shade50,
@@ -163,7 +164,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     Expanded(
                       child: _buildSummaryCard(
                         title: AppLocalizations.of(context)!.totalSavings,
-                        value: NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(totalSavings),
+                        value: CurrencyFormatter.format(totalSavings),
                         icon: Icons.savings,
                         color: Colors.green,
                         backgroundColor: Colors.green.shade50,
@@ -178,7 +179,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     Expanded(
                       child: _buildSummaryCard(
                         title: AppLocalizations.of(context)!.taxPaid,
-                        value: NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(totalTax),
+                        value: CurrencyFormatter.format(totalTax),
                         icon: Icons.receipt,
                         color: Colors.red,
                         backgroundColor: Colors.red.shade50,
@@ -515,7 +516,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Widget _buildCategoryDetails(String categoryName, List<Receipt> receipts) {
     final categoryReceipts = receipts.where((r) => r.category == categoryName).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
-    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+    // Using CurrencyFormatter
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -530,7 +531,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           leading: const Icon(Icons.receipt, size: 20, color: AppColors.primary),
           title: Text(r.merchantName),
           subtitle: Text(DateFormat('dd MMM yyyy', 'tr_TR').format(r.date)),
-          trailing: Text(currencyFormat.format(r.totalAmount), style: const TextStyle(fontWeight: FontWeight.bold)),
+          trailing: Text(CurrencyFormatter.format(r.totalAmount), style: const TextStyle(fontWeight: FontWeight.bold)),
         )),
         if (categoryReceipts.length > 5)
           Center(
@@ -586,8 +587,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   children: [
                     TextSpan(
-                      text: '${rod.toY.toStringAsFixed(0)} TL',
-                      style: const TextStyle(color: Colors.yellow),
+                      text: CurrencyFormatter.format(rod.toY),
+                      style: const TextStyle(color: Colors.yellow, fontWeight: FontWeight.bold),
                     ),
                   ],
                 );
@@ -957,7 +958,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(amount),
+            CurrencyFormatter.format(amount),
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -1079,7 +1080,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     // Bütçe aşımı kontrolü
     bool isOverBudget = _budgetLimit > 0 && projectedTotal > _budgetLimit;
     String message = AppLocalizations.of(context)!.budgetForecastMessage(
-        NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(projectedTotal));
+        CurrencyFormatter.format(projectedTotal));
         
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1175,11 +1176,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    "${AppLocalizations.of(context)!.totalSpending}: ${NumberFormat.simpleCurrency(locale: 'tr_TR', decimalDigits: 0).format(totalSpent)}",
+                    "${AppLocalizations.of(context)!.totalSpending}: ${CurrencyFormatter.format(totalSpent)}",
                     style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                   ),
                   Text(
-                    "${AppLocalizations.of(context)!.monthlyLimit}: ${NumberFormat.simpleCurrency(locale: 'tr_TR', decimalDigits: 0).format(_budgetLimit)}",
+                    "${AppLocalizations.of(context)!.monthlyLimit}: ${CurrencyFormatter.format(_budgetLimit)}",
                     style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                   ),
                 ],

@@ -1,5 +1,6 @@
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
+import '../utils/currency_formatter.dart';
 
 class WidgetService {
   static const String _groupId = 'group.fismatik.widget';
@@ -9,16 +10,16 @@ class WidgetService {
     required double totalSpending,
     required double remainingBudget,
   }) async {
-    final currencyFormat = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+    // Using CurrencyFormatter
 
     try {
       await HomeWidget.saveWidgetData<String>(
         'total_spending',
-        currencyFormat.format(totalSpending),
+        CurrencyFormatter.format(totalSpending),
       );
       await HomeWidget.saveWidgetData<String>(
         'remaining_budget',
-        currencyFormat.format(remainingBudget),
+        CurrencyFormatter.format(remainingBudget),
       );
       
       double limit = totalSpending + remainingBudget;
