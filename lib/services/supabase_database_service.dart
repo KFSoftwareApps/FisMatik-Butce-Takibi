@@ -11,9 +11,11 @@ import 'package:fismatik/services/auth_service.dart';
 import 'package:fismatik/models/membership_model.dart';
 import 'package:fismatik/services/product_normalization_service.dart';
 import 'package:fismatik/services/network_time_service.dart';
+import 'package:fismatik/services/data_refresh_service.dart';
 
 class SupabaseDatabaseService {
   final SupabaseClient _client = Supabase.instance.client;
+  final DataRefreshService _refreshService = DataRefreshService();
 
   // --- KULLANICI ID ---
   User? get currentUser => _client.auth.currentUser;
@@ -52,6 +54,7 @@ class SupabaseDatabaseService {
       'user_id': user.id,
       if (familyId != null) 'household_id': familyId,
     });
+    _refreshService.notifyUpdate();
   }
 
   Future<void> deleteCredit(String creditId) async {
@@ -59,6 +62,7 @@ class SupabaseDatabaseService {
     if (user == null) throw Exception('Kullanıcı oturumu kapalı');
     
     await _client.from('user_credits').delete().eq('id', creditId);
+    _refreshService.notifyUpdate();
   }
 
   String get _userId {
@@ -1018,6 +1022,7 @@ class SupabaseDatabaseService {
       'user_id': ownerId,
       'monthly_limit': newLimit,
     });
+    _refreshService.notifyUpdate();
   }
 
   // --- KATEGORİ İŞLEMLERİ ---
@@ -1090,6 +1095,7 @@ class SupabaseDatabaseService {
     if (familyId != null) data['household_id'] = familyId;
     
     await _client.from('subscriptions').upsert(data);
+    _refreshService.notifyUpdate();
   }
 
   Stream<List<Subscription>> getSubscriptions() async* {

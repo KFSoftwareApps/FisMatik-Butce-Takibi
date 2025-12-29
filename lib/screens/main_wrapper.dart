@@ -11,6 +11,7 @@ import 'calendar_screen.dart';
 import 'package:home_widget/home_widget.dart';
 import '../services/supabase_database_service.dart';
 import '../services/smart_reminder_service.dart'; // [NEW]
+import '../services/data_refresh_service.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -85,7 +86,9 @@ class _MainWrapperState extends State<MainWrapper> {
         onPressed: () {
           // Tarama ekranına git (Menüden bağımsız tam ekran açılır)
           Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const ScanScreen()));
+              MaterialPageRoute(builder: (context) => const ScanScreen())).then((_) {
+            DataRefreshService().notifyUpdate();
+          });
         },
         backgroundColor: AppColors.primary,
         shape: const CircleBorder(),

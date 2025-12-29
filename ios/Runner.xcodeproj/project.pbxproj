@@ -273,10 +273,10 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
+				0470E46F2F02B21B009106F9 /* Embed Foundation Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				C0FD427813A0E3C7AF444772 /* [CP] Embed Pods Frameworks */,
 				0D1E7CFB748D248A3E58AE26 /* [CP] Copy Pods Resources */,
-				0470E46F2F02B21B009106F9 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -562,7 +562,7 @@
 				INFOPLIST_FILE = FismatikWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = FismatikWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -608,7 +608,7 @@
 				INFOPLIST_FILE = FismatikWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = FismatikWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -651,7 +651,7 @@
 				INFOPLIST_FILE = FismatikWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = FismatikWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

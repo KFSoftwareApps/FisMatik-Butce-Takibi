@@ -26,6 +26,7 @@ import 'package:fismatik/screens/fixed_expenses_screen.dart';
 import 'package:fismatik/screens/installment_expenses_screen.dart';
 import 'package:fismatik/screens/manual_entry_screen.dart';
 import 'package:flutter/foundation.dart';
+import 'package:fismatik/services/data_refresh_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -62,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedFilter = FILTER_MONTH; // Assuming constants exist
   String _currentTierId = 'standart';
   List<Map<String, dynamic>> _pendingSmsExpenses = [];
+  StreamSubscription<void>? _refreshSubscription;
 
   // Filter constants if not imported
   static const String FILTER_WEEK = 'Bu Hafta';
@@ -76,11 +78,17 @@ class _HomeScreenState extends State<HomeScreen> {
       _refreshData();
       _checkUserTier();
     });
+    
+    // Listen for global refresh signals
+    _refreshSubscription = DataRefreshService().onUpdate.listen((_) {
+      if (mounted) _refreshData();
+    });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _refreshSubscription?.cancel();
     super.dispose();
   }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:async';
+import 'package:fismatik/services/data_refresh_service.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../core/app_theme.dart';
 import '../models/subscription_model.dart';
@@ -20,16 +22,23 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
   late Stream<List<Subscription>> _subscriptionsStream;
   double _totalMonthlyCost = 0.0;
   final ScrollController _scrollController = ScrollController();
+  StreamSubscription<void>? _refreshSubscription;
 
   @override
   void initState() {
     super.initState();
     _refreshData();
+    
+    // Listen for global refresh signals
+    _refreshSubscription = DataRefreshService().onUpdate.listen((_) {
+      if (mounted) _refreshData();
+    });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _refreshSubscription?.cancel();
     super.dispose();
   }
 
