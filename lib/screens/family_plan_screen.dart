@@ -28,12 +28,39 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
     try {
       print("DEBUG: fetching getFamilyStatus...");
       final status = await _familyService.getFamilyStatus();
-      print("DEBUG: fetching getPendingInvitations...");
+      
+      print("DEBUG: fetching getPendingInvitations (my invites)...");
       final invitations = await _familyService.getPendingInvitations();
+
+      List<Map<String, dynamic>> sentInvitations = [];
+      if (status['has_family'] == true && status['household_id'] != null) {
+         print("DEBUG: fetching getSentInvitations (sent to others)...");
+         sentInvitations = await _familyService.getSentInvitations(status['household_id']);
+      }
+
       print("DEBUG: updating state with status: $status");
       setState(() {
         _familyStatus = status;
         _pendingInvitations = invitations;
+        
+        // Mevcut üyelerin yanına bekleyenleri de ekle (eğer zaten yoksa)
+        if (status['members'] != null) {
+          final List members = List.from(status['members']);
+          for (var inv in sentInvitations) {
+            final email = inv['email'].toString().toLowerCase();
+            if (!members.any((m) => m['email'].toString().toLowerCase() == email)) {
+              members.add({
+                'user_id': 'invite_${inv['id']}',
+                'email': inv['email'],
+                'role': 'member',
+                'status': 'pending',
+                'invite_id': inv['id'],
+              });
+            }
+          }
+          _familyStatus!['members'] = members;
+        }
+
         _isLoading = false;
       });
     } catch (e) {
@@ -280,29 +307,20 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
     if (confirm == true) {
       setState(() => _isLoading = true);
       try {
-        final result = await _familyService.removeFamilyMemberById(userId);
-        if (result['success'] == true) {
-          await _loadFamilyStatus();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(AppLocalizations.of(context)!.memberRemovedSuccess)),
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(result['message'] ?? "Hata oluştu")),
-            );
-          }
-          setState(() => _isLoading = false);
+        await _familyService.removeMemberByEmail(email: email);
+        await _loadFamilyStatus();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppLocalizations.of(context)!.memberRemovedSuccess)),
+          );
         }
       } catch (e) {
-        setState(() => _isLoading = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Hata: $e")),
           );
         }
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -530,35 +548,77 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
             itemBuilder: (context, index) {
               final member = members[index];
               final isMe = member['user_id'] == _familyService.currentUser?.id;
+              final isPending = member['status'] == 'pending';
               
               return Card(
+                elevation: isPending ? 0 : 2,
+                color: isPending ? Colors.grey.shade50 : Colors.white,
                 margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: isPending ? BorderSide(color: Colors.grey.shade200) : BorderSide.none,
+                ),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.grey[200],
-                    child: Text(
-                      (member['email'] as String).isNotEmpty ? (member['email'] as String)[0].toUpperCase() : "?",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    backgroundColor: isPending ? Colors.grey.shade200 : AppColors.primary.withOpacity(0.1),
+                    child: Icon(
+                      member['role'] == 'owner' ? Icons.star : (isPending ? Icons.hourglass_top : Icons.person),
+                      size: 20,
+                      color: isPending ? Colors.grey : (member['role'] == 'owner' ? Colors.orange : AppColors.primary),
                     ),
                   ),
-                  title: Text(member['email']),
+                  title: Text(
+                    member['email'],
+                    style: TextStyle(
+                      color: isPending ? Colors.grey : AppColors.textDark,
+                      fontWeight: isPending ? FontWeight.normal : FontWeight.w500,
+                    ),
+                  ),
                   subtitle: Row(
                     children: [
-                      Text(member['role'] == 'owner' ? AppLocalizations.of(context)!.adminLabel : AppLocalizations.of(context)!.memberLabel),
-                      if (member['status'] == 'pending') ...[
+                      Text(
+                        member['role'] == 'owner' ? AppLocalizations.of(context)!.adminLabel : AppLocalizations.of(context)!.memberLabel,
+                        style: TextStyle(color: isPending ? Colors.grey.shade400 : null),
+                      ),
+                      if (isPending) ...[
                         const Text(" • "),
                         Text(
-                          "Bekliyor",
-                          style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.bold, fontSize: 12),
+                          "Onay Bekliyor",
+                          style: TextStyle(color: Colors.orange.shade300, fontWeight: FontWeight.bold, fontSize: 11),
                         ),
                       ],
                     ],
                   ),
                   trailing: (role == 'owner' && !isMe)
-                      ? IconButton(
-                          icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                          onPressed: () => _removeMember(member['user_id'], member['email']),
-                          tooltip: AppLocalizations.of(context)!.removeFromFamilyTooltip,
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isPending)
+                              TextButton(
+                                onPressed: () async {
+                                  try {
+                                    await _familyService.resendInvite(member['email']);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text("Davet tekrar gönderildi.")),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text("Hata: $e")),
+                                      );
+                                    }
+                                  }
+                                },
+                                child: const Text("Tekrar Gönder", style: TextStyle(fontSize: 12)),
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 20),
+                              onPressed: () => _removeMember(member['user_id'], member['email']),
+                              tooltip: AppLocalizations.of(context)!.removeFromFamilyTooltip,
+                            ),
+                          ],
                         )
                       : (member['role'] == 'owner' 
                           ? const Icon(Icons.star, color: Colors.orange) 

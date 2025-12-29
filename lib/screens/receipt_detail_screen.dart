@@ -32,10 +32,8 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
     if (status['has_family'] == true) {
       final members = status['members'] as List?;
       if (members != null) {
-        final member = members.firstWhere(
-          (m) => m['user_id'] == widget.receipt.createdBy,
-          orElse: () => null,
-        );
+        final matches = members.where((m) => m['user_id'] == widget.receipt.createdBy);
+        final member = matches.isEmpty ? null : matches.first;
         if (member != null && mounted) {
           setState(() {
             _creatorEmail = member['email'];

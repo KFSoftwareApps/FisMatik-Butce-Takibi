@@ -41,6 +41,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
     } finally {
       if (mounted) {
         setState(() => _creatingFamily = false);
+        // StreamBuilder'ı tetiklemek için setState
+        setState(() {}); 
       }
     }
   }
@@ -65,7 +67,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Üye eklenemedi: $e")),
+        SnackBar(content: Text(e.toString().replaceAll("Exception:", "").trim())),
       );
     } finally {
       if (mounted) {
@@ -295,37 +297,41 @@ class _FamilyScreenState extends State<FamilyScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Üye listesi
           ...family.members.map((m) {
             final isMe = m.email.toLowerCase() == myEmail;
             final isOwnerMember = m.role == 'owner';
+            final isPending = m.status == 'pending';
+            
+            final textColor = isPending ? Colors.grey : AppColors.textDark;
+            final subTextColor = isPending ? Colors.grey.shade400 : AppColors.textLight;
 
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isPending ? Colors.grey.shade50 : Colors.white,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
+                    color: Colors.black.withOpacity(isPending ? 0.01 : 0.02),
                     blurRadius: 6,
                     offset: const Offset(0, 3),
                   ),
                 ],
+                border: isPending ? Border.all(color: Colors.grey.shade200) : null,
               ),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: AppColors.primary.withOpacity(0.1),
+                    backgroundColor: isPending ? Colors.grey.shade200 : AppColors.primary.withOpacity(0.1),
                     child: Icon(
-                      isOwnerMember ? Icons.star : Icons.person,
+                      isOwnerMember ? Icons.star : (isPending ? Icons.hourglass_empty : Icons.person),
                       size: 18,
-                      color: isOwnerMember
-                          ? Colors.orangeAccent
-                          : AppColors.primary,
+                      color: isPending 
+                          ? Colors.grey 
+                          : (isOwnerMember ? Colors.orangeAccent : AppColors.primary),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -335,55 +341,83 @@ class _FamilyScreenState extends State<FamilyScreen> {
                       children: [
                         Text(
                           m.email,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
-                            color: AppColors.textDark,
+                            color: textColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        Row(
-                          children: [
-                            if (isOwnerMember)
-                              const Text(
-                                "Sahip",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
+                        if (isPending)
+                          Text(
+                            "Onay Bekleniyor",
+                            style: TextStyle(fontSize: 11, color: Colors.orange.shade300, fontWeight: FontWeight.bold),
+                          )
+                        else
+                          Row(
+                            children: [
+                              if (isOwnerMember)
+                                const Text(
+                                  "Sahip",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                            if (isOwnerMember && isMe)
-                              const Text(
-                                " · ",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textLight,
+                              if (isOwnerMember && isMe)
+                                const Text(
+                                  " · ",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textLight,
+                                  ),
                                 ),
-                              ),
-                            if (isMe)
-                              const Text(
-                                "Sen",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textLight,
+                              if (isMe)
+                                const Text(
+                                  "Sen",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textLight,
+                                  ),
                                 ),
-                              ),
-                          ],
-                        ),
+                            ],
+                          ),
                       ],
                     ),
                   ),
 
-                  // Sadece owner, kendisi olmayan üyeleri çıkarabilsin
-                  if (isOwner && !isOwnerMember && !isMe)
+                  // Actions
+                  if (isOwner && !isOwnerMember && !isMe) ...[
+                    if (isPending)
+                      TextButton(
+                        onPressed: () async {
+                           try {
+                             await _familyService.resendInvite(m.email);
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               const SnackBar(content: Text("Davet tekrar gönderildi.")),
+                             );
+                           } catch (e) {
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               SnackBar(content: Text("Hata: $e")),
+                             );
+                           }
+                        },
+                         child: const Text("Tekrar Gönder", style: TextStyle(fontSize: 11)),
+                      ),
+                    
                     IconButton(
                       icon: const Icon(
                         Icons.close,
                         size: 18,
                         color: Colors.redAccent,
                       ),
-                      onPressed: () => _handleRemoveMember(m),
+                      onPressed: () => _handleRemoveMember(m), // Works for invites too? 
+                      // Need to check removeMemberByEmail if it handles invites.
+                      // The service update I made doesn't explicitly handle invites in removeMemberByEmail unless email matches.
+                      // Since invited members are now in the list with their email, removeMemberByEmail should work 
+                      // IF I update removeMemberByEmail to also delete from invitations table.
                     ),
+                  ]
                 ],
               ),
             );

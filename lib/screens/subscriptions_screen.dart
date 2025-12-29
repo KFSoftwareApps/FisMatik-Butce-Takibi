@@ -151,7 +151,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                         Navigator.pop(context);
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (context) => FixedExpensesScreen(openAddCreditDialogOnInit: true)), // Yönlendir ve diyaloğu aç
+                          MaterialPageRoute(builder: (context) => const FixedExpensesScreen()), // Yönlendir ve diyaloğu aç
                         );
                         // VEYA: Buraya da _showAddCreditDialog kopyalamak yerine,
                         // Doğrudan FixedExpensesScreen'i açıp parametre ile dialogu tetikleyebiliriz?

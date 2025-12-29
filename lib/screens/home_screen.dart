@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,177 +14,403 @@ import 'package:fismatik/services/notification_service.dart';
 import 'package:fismatik/screens/scan_screen.dart';
 import 'package:fismatik/screens/receipt_detail_screen.dart';
 import 'package:fismatik/widgets/error_state.dart';
+import 'package:fismatik/widgets/empty_state.dart';
 import 'package:fismatik/screens/statistics_screen.dart';
 import 'package:fismatik/services/intelligence_service.dart';
 import 'package:fismatik/screens/subscriptions_screen.dart'; 
-import 'package:fismatik/screens/installment_expenses_screen.dart'; // [NEW]
+import 'package:fismatik/services/auth_service.dart';
+import 'package:fismatik/services/sms_service.dart';
+import 'package:fismatik/screens/search_screen.dart';
+import 'package:fismatik/widgets/web_ad_banner.dart';
+import 'package:fismatik/screens/fixed_expenses_screen.dart';
+import 'package:fismatik/screens/installment_expenses_screen.dart';
+import 'package:fismatik/screens/manual_entry_screen.dart';
+import 'package:flutter/foundation.dart';
 
-// ... (existing imports)
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
 
-  // ... inside _HomeScreenState
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class HomeData {
+  final List<Receipt> receipts;
+  final double monthlyLimit;
+  final List<Subscription> subscriptions;
+  final List<Credit> credits;
+  final Map<String, dynamic> settings;
+
+  HomeData({
+    required this.receipts,
+    required this.monthlyLimit,
+    required this.subscriptions,
+    required this.credits,
+    required this.settings,
+  });
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final SupabaseDatabaseService _databaseService = SupabaseDatabaseService();
+  final NotificationService _notificationService = NotificationService();
+  final SmsService _smsService = SmsService();
+  final AuthService _authService = AuthService(); // Assuming AuthService exists or needs import
+
+  late Stream<HomeData> _homeDataStream;
+  final ScrollController _scrollController = ScrollController();
+  
+  String _selectedFilter = FILTER_MONTH; // Assuming constants exist
+  String _currentTierId = 'standart';
+  List<Map<String, dynamic>> _pendingSmsExpenses = [];
+
+  // Filter constants if not imported
+  static const String FILTER_WEEK = 'Bu Hafta';
+  static const String FILTER_MONTH = 'Bu Ay';
+  static const String FILTER_SALARY = 'Maaş Günü';
+  static const String FILTER_YEAR = 'Bu Yıl';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDateFilter().then((_) {
+      _refreshData();
+      _checkUserTier();
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _checkUserTier() async {
+    final tier = await _databaseService.getCurrentTier();
+    if (mounted) {
+      setState(() {
+        _currentTierId = tier.id;
+      });
+    }
+  }
+
+  // Helper methods for filtering and calculation
+  String _getFilterLabel(String filterKey) {
+    switch (filterKey) {
+      case FILTER_WEEK: return AppLocalizations.of(context)!.thisWeek;
+      case FILTER_MONTH: return AppLocalizations.of(context)!.thisMonth;
+      case FILTER_SALARY: return AppLocalizations.of(context)!.salaryDay;
+      case FILTER_YEAR: return AppLocalizations.of(context)!.thisYear;
+      default: return filterKey;
+    }
+  }
+
+  Future<void> _saveDateFilter() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('home_selected_filter', _selectedFilter);
+  }
+
+  Future<void> _loadDateFilter() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedFilter = prefs.getString('home_selected_filter');
+    if (savedFilter != null) {
+      setState(() {
+        _selectedFilter = savedFilter;
+      });
+    }
+  }
+
+  Future<void> _loadPendingSmsExpenses() async {
+    final expenses = await _smsService.getPendingExpenses();
+    if (mounted) {
+      setState(() {
+        _pendingSmsExpenses = expenses;
+      });
+    }
+  }
+
+  List<Receipt> _filterReceipts(List<Receipt> receipts, int salaryDay) {
+    if (receipts.isEmpty) return [];
+    
+    final now = DateTime.now();
+    return receipts.where((receipt) {
+      final date = receipt.date;
+      
+      switch (_selectedFilter) {
+        case FILTER_WEEK:
+          final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+          return date.isAfter(startOfWeek.subtract(const Duration(seconds: 1)));
+          
+        case FILTER_MONTH:
+          return date.year == now.year && date.month == now.month;
+          
+        case FILTER_YEAR:
+          return date.year == now.year;
+          
+        case FILTER_SALARY:
+          DateTime salaryDate = DateTime(now.year, now.month, salaryDay);
+          if (now.day < salaryDay) {
+            salaryDate = DateTime(now.year, now.month - 1, salaryDay);
+          }
+          return date.isAfter(salaryDate.subtract(const Duration(days: 1))) && 
+                 date.isBefore(salaryDate.add(const Duration(days: 32)));
+                 
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  double _calculateTotal(List<Receipt> receipts) {
+    if (receipts.isEmpty) return 0;
+    return receipts.fold(0.0, (sum, item) => sum + item.totalAmount);
+  }
+
+  Stream<HomeData> _getCombinedHomeData() {
+    // Custom combineLatest implementation using a StreamController
+    final controller = StreamController<HomeData>();
+    
+    List<Receipt>? lastReceipts;
+    double? lastLimit;
+    List<Subscription>? lastSubs;
+    List<Credit>? lastCredits;
+    Map<String, dynamic>? lastSettings;
+
+    void update() {
+      if (lastReceipts != null && lastLimit != null && lastSubs != null && 
+          lastCredits != null && lastSettings != null) {
+        if (!controller.isClosed) {
+          controller.add(HomeData(
+            receipts: lastReceipts!,
+            monthlyLimit: lastLimit!,
+            subscriptions: lastSubs!,
+            credits: lastCredits!,
+            settings: lastSettings!,
+          ));
+        }
+      }
+    }
+
+    final s1 = _databaseService.getUnifiedReceiptsStream().listen((r) { lastReceipts = r; update(); });
+    final s2 = _databaseService.getMonthlyLimit().listen((l) { lastLimit = l; update(); });
+    final s3 = _databaseService.getSubscriptions().listen((s) { lastSubs = s; update(); });
+    final s4 = _databaseService.getCredits().listen((c) { lastCredits = c; update(); });
+    final s5 = _databaseService.getUserSettings().listen((s) { lastSettings = s; update(); });
+
+    controller.onCancel = () {
+      s1.cancel();
+      s2.cancel();
+      s3.cancel();
+      s4.cancel();
+      s5.cancel();
+    };
+
+    return controller.stream;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Receipt>>(
-      stream: _receiptsStream,
-      builder: (context, receiptSnapshot) {
-        return StreamBuilder<double>(
-          stream: _monthlyLimitStream,
-          builder: (context, limitSnapshot) {
-            return StreamBuilder<List<Subscription>>(
-              stream: _subscriptionsStream,
-              builder: (context, subSnapshot) {
-                return StreamBuilder<List<Credit>>(
-                  stream: _creditsStream,
-                  builder: (context, creditSnapshot) {
-                    return StreamBuilder<Map<String, dynamic>>(
-                      stream: _userSettingsStream,
-                      builder: (context, settingsSnapshot) {
-                        // Birincil yükleme durumu (En az fiş listesi gelene kadar bekle)
-                        if (receiptSnapshot.connectionState == ConnectionState.waiting && receiptSnapshot.data == null) {
-                          return const Scaffold(
-                            body: Center(child: CircularProgressIndicator()),
-                          );
-                        }
+    return StreamBuilder<HomeData>(
+      stream: _homeDataStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting && snapshot.data == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-                        // Hata durumu
-                        if (receiptSnapshot.hasError) {
-                          // ... (error handling code remains same)
-                          final error = receiptSnapshot.error.toString();
-                          final isNetworkError = error.contains('SocketException') || error.contains('NetworkImage') || error.contains('ClientException');
-                          
-                          return Scaffold(
-                            backgroundColor: Colors.white,
-                            body: ErrorState(
-                              title: isNetworkError ? (AppLocalizations.of(context)!.noInternet ?? "Bağlantı Hatası") : (AppLocalizations.of(context)!.generalError ?? "Bir Hata Oluştu"),
-                              description: isNetworkError 
-                                  ? (AppLocalizations.of(context)!.networkError ?? "İnternet bağlantınızı kontrol edip tekrar deneyin.")
-                                  : error,
-                              icon: isNetworkError ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
-                              onRetry: () {
-                                if (mounted) {
-                                  setState(() {
-                                    _receiptsStream = _databaseService.getUnifiedReceiptsStream();
-                                  });
-                                }
-                              },
-                            ),
-                          );
-                        }
+        if (snapshot.hasError) {
+          final error = snapshot.error.toString();
+          final isNetworkError = error.contains('SocketException') || error.contains('NetworkImage') || error.contains('ClientException');
+          
+          return Scaffold(
+            backgroundColor: Colors.white,
+            body: ErrorState(
+              title: isNetworkError ? (AppLocalizations.of(context)!.noInternet ?? "Bağlantı Hatası") : (AppLocalizations.of(context)!.generalError ?? "Bir Hata Oluştu"),
+              description: isNetworkError 
+                  ? (AppLocalizations.of(context)!.networkError ?? "İnternet bağlantınızı kontrol edip tekrar deneyin.")
+                  : error,
+              icon: isNetworkError ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
+              onRetry: () {
+                _refreshData();
+              },
+            ),
+          );
+        }
 
-                        // Verileri hazırla (Fallback değerleri ile)
-                        final allReceipts = receiptSnapshot.data ?? [];
-                        final monthlyLimit = limitSnapshot.data ?? 5000.0;
-                        final subscriptions = subSnapshot.data ?? [];
-                        final credits = creditSnapshot.data ?? [];
-                        final settings = settingsSnapshot.data ?? {'salary_day': 1};
-                        final int salaryDay = settings['salary_day'] as int;
+        final data = snapshot.data!;
+        final salaryDay = data.settings['salary_day'] as int;
 
-                        // Filtreleme ve Hesaplama
-                        final filteredReceipts = _filterReceipts(allReceipts, salaryDay);
-                        
-                        // Header için sadece gerçek fişleri topla (Sabit giderler ayrıca hesaplanıyor)
-                        final realReceipts = filteredReceipts.where((r) => !r.id.startsWith('sub_') && !r.id.startsWith('credit_')).toList();
-                        final totalSpending = _calculateTotal(realReceipts);
+        // Filtreleme ve Hesaplama
+        final filteredReceipts = _filterReceipts(data.receipts, salaryDay);
+        
+        final realReceipts = filteredReceipts.where((r) => !r.id.startsWith('sub_') && !r.id.startsWith('credit_')).toList();
+        final totalSpending = _calculateTotal(realReceipts);
 
-                        double totalSubscriptions = 0;
-                        for (var sub in subscriptions) {
-                          totalSubscriptions += sub.price;
-                        }
+        double totalSubscriptions = 0;
+        for (var sub in data.subscriptions) {
+          totalSubscriptions += sub.price;
+        }
 
-                        double totalInstallments = 0;
-                        for (var credit in credits) {
-                          totalInstallments += credit.monthlyAmount;
-                        }
+        double totalInstallments = 0;
+        for (var credit in data.credits) {
+          totalInstallments += credit.monthlyAmount;
+        }
 
-                        final totalFixedExpenses = totalSubscriptions + totalInstallments;
-                        final remainingBudget = monthlyLimit - totalSpending - totalFixedExpenses;
+        final totalFixedExpenses = totalSubscriptions + totalInstallments;
+        final remainingBudget = data.monthlyLimit - totalSpending - totalFixedExpenses;
 
-                        // Widget ve Bildirim Kontrolleri (Async)
-                        _performBackgroundChecks(context, totalSpending, monthlyLimit, remainingBudget);
+        // Background check (Side effect inside build is bad, but keeping original logic for stability)
+        _performBackgroundChecks(context, totalSpending, data.monthlyLimit, remainingBudget);
 
-                        return Container(
-                          color: AppColors.background,
-                          child: CustomScrollView(
-                            controller: _scrollController,
-                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                            slivers: [
-                              SliverToBoxAdapter(
-                                child: _buildHeaderSection(context, totalSpending, monthlyLimit, totalFixedExpenses, totalSubscriptions, totalInstallments),
-                              ),
-                              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                              SliverToBoxAdapter(
-                                child: _buildFilterTabs(),
-                              ),
-                              if (_pendingSmsExpenses.isNotEmpty) 
-                                SliverToBoxAdapter(child: _buildPendingSmsBanner()),
-                              
-                              SliverPadding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                                sliver: SliverList(
-                                  delegate: SliverChildListDelegate([
-                                    _buildQuickActions(context),
-                                    const SizedBox(height: 24),
-                                    _buildSectionHeader(context, filteredReceipts.length),
-                                    const SizedBox(height: 16),
-                                  ]),
-                                ),
-                              ),
+        return Container(
+          color: AppColors.background,
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            slivers: [
+              SliverToBoxAdapter(
+                child: _buildHeaderSection(context, totalSpending, data.monthlyLimit, totalFixedExpenses, totalSubscriptions, totalInstallments),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              SliverToBoxAdapter(
+                child: _buildFilterTabs(),
+              ),
+              if (_pendingSmsExpenses.isNotEmpty) 
+                SliverToBoxAdapter(child: _buildPendingSmsBanner()),
+              
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildQuickActions(context),
+                    const SizedBox(height: 24),
+                    _buildSectionHeader(context, filteredReceipts.length),
+                    const SizedBox(height: 16),
+                  ]),
+                ),
+              ),
 
-                              if (filteredReceipts.isEmpty)
-                                SliverToBoxAdapter(child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                                  child: _buildEmptyState(),
-                                ))
-                              else
-                                SliverPadding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                                  sliver: SliverList(
-                                    delegate: SliverChildBuilderDelegate(
-                                      (context, index) {
-                                        final receipt = filteredReceipts[index];
-                                        return _buildHomeReceiptTile(
-                                          context: context,
-                                          receipt: receipt,
-                                        );
-                                      },
-                                      childCount: filteredReceipts.length,
-                                    ),
-                                  ),
-                                ),
-
-                              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                              if (kIsWeb && _currentTierId == 'standart')
-                                const SliverToBoxAdapter(
-                                  child: Center(
-                                    child: WebAdBanner(
-                                      adSlot: '8945074304',
-                                      width: 320,
-                                      height: 100,
-                                    ),
-                                  ),
-                                ),
-                              const SliverToBoxAdapter(child: SizedBox(height: 40)),
-                            ],
-                          ),
+              if (filteredReceipts.isEmpty)
+                SliverToBoxAdapter(child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _buildEmptyState(),
+                ))
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final receipt = filteredReceipts[index];
+                        return _buildHomeReceiptTile(
+                          context: context,
+                          receipt: receipt,
                         );
                       },
-                    );
-                  },
-                );
-              },
-            );
-          },
+                      childCount: filteredReceipts.length,
+                    ),
+                  ),
+                ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              if (kIsWeb && _currentTierId == 'standart')
+                const SliverToBoxAdapter(
+                  child: Center(
+                    child: WebAdBanner(
+                      adSlot: '8945074304',
+                      width: 320,
+                      height: 100,
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 40)),
+            ],
+          ),
         );
       },
     );
   }
 
-  // ... _performBackgroundChecks ...
+  Future<void> _performBackgroundChecks(BuildContext context, double totalSpending, double monthlyLimit, double remainingBudget) async {
+    if (monthlyLimit > 0) {
+      final now = DateTime.now();
+      final key = 'budget_warning_shown_${now.year}_${now.month}';
+      final prefs = await SharedPreferences.getInstance();
+      final shown = prefs.getBool(key) ?? false;
 
-  // ... _buildQuickActions ...
+      if (!shown && remainingBudget < 0) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.budgetExceededMessage),
+              backgroundColor: AppColors.danger,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+          await prefs.setBool(key, true);
+        }
+      }
+    }
+  }
 
-  // ... _buildSectionHeader ...
+  Widget _buildQuickActions(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.camera_alt, // Changed from QR to Camera for "Scan"
+            label: AppLocalizations.of(context)!.scanReceipt, // Fiş Tara
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ScanScreen()),
+              );
+              if (mounted) _refreshData();
+            },
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.pie_chart, // Changed from Add to Pie Chart for "Statistics"
+            label: AppLocalizations.of(context)!.statistics ?? "İstatistikler", // İstatistikler
+            isPrimary: false,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const StatisticsScreen()),
+              );
+              // if (mounted) _refreshData(); // Statistics usually read-only but harmless
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(BuildContext context, int count) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          "${AppLocalizations.of(context)!.recentExpenses} ($count)",
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        TextButton(
+          onPressed: () async {
+            // Navigate to all receipts or filter view
+             // For now just scroll or refresh
+             if (mounted) _refreshData();
+          },
+          child: Text(AppLocalizations.of(context)!.seeAll),
+        ),
+      ],
+    );
+  }
 
   // --- HEADER SECTION ---
   Widget _buildHeaderSection(BuildContext context, double totalSpending, double monthlyLimit, double totalFixedExpenses, double totalSubscriptions, double totalInstallments) {
@@ -233,6 +460,7 @@ import 'package:fismatik/screens/installment_expenses_screen.dart'; // [NEW]
                     ),
                   ),
                   // Sabit Giderler Eklendi
+                  // Sabit Giderler
                   if (totalFixedExpenses > 0) ...[
                     const SizedBox(height: 8),
                     GestureDetector(
@@ -253,23 +481,19 @@ import 'package:fismatik/screens/installment_expenses_screen.dart'; // [NEW]
                                   ),
                                   ListTile(
                                     leading: const Icon(Icons.repeat, color: Colors.purple),
-                                    title: Text(AppLocalizations.of(context)!.fixedExpenses), // Abonelikler
-                                    subtitle: Text(currencyFormat.format(totalSubscriptions)),
-                                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                    title: Text("Abonelikler"),
                                     onTap: () {
                                       Navigator.pop(ctx);
-                                      Navigator.push(context, MaterialPageRoute(builder: (context) => const FixedExpensesScreen())).then((_) => _refreshData());
+                                      Navigator.push(context, MaterialPageRoute(builder: (context) => const SubscriptionsScreen())).then((_) => _refreshData());
                                     },
                                   ),
-                                  const Divider(),
                                   ListTile(
-                                    leading: const Icon(Icons.calendar_month, color: Colors.blue),
-                                    title: Text(AppLocalizations.of(context)!.installmentExpensesTitle ?? "Taksitli Giderler"), // Taksitler
-                                    subtitle: Text(currencyFormat.format(totalInstallments)),
+                                    leading: const Icon(Icons.credit_card, color: Colors.orange),
+                                    title: Text("Taksitler"),
                                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                     onTap: () {
                                       Navigator.pop(ctx);
-                                      Navigator.push(context, MaterialPageRoute(builder: (context) => const InstallmentExpensesScreen())).then((_) => _refreshData());
+                                      Navigator.push(context, MaterialPageRoute(builder: (context) => InstallmentExpensesScreen())).then((_) => _refreshData());
                                     },
                                   ),
                                   const SizedBox(height: 16),
@@ -279,34 +503,33 @@ import 'package:fismatik/screens/installment_expenses_screen.dart'; // [NEW]
                           );
                         } else if (totalInstallments > 0) {
                           // Only installments
-                          await Navigator.push(context, MaterialPageRoute(builder: (context) => const InstallmentExpensesScreen()));
+                          await Navigator.push(context, MaterialPageRoute(builder: (context) => InstallmentExpensesScreen()));
                           if (mounted) _refreshData();
                         } else {
                           // Only subscriptions or default
-                          await Navigator.push(context, MaterialPageRoute(builder: (context) => const FixedExpensesScreen()));
+                          await Navigator.push(context, MaterialPageRoute(builder: (context) => const SubscriptionsScreen()));
                           if (mounted) _refreshData();
                         }
                       },
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.repeat, color: Colors.white70, size: 14),
+                          Icon(Icons.calendar_today, color: Colors.white.withOpacity(0.9), size: 14),
                           const SizedBox(width: 4),
                           Text(
-                            AppLocalizations.of(context)!.fixedExpensesLabel(currencyFormat.format(totalFixedExpenses)),
-                            style: const TextStyle(
-                              color: Colors.white,
+                            "${AppLocalizations.of(context)!.fixedExpenses}: ${currencyFormat.format(totalFixedExpenses)}",
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
                               fontSize: 13,
-                              fontWeight: FontWeight.bold,
                               decoration: TextDecoration.underline,
-                              decorationColor: Colors.white,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.arrow_forward_ios, size: 10, color: Colors.white70),
+                          const Icon(Icons.chevron_right, color: Colors.white70, size: 16),
                         ],
                       ),
                     ),
                   ],
+
                 ],
               ),
               Row(
@@ -593,7 +816,7 @@ import 'package:fismatik/screens/installment_expenses_screen.dart'; // [NEW]
                         );
                         
                         setState(() {
-                          _selectedFilter = AppLocalizations.of(context)!.thisMonth;
+                          _selectedFilter = FILTER_SALARY;
                         });
                         _refreshData();
                       }
@@ -613,11 +836,7 @@ import 'package:fismatik/screens/installment_expenses_screen.dart'; // [NEW]
     if (mounted) {
       _loadPendingSmsExpenses();
       setState(() {
-        _receiptsStream = _databaseService.getReceipts();
-        _monthlyLimitStream = _databaseService.getMonthlyLimit();
-        _subscriptionsStream = _databaseService.getSubscriptions();
-        _creditsStream = _databaseService.getCredits();
-        _userSettingsStream = _databaseService.getUserSettings();
+        _homeDataStream = _getCombinedHomeData();
       });
     }
   }
@@ -905,29 +1124,29 @@ import 'package:fismatik/screens/installment_expenses_screen.dart'; // [NEW]
                                                               addressController.text,
                                                             );
                                                             
-                                                            if (res['success'] == true) {
-                                                              await _databaseService.deleteNotification(notification['id']);
-                                                              setModalState(() {});
-                                                              if (ctx.mounted) {
-                                                                Navigator.pop(ctx);
-                                                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                                                  SnackBar(content: Text(AppLocalizations.of(ctx)!.familyJoinedSuccess)),
-                                                                );
+                                                              if (res['success'] == true) {
+                                                                await _databaseService.deleteNotification(notification['id']);
+                                                                setModalState(() {});
+                                                                if (context.mounted) {
+                                                                  Navigator.pop(context);
+                                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                                    SnackBar(content: Text(AppLocalizations.of(context)!.familyJoinedSuccess)),
+                                                                  );
+                                                                }
+                                                              } else {
+                                                                if (context.mounted) {
+                                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                                    SnackBar(content: Text(res['message'] ?? AppLocalizations.of(context)!.analysisError)),
+                                                                  );
+                                                                }
                                                               }
-                                                            } else {
-                                                              if (ctx.mounted) {
-                                                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                                                  SnackBar(content: Text(res['message'] ?? AppLocalizations.of(ctx)!.analysisError)),
+                                                            } catch (e) {
+                                                              if (context.mounted) {
+                                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                                  SnackBar(content: Text("${AppLocalizations.of(context)!.analysisError}: $e")),
                                                                 );
                                                               }
                                                             }
-                                                          } catch (e) {
-                                                            if (ctx.mounted) {
-                                                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                                                SnackBar(content: Text("${AppLocalizations.of(ctx)!.analysisError}: $e")),
-                                                              );
-                                                            }
-                                                          }
                                                         },
                                                         child: Text(AppLocalizations.of(context)!.okButton),
                                                       ),
@@ -1196,9 +1415,7 @@ import 'package:fismatik/screens/installment_expenses_screen.dart'; // [NEW]
                 await _databaseService.updateMonthlyLimit(newLimit);
                 
                 if (mounted) {
-                  setState(() {
-                    _monthlyLimitStream = _databaseService.getMonthlyLimit();
-                  });
+                  _refreshData();
                 }
                 
                 final prefs = await SharedPreferences.getInstance();

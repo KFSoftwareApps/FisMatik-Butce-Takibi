@@ -21,33 +21,36 @@ class SupabaseDatabaseService {
   // --- KREDİLER İŞLEMLERİ ---
 
   Stream<List<Credit>> getCredits() async* {
-    final ownerId = await _getScopeOwnerId();
+    final uid = _userId;
+    final familyId = await _getFamilyIdForCurrentUser();
     
-    yield* _client
-        .from('user_credits')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', ownerId)
-        .order('created_at', ascending: false)
-        .map((data) {
-          final now = DateTime.now();
-          final List<Credit> activeCredits = [];
-
-          for (final map in data) {
-            final credit = Credit.fromMap(map);
-            
-            activeCredits.add(credit);
-          }
-          return activeCredits;
-        });
+    if (familyId == null) {
+      yield* _client
+          .from('user_credits')
+          .stream(primaryKey: ['id'])
+          .eq('user_id', uid)
+          .order('created_at', ascending: false)
+          .map((data) => data.map((e) => Credit.fromMap(e)).toList());
+    } else {
+      yield* _client
+          .from('user_credits')
+          .stream(primaryKey: ['id'])
+          .eq('household_id', familyId)
+          .order('created_at', ascending: false)
+          .map((data) => data.map((e) => Credit.fromMap(e)).toList());
+    }
   }
 
   Future<void> addCredit(Credit credit) async {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('Kullanıcı oturumu kapalı');
 
+    final familyId = await _getFamilyIdForCurrentUser();
+
     await _client.from('user_credits').insert({
       ...credit.toMap(),
       'user_id': user.id,
+      if (familyId != null) 'household_id': familyId,
     });
   }
 
@@ -182,7 +185,7 @@ class SupabaseDatabaseService {
   Future<Map<String, dynamic>> sendFamilyInvite(String email) async {
     try {
       final response = await _client.rpc('send_family_invite', params: {
-        'target_email': email,
+        'target_email': email.trim().toLowerCase(),
       });
       return response as Map<String, dynamic>;
     } catch (e) {
@@ -303,13 +306,17 @@ class SupabaseDatabaseService {
         .stream(primaryKey: ['user_id'])
         .eq('user_id', uid)
         .map((event) {
+          return event.isEmpty ? {} : event.first;
         });
   }
 
-    Future<void> checkAndDowngradeIfExpired() async {
+  Future<void> checkAndDowngradeIfExpired() async {
     try {
-      // 1. Önce yerel kontrol yap (Safe Guard)
-      // Eğer kullanıcının süresi zaten varsa, sunucu check işlemini yapma.
+      print("🔍 checkAndDowngradeIfExpired: Başlatılıyor...");
+      
+      final familyId = await _getFamilyIdForCurrentUser();
+      
+      // 1. Önce yerel kontrol (Safe Guard)
       final currentTier = await getCurrentTier();
       final userRole = await _client
           .from('user_roles')
@@ -318,39 +325,70 @@ class SupabaseDatabaseService {
           .maybeSingle();
       
       final expiresAtStr = userRole?['expires_at'] as String?;
-      if (currentTier.id != 'standart' && expiresAtStr != null) {
-        final now = await NetworkTimeService.now;
-        final expiresAt = DateTime.parse(expiresAtStr);
+      
+      // Eğer yerel veriye göre süremiz varsa, hemen çık.
+      if (expiresAtStr != null) {
+        final now = DateTime.now().toUtc();
+        final expiresAt = DateTime.parse(expiresAtStr).toUtc();
         
-        // Eğer süre henüz dolmadıysa, RPC çağırarak risk alma.
-        // 24 saatten az kaldıysa kontrol edebilirsin.
         if (expiresAt.difference(now).inHours > 24) {
-          print("✅ Üyelik geçerli (${expiresAt.toIso8601String()}), sunucu kontrolü atlanıyor.");
+          print("✅ (Local Check) Üyelik geçerli (${expiresAt.toIso8601String()}). Sunucu kontrolü atlanıyor.");
           
-          // Yine de arkada bir ara Family Sync dene ama await etme (Fire & Forget)
-          syncFamilyPlanValidity().catchError((e) => print("Background sync error: $e"));
+          // Arka planda sessizce sync dene, ama sonucu bekleme/önemseme
+          if (currentTier.id == 'limitless_family' && familyId != null) {
+             _syncFamilyData(familyId).catchError((_) {}); 
+             syncFamilyPlanValidity().catchError((_) => false);
+          }
           return;
         }
       }
 
-      // 2. Aile planını senkronize et (Eğer aile üyesiysen)
-      // Burası kritik: Aile senkronizasyonu başarısız olursa (internet vs),
-      // hemen düşürme işlemi yapmamalıyız.
-      await syncFamilyPlanValidity();
+      // 2. Aile Planı Senkronizasyonu (Kritik)
+      // Önce gerçekten bir ailede miyiz bakalım.
       
-      // 3. Sonra sunucu tarafı süresi dolanları düşürsün
-      // Bu RPC aggressive davranıyorsa, üstteki local check bunu engellemiş olacak.
+      if (familyId == null && currentTier.id == 'limitless_family') {
+         print("⚠️ Aile ID alınamadı ama lokal rol 'limitless_family' görünüyor. Güvenlik için işlem durduruluyor.");
+         return;
+      }
+      
+      if (familyId != null) {
+        // Aile üyesiyiz, mutlaka sync denemeliyiz.
+        print("👨‍👩‍👧‍👦 Aile üyesi tespit edildi ($familyId). Sync deneniyor...");
+        final syncSuccess = await syncFamilyPlanValidity();
+        
+        if (!syncSuccess) {
+          // Sync başarısız olduysa (internet yok, owner bulunamadı vs)
+          // RİSK ALMA: Düşürme işlemini iptal et. Belki internet yok.
+          print("⚠️ Aile Sync başarısız veya owner süresi dolmuş olabilir. Ancak risk almamak için işlem durduruluyor.");
+          
+          // Eğer gerçekten owner süresi dolduysa, 'check_my_expiration' bunu yakalamalı mı?
+          // Hayır, önce sync ile expires_at güncellenmeli. Güncellenemiyorsa dokunma.
+          return; 
+        } else {
+           print("✅ Aile Sync başarılı.");
+        }
+      }
+
+      // 3. Sunucu Tarafı Kontrol (RPC)
+      // Buraya geldiysek:
+      // a) Ailede değiliz.
+      // b) Ailedeyiz ve Sync başarılı oldu (tarihler güncellendi).
+      // Artık sunucunun son kararı vermesine izin verebiliriz.
+      print("📡 Sunucu kontrolü çağrılıyor (check_my_expiration)...");
       await _client.rpc('check_my_expiration');
+      print("✅ checkAndDowngradeIfExpired tamamlandı.");
+
     } catch (e) {
-      print("Expiration check failed: $e");
+      print("❌ Expiration check failed: $e");
     }
   }
 
   /// Aile üyelerinin planını, aile yöneticisiyle senkronize eder.
-  Future<void> syncFamilyPlanValidity() async {
+  /// Başarı durumunu döner.
+  Future<bool> syncFamilyPlanValidity() async {
     try {
       final familyId = await _getFamilyIdForCurrentUser();
-      if (familyId == null) return; // Ailede değil, işlem yapma
+      if (familyId == null) return true; // Ailede değil, sorun yok (kendi başına takılabilir)
 
       // Aile yöneticisini bul
       final familyRes = await _client
@@ -360,7 +398,7 @@ class SupabaseDatabaseService {
           .maybeSingle();
       
       final ownerId = familyRes?['owner_id'] as String?;
-      if (ownerId == null || ownerId == _userId) return; // Yönetici kendisi veya bulunamadı
+      if (ownerId == null || ownerId == _userId) return true; // Yönetici kendisi
 
       // Yöneticinin rol bilgilerini al
       final ownerRole = await _client
@@ -369,15 +407,15 @@ class SupabaseDatabaseService {
           .eq('user_id', ownerId)
           .maybeSingle();
       
-      if (ownerRole == null) return;
+      if (ownerRole == null) return false; // Yönetici rolü alınamadı, sync başarısız
 
       final ownerTier = ownerRole['tier_id'] as String?;
       final ownerExpiresAtStr = ownerRole['expires_at'] as String?;
 
       // Sadece yönetici 'limitless_family' ise senkronize et
       if (ownerTier == 'limitless_family' && ownerExpiresAtStr != null) {
-        final now = await NetworkTimeService.now;
-        final ownerExpiresAt = DateTime.parse(ownerExpiresAtStr);
+        final now = DateTime.now().toUtc();
+        final ownerExpiresAt = DateTime.parse(ownerExpiresAtStr).toUtc();
         
         // Eğer yöneticinin süresi hala geçerliyse
         if (ownerExpiresAt.isAfter(now)) {
@@ -386,14 +424,17 @@ class SupabaseDatabaseService {
           await _client.from('user_roles').update({
             'tier_id': 'limitless_family',
             'expires_at': ownerExpiresAtStr,
-            'update_date': DateTime.now().toIso8601String(),
+            'update_date': DateTime.now().toUtc().toIso8601String(),
           }).eq('user_id', _userId);
           
           print("✅ Family plan synced successfully.");
+          return true;
         }
       }
+      return false; // Yönetici premium değil veya süresi dolmuş
     } catch (e) {
       print("Family plan sync error: $e");
+      return false;
     }
   }
 
@@ -403,13 +444,14 @@ class SupabaseDatabaseService {
     // Şimdilik client-side yapıyoruz.
     
     // Standart paket ise süresiz (null), diğerleri için 30 gün
+    // UTC Kullanımı:
     final DateTime? expiresAt = (tierId == 'standart') 
         ? null 
-        : DateTime.now().add(const Duration(days: 30));
+        : DateTime.now().toUtc().add(const Duration(days: 30));
 
     await _client.from('user_roles').update({
       'tier_id': tierId,
-      'update_date': DateTime.now().toIso8601String(),
+      'update_date': DateTime.now().toUtc().toIso8601String(),
       'expires_at': expiresAt?.toIso8601String(),
     }).eq('user_id', _userId);
   }
@@ -538,57 +580,79 @@ class SupabaseDatabaseService {
     }
   }
 
-  Stream<List<Receipt>> getReceipts() async* {
+  Stream<List<Receipt>> getReceipts({int? limit}) async* {
     final uid = _userId;
     final familyId = await _getFamilyIdForCurrentUser();
 
     // Senkronizasyonu arka planda tetikle (Opsiyonel ama geçmiş veriler için kritik)
     if (familyId != null) {
-      _syncFamilyReceipts(familyId).catchError((e) => print("Sync error: $e"));
+      _syncFamilyData(familyId).catchError((e) => print("Sync error: $e"));
     }
 
     if (familyId == null) {
       // Sadece kendi fişleri
-      yield* _client
+      var query = _client
           .from('receipts')
           .stream(primaryKey: ['id'])
           .eq('user_id', uid)
-          .order('date', ascending: false)
-          .map((data) => data.map((e) => Receipt.fromMap(e)).toList());
+          .order('date', ascending: false);
+      
+      if (limit != null) {
+        query = query.limit(limit);
+      }
+
+      yield* query.map((data) => data.map((e) => Receipt.fromMap(e)).toList());
     } else {
       // Tüm ailenin fişleri (household_id bazlı)
-      yield* _client
+      var query = _client
           .from('receipts')
           .stream(primaryKey: ['id'])
           .eq('household_id', familyId)
-          .order('date', ascending: false)
-          .map((data) => data.map((e) => Receipt.fromMap(e)).toList());
+          .order('date', ascending: false);
+
+      if (limit != null) {
+        query = query.limit(limit);
+      }
+
+      yield* query.map((data) => data.map((e) => Receipt.fromMap(e)).toList());
     }
   }
 
-  Future<void> _syncFamilyReceipts(String familyId) async {
+  Future<void> _syncFamilyData(String familyId) async {
     final userIds = await _getScopeUserIds();
     if (userIds.isEmpty) return;
 
     try {
-      // household_id'si null olan ve user_id'si listede olan fişleri güncelle
-      // Not: Supabase filter('user_id', 'in', userIds) + is('household_id', null) update'i destekler
+      // 1. Receipts Sync
       await _client
           .from('receipts')
           .update({'household_id': familyId})
           .filter('user_id', 'in', userIds)
           .filter('household_id', 'is', null);
       
-      print("Family receipts synced for $familyId");
+      // 2. User Credits Sync
+      await _client
+          .from('user_credits')
+          .update({'household_id': familyId})
+          .filter('user_id', 'in', userIds)
+          .filter('household_id', 'is', null);
+
+      // 3. Subscriptions Sync
+      await _client
+          .from('subscriptions')
+          .update({'household_id': familyId})
+          .filter('user_id', 'in', userIds)
+          .filter('household_id', 'is', null);
+
+      print("Family data synced for $familyId");
     } catch (e) {
-      // Sessiz hata (Loglama yeterli)
-      print("Sync receipts error: $e");
+      print("Sync data error: $e");
     }
   }
 
   /// Fişleri, abonelikleri ve kredi taksitlerini birleştirerek canlı yayınlar
   /// Fişleri, abonelikleri ve kredi taksitlerini birleştirerek canlı yayınlar
-  Stream<List<Receipt>> getUnifiedReceiptsStream({DateTime? rangeStart, DateTime? rangeEnd}) {
+  Stream<List<Receipt>> getUnifiedReceiptsStream({DateTime? rangeStart, DateTime? rangeEnd, int limit = 50}) {
     final controller = StreamController<List<Receipt>>();
     
     // Varsayılan aralık: Son 12 ay ve gelecek 1 ay
@@ -601,7 +665,7 @@ class SupabaseDatabaseService {
     List<String> userIds = [];
 
     void emit() {
-      if (userIds.isEmpty) return;
+      final familyId = userIds.length > 1 ? "family" : null; // Basit kontrol, aslında _getFamilyIdForCurrentUser kullanılmalı ama stream içinde zor.
       
       final List<Receipt> all = List.from(lastReceipts);
       
@@ -655,7 +719,7 @@ class SupabaseDatabaseService {
     _getScopeUserIds().then((ids) {
       userIds = ids;
       
-      final rSub = getReceipts().listen((r) { lastReceipts = r; emit(); });
+      final rSub = getReceipts(limit: limit).listen((r) { lastReceipts = r; emit(); });
       final sSub = getSubscriptions().listen((s) { lastSubs = s; emit(); });
       final cSub = getCredits().listen((c) { lastCredits = c; emit(); });
 
@@ -1018,21 +1082,35 @@ class SupabaseDatabaseService {
   // --- ABONELİK İŞLEMLERİ ---
 
   Future<void> addSubscription(Subscription sub) async {
-    final ownerId = await _getScopeOwnerId();
+    final uid = _userId;
+    final familyId = await _getFamilyIdForCurrentUser();
+    
     final data = sub.toMap();
-    data['user_id'] = ownerId;
+    data['user_id'] = uid;
+    if (familyId != null) data['household_id'] = familyId;
+    
     await _client.from('subscriptions').upsert(data);
   }
 
   Stream<List<Subscription>> getSubscriptions() async* {
-    final ownerId = await _getScopeOwnerId();
+    final uid = _userId;
+    final familyId = await _getFamilyIdForCurrentUser();
 
-    yield* _client
-        .from('subscriptions')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', ownerId)
-        .order('renewal_day', ascending: true)
-        .map((event) => event.map((e) => Subscription.fromMap(e)).toList());
+    if (familyId == null) {
+      yield* _client
+          .from('subscriptions')
+          .stream(primaryKey: ['id'])
+          .eq('user_id', uid)
+          .order('renewal_day', ascending: true)
+          .map((event) => event.map((e) => Subscription.fromMap(e)).toList());
+    } else {
+      yield* _client
+          .from('subscriptions')
+          .stream(primaryKey: ['id'])
+          .eq('household_id', familyId)
+          .order('renewal_day', ascending: true)
+          .map((event) => event.map((e) => Subscription.fromMap(e)).toList());
+    }
   }
 
   Future<List<Subscription>> getSubscriptionsOnce() async {

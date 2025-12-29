@@ -231,9 +231,9 @@ class _ScanScreenState extends State<ScanScreen> {
 
           final XFile? pickedFile = await pickerInstance.pickImage(
             source: source,
-            maxWidth: 2000,
-            maxHeight: 2000,
-            imageQuality: 85,
+            maxWidth: 1280,
+            maxHeight: 1280,
+            imageQuality: 75,
           );
           
           if (pickedFile == null) {

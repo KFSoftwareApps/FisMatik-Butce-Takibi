@@ -1144,6 +1144,18 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get creditCard => 'Credit Card';
+
+  @override
+  String get budgetExceededMessage => 'Budget Limit Exceeded!';
+
+  @override
+  String get addExpense => 'Add Expense';
+
+  @override
+  String get recentExpenses => 'Recent Expenses';
+
+  @override
   String get lastUpdated => 'Last Updated: ';
 
   @override

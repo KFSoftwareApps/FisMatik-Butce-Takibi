@@ -196,11 +196,65 @@ class PaymentService {
     if (purchase.productID == limitlessId) tierId = 'limitless';
     if (purchase.productID == familyId) tierId = 'limitless_family';
 
+    // 1. Düşük seviye kontrolü (Eski işlem yüksek seviyeyi ezmesin)
+    final currentTier = await _databaseService.getCurrentTier();
+    final newLevel = _getTierLevel(tierId);
+    final currentLevel = _getTierLevel(currentTier.id);
+
+    if (purchase.status == PurchaseStatus.restored) {
+      // A. Seviye Kontrolü
+      if (newLevel <= currentLevel) {
+        print("⚠️ Eski işlem (Restored) yoksayıldı: Mevcut ($currentLevel) >= Yeni ($newLevel)");
+        return;
+      }
+      
+      // B. Tarih Kontrolü (Süresi dolmuş işlemi yoksay)
+      if (purchase.transactionDate != null) {
+        try {
+          // transactionDate formatı platforma göre (iOS/Android) milisaniye veya string olabilir.
+          // in_app_purchase paketi genellikle milisaniye stringi döner.
+          final int? transactionDateMs = int.tryParse(purchase.transactionDate!);
+          
+          if (transactionDateMs == null || transactionDateMs == 0) {
+            print("⚠️ Geçersiz işlem tarihi (Restored): ${purchase.transactionDate}. İşlem yoksayıldı.");
+            return;
+          }
+
+          final transactionDate = DateTime.fromMillisecondsSinceEpoch(transactionDateMs);
+          final now = DateTime.now();
+          final difference = now.difference(transactionDate).inDays;
+          
+          // 30 günden eski işlemse (veya 5 gün tolerans ile 35)
+          if (difference > 35) {
+             print("⚠️ Süresi dolmuş işlem (Restored) yoksayıldı. Tarih: $transactionDate, Fark: $difference gün");
+             return;
+          }
+        } catch (e) {
+          print("Tarih kontrolü hatası (Restored): $e. İşlem güvenlik için yoksayıldı.");
+          return;
+        }
+      } else {
+        // Tarih yoksa restored işlemi asla kabul etme (Güvenlik)
+        print("⚠️ İşlem tarihi bulunamadı (Restored). İşlem yoksayıldı.");
+        return;
+      }
+    }
+    
     // Veritabanında rolü güncelle
     await _databaseService.updateUserTier(tierId);
 
     if (onPurchaseCompleted != null) {
-      onPurchaseCompleted!("Tebrikler! Üyeliğiniz yükseltildi.", true);
+      onPurchaseCompleted!("Tebrikler! Üyeliğiniz güncellendi.", true);
+    }
+  }
+
+  int _getTierLevel(String tierId) {
+    switch (tierId) {
+      case 'limitless_family': return 3;
+      case 'limitless': return 2;
+      case 'premium': return 1;
+      case 'standart': return 0;
+      default: return 0;
     }
   }
 

@@ -2138,6 +2138,30 @@ abstract class AppLocalizations {
   /// **'Weekly / Day {day} of month'**
   String renewsOnDay(Object day);
 
+  /// No description provided for @creditCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit Card'**
+  String get creditCard;
+
+  /// No description provided for @budgetExceededMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget Limit Exceeded!'**
+  String get budgetExceededMessage;
+
+  /// No description provided for @addExpense.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Expense'**
+  String get addExpense;
+
+  /// No description provided for @recentExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Expenses'**
+  String get recentExpenses;
+
   /// No description provided for @lastUpdated.
   ///
   /// In en, this message translates to:

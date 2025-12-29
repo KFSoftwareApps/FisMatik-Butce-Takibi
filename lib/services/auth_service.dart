@@ -189,16 +189,17 @@ class AuthService {
   }
 
   Future<void> _assignInitialRole(String userId, String email) async {
-    // ARTIK GEREKSİZ:
-    // Supabase tarafında 'on_auth_user_created' trigger'ı çalışıyor.
-    // Bu trigger otomatik olarak public.users ve public.user_roles tablolarına kayıt atıyor.
-    // Client tarafında manuel insert yapmaya çalışmak RLS hatasına sebep oluyor.
-    
-    print('✅ _assignInitialRole: Trigger should handle user creation for $userId');
-    
-    // Opsiyonel: Trigger'ın çalışmasını beklemek için kısa bir süre beklenebilir
-    // veya UI tarafında stream ile dinlenebilir.
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      // "ensure_user_role" fonksiyonu:
+      // - Eğer kayıt varsa DOKUNMAZ (Mevcut veriyi/premium'u korur).
+      // - Eğer kayıt yoksa STANDART olarak açar.
+      // Bu sayede "Overwriting" (Üzerine yazma) riski olmaz.
+      await _supabase.rpc('ensure_user_role');
+      print('✅ Role ensured for user: $userId');
+    } catch (e) {
+      print('⚠️ Error ensuring role: $e');
+      // Kritik değil, zaten trigger var ama loglayalım.
+    }
   }
 
   // --- KULLANIM LİMİT KONTROLLERİ ---
@@ -264,6 +265,7 @@ class AuthService {
       
       // Cihaz ID güncelle
       if (res.user != null) {
+        await _assignInitialRole(res.user!.id, email); // Role kaydını garantiye al
         await _updateDeviceIdInDb(res.user!.id);
       }
 

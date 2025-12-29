@@ -12,37 +12,73 @@ class FamilyService {
 
   // --- Aile oluştur ---
   Future<String> createFamily({required String name, String address = ''}) async {
-    print("DEBUG: createFamily RPC calling...");
-    final response = await _client.rpc('create_family', params: {
-      'family_name': name,
-      'user_address': address,
-    });
-    print("DEBUG: createFamily response: $response");
-    if (response is Map && response['success'] == true) {
-      return response['family_id']?.toString() ?? 'ok';
-    } else {
-      throw Exception(response['message'] ?? 'Aile oluşturulamadı.');
+    final userId = _userId;
+    if (userId == null) throw Exception("Oturum açmanız gerekiyor.");
+
+    print("DEBUG: createFamily direct table insert starting...");
+    try {
+      // 1. Zaten bir ailede mi kontrol et
+      final existing = await _client
+          .from('household_members')
+          .select('household_id')
+          .eq('user_id', userId)
+          .maybeSingle();
+      
+      if (existing != null) {
+        throw Exception('Zaten bir ailedesiniz.');
+      }
+
+      // 2. Household oluştur
+      final household = await _client.from('households').insert({
+        'name': name,
+        'owner_id': userId,
+        'address': address,
+      }).select().single();
+
+      final householdId = household['id'] as String;
+
+      // 3. Üye olarak kendini ekle
+      await _client.from('household_members').insert({
+        'household_id': householdId,
+        'user_id': userId,
+        'role': 'owner',
+      });
+
+      print("DEBUG: createFamily success: $householdId");
+      return householdId;
+    } catch (e) {
+      print("DEBUG: createFamily error: $e");
+      rethrow;
     }
   }
 
   Future<Map<String, dynamic>> createFamilyWrapper(String name, String address) async {
     try {
-      await createFamily(name: name, address: address);
-      return {'success': true};
+      final id = await createFamily(name: name, address: address);
+      return {'success': true, 'family_id': id};
     } catch (e) {
-      return {'success': false, 'message': e.toString()};
+      return {'success': false, 'message': e.toString().replaceAll("Exception:", "").trim()};
     }
   }
 
   // --- Davet Gönder / Üye Ekle ---
   Future<void> addMemberByEmail({required String email}) async {
+    final userId = _userId;
+    if (userId == null) throw Exception("Oturum açmanız gerekiyor.");
+
     print("DEBUG: addMemberByEmail RPC calling for $email...");
-    final response = await _client.rpc('send_family_invite', params: {
-      'target_email': email,
-    });
-    print("DEBUG: addMemberByEmail response: $response");
-    if (response is Map && response['success'] != true) {
-      throw Exception(response['message'] ?? 'Üye eklenemedi.');
+    try {
+      final response = await _client.rpc('send_family_invite', params: {
+        'target_email': email.trim().toLowerCase(),
+      });
+      print("DEBUG: addMemberByEmail RPC response: $response");
+      
+      if (response is Map && response['success'] == false) {
+        throw Exception(response['message'] ?? "Davet gönderilemedi.");
+      }
+    } catch (e) {
+      print("DEBUG: addMemberByEmail error: $e");
+      rethrow;
     }
   }
 
@@ -51,7 +87,7 @@ class FamilyService {
       await addMemberByEmail(email: email);
       return {'success': true};
     } catch (e) {
-      return {'success': false, 'message': e.toString()};
+      return {'success': false, 'message': e.toString().replaceAll("Exception:", "").trim()};
     }
   }
 
@@ -100,19 +136,38 @@ class FamilyService {
   Future<void> removeMemberByEmail({required String email}) async {
     try {
       print("DEBUG: removeMemberByEmail started for $email");
-      // Önce bu email'in user_id'sini bir yerden bulmalı veya 
-      // RPC'yi email kabul edecek şekilde güncellemeli.
-      // Eski sistemde rpc target_user_id alıyordu.
-      // Fallback: getFamilyStatus içinden bul.
+      
+      // 1. Önce aktif üyelerde ara
       final status = await getFamilyStatus();
       final members = (status['members'] as List?) ?? [];
-      final member = members.firstWhere((m) => m['email'].toString().toLowerCase() == email.toLowerCase(), orElse: () => null);
+      final matches = members.where((m) => m['email'].toString().toLowerCase() == email.toLowerCase());
+      final member = matches.isEmpty ? null : matches.first;
       
       if (member != null && member['user_id'] != null) {
           await removeFamilyMemberById(member['user_id']);
-      } else {
-          throw Exception("Üye bulunamadı.");
+          return;
+      } 
+      
+      // 2. Aktif değilse, bekleyen davetlerde ara
+      // (Bunu householder_id ile eşleştirerek yapmak daha güvenli olurdu ama şuanlık email/user context'i yeterli)
+      final invitationRes = await _client
+          .from('household_invitations')
+          .select('id')
+          .eq('email', email.toLowerCase())
+          .eq('status', 'pending')
+          .maybeSingle();
+
+      if (invitationRes != null) {
+        await _client
+            .from('household_invitations')
+            .delete()
+            .eq('id', invitationRes['id']);
+        print("DEBUG: Invitation deleted for $email");
+        return;
       }
+      
+      throw Exception("Üye veya davet bulunamadı.");
+      
     } catch (e) {
       print("DEBUG: removeMemberByEmail error: $e");
       rethrow;
@@ -135,30 +190,119 @@ class FamilyService {
 
   // --- Aile Durumunu Getir ---
   Future<Map<String, dynamic>> getFamilyStatus() async {
-    print("DEBUG: getFamilyStatus RPC calling...");
+    final userId = _userId;
+    if (userId == null) return {'has_family': false};
+
+    print("DEBUG: getFamilyStatus direct table query for $userId...");
     try {
-      final response = await _client.rpc('get_family_status');
-      print("DEBUG: getFamilyStatus response: $response");
-      if (response is Map) {
-        return Map<String, dynamic>.from(response);
+      // 1. Üyelik kaydını bul (Ana kaynak burası olsun artık)
+      final membership = await _client
+          .from('household_members')
+          .select()
+          .eq('user_id', userId)
+          .order('joined_at', ascending: false)
+          .maybeSingle();
+
+      if (membership == null) {
+        print("DEBUG: No membership record found in table.");
+        return {'has_family': false, 'message': 'No membership found'};
       }
-      return {'has_family': false};
+
+      final householdId = membership['household_id'];
+      print("DEBUG: Direct membership found: $householdId");
+
+      // 2. Detayları RPC'den almayı dene (Email ve isimler için)
+      try {
+        final rpcRes = await _client.rpc('get_family_status');
+        if (rpcRes is Map && rpcRes['has_family'] == true) {
+          print("DEBUG: RPC returned family details successfully.");
+          final result = Map<String, dynamic>.from(rpcRes);
+          // GARANTİ: Root level role'ü buraya da koyalım (RPC'den gelmeyebilir eski versiyonda)
+          if (!result.containsKey('role')) {
+             result['role'] = membership['role'];
+          }
+          return result;
+        }
+      } catch (e) {
+         print("DEBUG: getFamilyStatus RPC fallback failed: $e");
+      }
+
+      // 3. RPC fail olsa bile temel veriyi dönelim (Nükleer Fallback)
+      final householdRes = await _client
+          .from('households')
+          .select()
+          .eq('id', householdId)
+          .single();
+
+      final membersTable = await _client
+          .from('household_members')
+          .select()
+          .eq('household_id', householdId);
+
+      // Üye e-postalarını user_roles'dan ayrıca çekmeye çalış (İsteğe bağlı)
+      final List<dynamic> members = membersTable as List;
+      final List<String> memberIds = members.map((m) => m['user_id'] as String).toList();
+      
+      final Map<String, String> emailMap = {};
+      try {
+        final rolesRes = await _client
+            .from('user_roles')
+            .select('user_id, email')
+            .inFilter('user_id', memberIds);
+        
+        for (var r in rolesRes) {
+          if (r['user_id'] != null && r['email'] != null) {
+            emailMap[r['user_id']] = r['email'];
+          }
+        }
+      } catch (_) {
+        // Hata olsa da devam et (Grup Üyesi fallback çalışır)
+      }
+
+      return {
+        'has_family': true,
+        'household_id': householdId,
+        'household_name': householdRes['name'] ?? 'Ailem',
+        'role': membership['role'], 
+        'members': members.map((m) {
+          final uid = m['user_id'] as String;
+          final email = emailMap[uid] ?? (uid == userId ? (currentUser?.email ?? 'Sen') : 'Grup Üyesi');
+          
+          return {
+            'user_id': uid,
+            'email': email,
+            'role': m['role'],
+            'status': 'active'
+          };
+        }).toList(),
+      };
     } catch (e) {
-      print("DEBUG: getFamilyStatus error: $e");
+      print("DEBUG: getFamilyStatus fatal error: $e");
       return {'has_family': false};
     }
   }
 
   // --- Canlı Aile İzleme ---
-  Stream<Family?> watchMyFamily() {
-    // RPC ile canlı izleme zor, bu yüzden periyodik olarak getFamilyStatus çağırabiliriz 
-    // veya Supabase realtime ile 'household_members' dinleyebiliriz.
-    // Şimdilik derleme hatası olmasın diye stream dönelim.
-    return Stream.periodic(const Duration(seconds: 10)).asyncMap((_) async {
+  // --- Canlı Aile İzleme ---
+  Stream<Family?> watchMyFamily() async* {
+    // 1. Hemen ilk veriyi çek ve gönder (Bekleme yok)
+    yield await _fetchFamilyData();
+
+    // 2. Periyodik döngüye gir
+    while (true) {
+      await Future.delayed(const Duration(seconds: 10));
+      yield await _fetchFamilyData();
+    }
+  }
+
+  Future<Family?> _fetchFamilyData() async {
+    try {
        final status = await getFamilyStatus();
        if (status['has_family'] != true) return null;
        
+       final householdId = status['household_id'];
        final membersRaw = (status['members'] as List?) ?? [];
+       
        final members = membersRaw.map((m) => FamilyMember(
          userId: m['user_id'] ?? '',
          email: m['email'] ?? '',
@@ -166,15 +310,56 @@ class FamilyService {
          status: m['status'] ?? 'active',
        )).toList();
 
+       // 2. Bekleyen Davetleri Çek ve Ekle
+       if (householdId != null) {
+         final pendingInvites = await getSentInvitations(householdId);
+         for (var inv in pendingInvites) {
+           if (!members.any((m) => m.email.toLowerCase() == inv['email'].toString().toLowerCase())) {
+             members.add(FamilyMember(
+               userId: 'invite_${inv['id']}',
+               email: inv['email'],
+               role: 'member',
+               status: 'pending',
+             ));
+           }
+         }
+       }
+
        return Family(
-         id: '', // RPC id dönmüyor olabilir, şimdilik boş
+         id: householdId ?? '',
          name: status['household_name'] ?? 'Ailem',
          ownerUserId: members.firstWhere((m) => m.role == 'owner', orElse: () => const FamilyMember(userId: '', email: '', role: '')).userId,
          members: members,
          memberEmails: members.map((m) => m.email).toList(),
          createdAt: DateTime.now(),
        );
-    }).asBroadcastStream();
+    } catch (e) {
+      print("DEBUG: watchMyFamily error: $e");
+      return null;
+    }
+  }
+
+  // --- Gönderilen Davetleri Getir ---
+  Future<List<Map<String, dynamic>>> getSentInvitations(String householdId) async {
+    try {
+      final response = await _client
+          .from('household_invitations')
+          .select('id, email, status, created_at')
+          .eq('household_id', householdId)
+          .eq('status', 'pending'); // Sadece bekleyenler
+      
+      if (response is List) {
+        return List<Map<String, dynamic>>.from(response);
+      }
+    } catch (e) {
+      print("DEBUG: getSentInvitations error: $e");
+    }
+    return [];
+  }
+
+  // --- Daveti Tekrar Gönder ---
+  Future<void> resendInvite(String email) async {
+     await addMemberByEmail(email: email);
   }
 
   // --- Bekleyen Davetleri Getir ---

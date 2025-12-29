@@ -1143,6 +1143,18 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String get creditCard => 'Kredi Kartı';
+
+  @override
+  String get budgetExceededMessage => 'Bütçenizi aştınız!';
+
+  @override
+  String get addExpense => 'Harcama Ekle';
+
+  @override
+  String get recentExpenses => 'Son Harcamalar';
+
+  @override
   String get lastUpdated => 'Son Güncelleme: ';
 
   @override

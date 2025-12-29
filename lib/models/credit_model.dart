@@ -71,6 +71,7 @@ class Credit {
       'total_amount': totalAmount,
       'monthly_amount': monthlyAmount,
       'total_installments': totalInstallments,
+      'remaining_installments': remainingInstallments,
       'payment_day': paymentDay,
       // 'created_at' is usually handled by DB default or insert
     };
