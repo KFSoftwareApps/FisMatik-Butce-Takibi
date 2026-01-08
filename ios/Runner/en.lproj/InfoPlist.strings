@@ -1,0 +1,5 @@
+NSCameraUsageDescription = "Scan your receipts and invoices directly with your camera for automatic expense tracking.";
+NSLocationAlwaysAndWhenInUseUsageDescription = "We use your location to automatically group your expenses by city and help you find the best prices in your area.";
+NSLocationWhenInUseUsageDescription = "We use your location to automatically group your expenses by city and help you find the best prices in your area.";
+NSPhotoLibraryUsageDescription = "Select saved receipt images from your gallery to automatically extract and record expense data.";
+NSUserTrackingUsageDescription = "Your data will be used to provide you with a personalized experience and relevant financial insights.";

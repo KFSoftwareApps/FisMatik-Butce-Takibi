@@ -15,6 +15,9 @@ class FismatikWidget : HomeWidgetProvider() {
         appWidgetIds: IntArray,
         widgetData: SharedPreferences
     ) {
+        val packageName = context.packageName
+        val resources = context.resources
+
         appWidgetIds.forEach { widgetId ->
             try {
                 Log.d("FismatikWidget", "Start Updating Widget $widgetId")
@@ -22,65 +25,82 @@ class FismatikWidget : HomeWidgetProvider() {
                 val options = appWidgetManager.getAppWidgetOptions(widgetId)
                 val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) ?: 0
                 
-                // --- SAFE FEATURE LOGIC ---
-                // If height > 150dp, use Large Layout. Otherwise Standard.
-                val layoutId = if (minHeight > 150) R.layout.widget_layout_large else R.layout.widget_layout
+                // Dynamic Layout Selection
+                val largeLayoutId = resources.getIdentifier("widget_layout_large", "layout", packageName)
+                val smallLayoutId = resources.getIdentifier("widget_layout", "layout", packageName)
                 
-                Log.d("FismatikWidget", "Selected Layout: ${if (layoutId == R.layout.widget_layout_large) "LARGE" else "SMALL"} (h: $minHeight)")
+                // Fallback if large layout is missing (should not happen but safe check)
+                val layoutId = if (minHeight > 150 && largeLayoutId != 0) largeLayoutId else smallLayoutId
+                if (layoutId == 0) {
+                    Log.e("FismatikWidget", "CRITICAL: Widget layout not found!")
+                    return@forEach
+                }
 
-                val views = RemoteViews(context.packageName, layoutId).apply {
+                Log.d("FismatikWidget", "Selected Layout ID: $layoutId (h: $minHeight)")
+
+                val views = RemoteViews(packageName, layoutId).apply {
                     val totalSpending = widgetData.getString("total_spending", "₺0,00")
                     val remainingBudget = widgetData.getString("remaining_budget", "₺0,00")
                     
-                    setTextViewText(R.id.tv_total_spending, totalSpending)
-                    setTextViewText(R.id.tv_remaining_budget, remainingBudget)
+                    val tvTotalId = resources.getIdentifier("tv_total_spending", "id", packageName)
+                    val tvRemainingId = resources.getIdentifier("tv_remaining_budget", "id", packageName)
+
+                    if (tvTotalId != 0) setTextViewText(tvTotalId, totalSpending)
+                    if (tvRemainingId != 0) setTextViewText(tvRemainingId, remainingBudget)
 
                     // Large Layout Extras
-                    if (layoutId == R.layout.widget_layout_large) {
+                    if (layoutId == largeLayoutId) {
                          val percent = widgetData.getInt("usage_percent", 0)
                          val currentDate = widgetData.getString("current_date", "Bugün")
                          
-                         // Try-catch specific to large layout features
+                         val tvPercentId = resources.getIdentifier("tv_percent", "id", packageName)
+                         val tvDateId = resources.getIdentifier("tv_date", "id", packageName)
+                         val pbBudgetId = resources.getIdentifier("pb_budget", "id", packageName)
+
                          try {
-                             setTextViewText(R.id.tv_percent, "%$percent Kullanıldı")
-                             setTextViewText(R.id.tv_date, currentDate)
-                             setProgressBar(R.id.pb_budget, 100, percent, false)
+                             if (tvPercentId != 0) setTextViewText(tvPercentId, "%$percent Kullanıldı")
+                             if (tvDateId != 0) setTextViewText(tvDateId, currentDate)
+                             if (pbBudgetId != 0) setProgressBar(pbBudgetId, 100, percent, false)
                          } catch (e: Exception) {
                              Log.e("FismatikWidget", "Error setting large specific fields", e)
                          }
                     }
 
-                    // Phase 8: Click Handling Improvement
-                    // Set app launch intent on specific containers instead of the root to avoid shadowing the button
-                    val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                    // Click Handling
+                    val intent = context.packageManager.getLaunchIntentForPackage(packageName)
                     if (intent != null) {
                         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                         val pendingIntent = android.app.PendingIntent.getActivity(
                             context, 0, intent, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
                         )
-                        // In Small Layout: Click on info_layout opens app
-                        // In Large Layout: Click on header_layout or content_layout opens app
-                        if (layoutId == R.layout.widget_layout) {
-                            setOnClickPendingIntent(R.id.info_layout, pendingIntent)
+                        
+                        if (layoutId == smallLayoutId) {
+                            val infoLayoutId = resources.getIdentifier("info_layout", "id", packageName)
+                            if (infoLayoutId != 0) setOnClickPendingIntent(infoLayoutId, pendingIntent)
                         } else {
-                            setOnClickPendingIntent(R.id.header_layout, pendingIntent)
-                            setOnClickPendingIntent(R.id.content_layout, pendingIntent)
+                            val headerLayoutId = resources.getIdentifier("header_layout", "id", packageName)
+                            val contentLayoutId = resources.getIdentifier("content_layout", "id", packageName)
+                            if (headerLayoutId != 0) setOnClickPendingIntent(headerLayoutId, pendingIntent)
+                            if (contentLayoutId != 0) setOnClickPendingIntent(contentLayoutId, pendingIntent)
                         }
                     }
 
-                    // Phase 8: Quick Scan Button Click (Deep Linking)
+                    // Quick Scan Button
                     try {
                         val scanUri = widgetData.getString("scan_uri", "fismatik://scan") ?: "fismatik://scan"
                         val scanIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(scanUri)).apply {
-                            setPackage(context.packageName)
+                            setPackage(packageName)
                             addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
-                        // Use a unique request code (1) to differentiate from the main app launch intent
                         val scanPendingIntent = android.app.PendingIntent.getActivity(
                             context, 1, scanIntent, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
                         )
-                        setOnClickPendingIntent(R.id.btn_quick_scan, scanPendingIntent)
-                        Log.d("FismatikWidget", "Scan Click Intent Set: $scanUri")
+                        
+                        val btnQuickScanId = resources.getIdentifier("btn_quick_scan", "id", packageName)
+                        if (btnQuickScanId != 0) {
+                            setOnClickPendingIntent(btnQuickScanId, scanPendingIntent)
+                            Log.d("FismatikWidget", "Scan Click Intent Set: $scanUri")
+                        }
                     } catch (e: Exception) {
                         Log.e("FismatikWidget", "Error setting scan intent", e)
                     }

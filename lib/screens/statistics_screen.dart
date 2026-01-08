@@ -16,6 +16,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'upgrade_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/currency_provider.dart';
+import '../services/demo_data_service.dart';
+import '../widgets/empty_state.dart';
 
 enum DateFilterType { daily, monthly, yearly, custom, salaryDay }
 
@@ -315,29 +317,43 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Lottie.asset(
-            'assets/lottie/empty.json',
-            width: 250,
-            height: 250,
-            errorBuilder: (context, error, stackTrace) {
-               return Icon(Icons.bar_chart, size: 80, color: Colors.grey.shade300);
-            },
-          ),
-          const SizedBox(height: 16),
-          Text(
-            AppLocalizations.of(context)!.noData,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
+    return EmptyState(
+      icon: Icons.bar_chart,
+      title: AppLocalizations.of(context)!.statisticsMockupTitle,
+      description: AppLocalizations.of(context)!.statisticsMockupDesc,
+      buttonText: AppLocalizations.of(context)!.addFirstReceipt,
+      onButtonPressed: () {
+        Navigator.pop(context); // Back to home to scan
+      },
+      secondaryButtonText: AppLocalizations.of(context)!.loadDemoData,
+      onSecondaryButtonPressed: () async {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(child: CircularProgressIndicator()),
+        );
+        
+        try {
+          await DemoDataService().insertDemoData();
+          if (mounted) {
+            Navigator.pop(context); // Close loading
+            setState(() {
+              _receiptsStream = _databaseService.getUnifiedReceiptsStream();
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(AppLocalizations.of(context)!.demoDataSuccess)),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Hata: $e")),
+            );
+          }
+        }
+      },
+      color: AppColors.primary,
     );
   }
 

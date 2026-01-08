@@ -7,6 +7,7 @@ class Credit {
   final int totalInstallments;
   final int paymentDay;
   final DateTime createdAt;
+  final String source;      // örn: 'app', 'demo'
 
   Credit({
     required this.id,
@@ -17,6 +18,7 @@ class Credit {
     required this.totalInstallments,
     required this.paymentDay,
     required this.createdAt,
+    this.source = 'app',
   });
 
   factory Credit.fromMap(Map<String, dynamic> map) {
@@ -29,6 +31,7 @@ class Credit {
       totalInstallments: map['total_installments'] as int,
       paymentDay: map['payment_day'] as int,
       createdAt: DateTime.parse(map['created_at'] as String),
+      source: map['source'] ?? 'app',
     );
   }
 
@@ -73,6 +76,7 @@ class Credit {
       'total_installments': totalInstallments,
       'remaining_installments': remainingInstallments,
       'payment_day': paymentDay,
+      'source': source,
       // 'created_at' is usually handled by DB default or insert
     };
   }

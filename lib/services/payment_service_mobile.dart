@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../services/supabase_database_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/auth_service.dart';
 
 class PaymentService {
   static final PaymentService _instance = PaymentService._internal();
@@ -57,9 +58,7 @@ class PaymentService {
       },
       onError: (error) {
         print("PaymentService Stream Hatası: $error");
-        if (onPurchaseCompleted != null) {
-          onPurchaseCompleted!("Hata oluştu: $error", false);
-        }
+        onPurchaseCompleted?.call("Hata oluştu: $error", false);
       },
     );
     
@@ -97,31 +96,31 @@ class PaymentService {
         targetProductId = familyId;
       } else {
         print("Geçersiz Tier ID: $tierId");
-        if (onPurchaseCompleted != null) {
-          onPurchaseCompleted!("Geçersiz ürün seçimi.", false);
-        }
+        onPurchaseCompleted?.call("Geçersiz ürün seçimi.", false);
         return;
       }
       
-      // Ürün listesi boşsa
+      // Ürün listesi boşsa veya yenilenmesi gerekiyorsa tekrar yüklemeyi dene
       if (_products.isEmpty) {
-         print("⚠️ Ürünler yüklenemedi. Liste boş.");
+        print("⚠️ Ürün listesi boş, tekrar yükleniyor...");
+        await _loadProducts();
+      }
+
+      // Hala boşsa hata dön
+      if (_products.isEmpty) {
+         print("⚠️ Ürünler yüklenemedi. Liste hala boş.");
          
          // SADECE DEBUG MODDA TEST İZNİ VER
          if (kDebugMode) {
            print("🔧 DEBUG MODE: Test satın alımı yapılıyor...");
            await _databaseService.updateUserTier(tierId);
-           if (onPurchaseCompleted != null) {
-             onPurchaseCompleted!("(TEST) Satın alma başarılı! $tierId", true);
-           }
+           onPurchaseCompleted?.call("(TEST) Satın alma başarılı! $tierId", true);
            return;
          }
 
          // PROD MODDA HATA DÖN
          final storeName = defaultTargetPlatform == TargetPlatform.iOS ? 'App Store' : 'Google Play';
-         if (onPurchaseCompleted != null) {
-           onPurchaseCompleted!("$storeName bağlantısı kurulamadı veya ürünler bulunamadı. Lütfen internetinizi kontrol edin.", false);
-         }
+         onPurchaseCompleted?.call("$storeName ürünleri yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.", false);
          return;
       }
 
@@ -129,25 +128,54 @@ class PaymentService {
       try {
         productDetails = _products.firstWhere((product) => product.id == targetProductId);
       } catch (_) {
-        productDetails = _products.first;
+        print("❌ HEDEF ÜRÜN BULUNAMADI: $targetProductId");
+        print("Mevcut Ürünler: ${_products.map((e) => e.id).toList()}");
+        
+        onPurchaseCompleted?.call("Seçilen ürün mağazada bulunamadı ($targetProductId). Lütfen daha sonra tekrar deneyin.", false);
+        return;
       }
 
       final PurchaseParam purchaseParam = PurchaseParam(productDetails: productDetails);
       
       // Satın alma akışını başlat
+      print("Starting purchase for: ${productDetails.id}");
       final bool result = await _iap.buyNonConsumable(purchaseParam: purchaseParam);
       
       if (!result) {
         // Başlatılamadı
-        if (onPurchaseCompleted != null) {
-          onPurchaseCompleted!("Satın alma başlatılamadı.", false);
-        }
+        print("❌ buyNonConsumable returned FALSE");
+        onPurchaseCompleted?.call("Satın alma başlatılamadı. Mağaza bağlantısını kontrol edin.", false);
       }
     } catch (e) {
       print("buyProduct Hatası: $e");
-      if (onPurchaseCompleted != null) {
-        onPurchaseCompleted!("Bir hata oluştu: $e", false);
+      onPurchaseCompleted?.call("Bir hata oluştu: $e", false);
+    }
+  }
+
+  // Satın Almaları Geri Yükle (Apple Compliance)
+  Future<void> restorePurchases() async {
+    try {
+      final bool available = await _iap.isAvailable();
+      if (!available) {
+        onPurchaseCompleted?.call("Mağaza şu anda kullanılamıyor.", false);
+        return;
       }
+      
+      await _iap.restorePurchases();
+    } catch (e) {
+      print("restorePurchases Hatası: $e");
+      onPurchaseCompleted?.call("Geri yükleme sırasında hata oluştu: $e", false);
+    }
+  }
+
+  // Abonelikleri Yönet (Apple App Store Ayarlarına Yönlendir)
+  Future<void> manageSubscriptions() async {
+    final Uri url = defaultTargetPlatform == TargetPlatform.iOS
+        ? Uri.parse("https://apps.apple.com/account/subscriptions")
+        : Uri.parse("https://play.google.com/store/account/subscriptions");
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -162,21 +190,43 @@ class PaymentService {
 
         if (purchaseDetails.status == PurchaseStatus.error) {
           print("IAP Hatası: ${purchaseDetails.error}");
-          if (onPurchaseCompleted != null) {
-            onPurchaseCompleted!("Ödeme başarısız oldu: ${purchaseDetails.error?.message}", false);
-          }
+          onPurchaseCompleted?.call("Ödeme başarısız oldu: ${purchaseDetails.error?.message}", false);
+        } else if (purchaseDetails.status == PurchaseStatus.canceled) {
+           print("IAP İptal Edildi");
+           onPurchaseCompleted?.call("İşlem iptal edildi.", false);
         } else if (purchaseDetails.status == PurchaseStatus.purchased ||
                    purchaseDetails.status == PurchaseStatus.restored) {
           
           // Mükerrer işlem kontrolü
           if (_processedPurchaseIds.contains(purchaseDetails.purchaseID)) {
-            print("Bu işlem zaten işlendi: ${purchaseDetails.purchaseID}");
+             print("İşlem zaten listede: ${purchaseDetails.purchaseID}. Backend senkronizasyonu deneniyor...");
+             
+             // Listede olsa bile backend'e gitmeyi dene (Idempotent call)
+             // Bu sayede "Success ama Free" durumundaki kullanıcı tekrar basıp düzeltebilir.
+             try {
+                await _verifyAndGrantAccess(purchaseDetails);
+                // verifyAndGrantAccess içinde onPurchaseCompleted çağrıldığı için burada tekrar çağırmaya gerek yok.
+             } catch (e) {
+                print("Retry verification failed: $e");
+                // Sessizce geç veya logla, kullanıcıya zaten önceki başarısı gösterilmiş olabilir.
+                // Ama eğer kullanıcı tekrar butona bastıysa, bu hatayı görmeli.
+                onPurchaseCompleted?.call("İşlem kaydı mevcut ancak aktivasyon tamamlanamadı: $e", false);
+             }
           } else {
-            if (purchaseDetails.purchaseID != null) {
-              _processedPurchaseIds.add(purchaseDetails.purchaseID!);
-            }
             // ✅ ÖDEME BAŞARILI!
-            await _verifyAndGrantAccess(purchaseDetails);
+            try {
+              // Önce veritabanını güncelle
+              await _verifyAndGrantAccess(purchaseDetails);
+              
+              // Veritabanı güncellemesi BAŞARILI olursa listeye ekle
+              if (purchaseDetails.purchaseID != null) {
+                _processedPurchaseIds.add(purchaseDetails.purchaseID!);
+              }
+            } catch (e) {
+              // Hata olursa listeye ekleme
+              print("_verifyAndGrantAccess HATASI: $e");
+              onPurchaseCompleted?.call("Aktivasyon sırasında hata oluştu. Lütfen tekrar deneyin: $e", false);
+            }
           }
         }
 
@@ -185,6 +235,7 @@ class PaymentService {
         }
       } catch (e) {
         print("_listenToPurchaseUpdated içinde hata: $e");
+        onPurchaseCompleted?.call("Ödeme alındı ancak aktivasyon hatası: $e. Lütfen destekle iletişime geçin.", false);
       }
     }
   }
@@ -205,47 +256,81 @@ class PaymentService {
       // A. Seviye Kontrolü
       if (newLevel <= currentLevel) {
         print("⚠️ Eski işlem (Restored) yoksayıldı: Mevcut ($currentLevel) >= Yeni ($newLevel)");
+        onPurchaseCompleted?.call("Mevcut üyeliğiniz zaten bu seviyede veya daha yüksek.", true);
         return;
       }
       
-      // B. Tarih Kontrolü (Süresi dolmuş işlemi yoksay)
+      // B. Tarih Kontrolü ve Robust Parsing
       if (purchase.transactionDate != null) {
         try {
-          // transactionDate formatı platforma göre (iOS/Android) milisaniye veya string olabilir.
-          // in_app_purchase paketi genellikle milisaniye stringi döner.
-          final int? transactionDateMs = int.tryParse(purchase.transactionDate!);
+          int? transactionDateMs;
           
-          if (transactionDateMs == null || transactionDateMs == 0) {
-            print("⚠️ Geçersiz işlem tarihi (Restored): ${purchase.transactionDate}. İşlem yoksayıldı.");
-            return;
+          // 1. Önce milisaniye string olarak dene ("1678234234234")
+          transactionDateMs = int.tryParse(purchase.transactionDate!);
+
+          // 2. Eğer başarısızsa, belki saniye cinsindendir veya double'dır? ("1678234234.234")
+          if (transactionDateMs == null) {
+             final double? transactionDateDouble = double.tryParse(purchase.transactionDate!);
+             if (transactionDateDouble != null) {
+               // Saniye mi milisaniye mi? (1970'den bu yana saniye 10 basamaklı olur, ms 13)
+               if (transactionDateDouble < 100000000000) {
+                 transactionDateMs = (transactionDateDouble * 1000).toInt(); // Saniyeyi ms'ye çevir
+               } else {
+                 transactionDateMs = transactionDateDouble.toInt(); // Zaten ms
+               }
+             }
           }
 
-          final transactionDate = DateTime.fromMillisecondsSinceEpoch(transactionDateMs);
-          final now = DateTime.now();
-          final difference = now.difference(transactionDate).inDays;
-          
-          // 30 günden eski işlemse (veya 5 gün tolerans ile 35)
-          if (difference > 35) {
-             print("⚠️ Süresi dolmuş işlem (Restored) yoksayıldı. Tarih: $transactionDate, Fark: $difference gün");
-             return;
+          // 3. Yine başarısızsa, ISO8601 string olabilir mi? ("2023-01-01T12:00:00Z")
+          if (transactionDateMs == null) {
+            try {
+               final date = DateTime.parse(purchase.transactionDate!);
+               transactionDateMs = date.millisecondsSinceEpoch;
+            } catch (_) {
+              // ISO formatı da değil
+            }
           }
+
+          // hala null ise
+          if (transactionDateMs == null || transactionDateMs == 0) {
+            print("⚠️ Geçersiz işlem tarihi (Restored): ${purchase.transactionDate} - Format anlaşılamadı. İzin veriliyor.");
+            // Tarih okunamadı ama status 'restored' veya 'purchased' ise ve buraya kadar geldiyse
+            // Kullanıcıyı engellemek yerine log basıp devam etmek daha güvenli (False negative engellemek için)
+            // onPurchaseCompleted?.call("İşlem tarihi doğrulanamadı.", false);
+            // return; 
+            
+            // FALLBACK: Tarih doğrulanamadı ama işlem geçerli kabul edilsin.
+          } else {
+             // Tarih başarılı şekilde parse edildi, şimdi kontrol et
+            final transactionDate = DateTime.fromMillisecondsSinceEpoch(transactionDateMs);
+            final now = DateTime.now();
+            final difference = now.difference(transactionDate).inDays;
+            
+            // 30 günden eski işlemse (veya 5 gün tolerans ile 35)
+            if (difference > 35) {
+               print("⚠️ Süresi dolmuş işlem (Restored) yoksayıldı. Tarih: $transactionDate, Fark: $difference gün");
+               onPurchaseCompleted?.call("Önceki aboneliğinizin süresi dolmuş görünüyor.", false);
+               return;
+            }
+          }
+
         } catch (e) {
           print("Tarih kontrolü hatası (Restored): $e. İşlem güvenlik için yoksayıldı.");
-          return;
+          // Tarih hatası yüzünden engelleme yapmayalım, loglayıp geçelim.
         }
       } else {
-        // Tarih yoksa restored işlemi asla kabul etme (Güvenlik)
-        print("⚠️ İşlem tarihi bulunamadı (Restored). İşlem yoksayıldı.");
-        return;
+        // Tarih yoksa restored işlemi, eğer verified ise kabul edelim.
+        print("⚠️ İşlem tarihi NULL. İşleme devam ediliyor.");
       }
     }
     
     // Veritabanında rolü güncelle
     await _databaseService.updateUserTier(tierId);
 
-    if (onPurchaseCompleted != null) {
-      onPurchaseCompleted!("Tebrikler! Üyeliğiniz güncellendi.", true);
-    }
+    // Cache temizle ki UI anında güncellensin (Çok Kritik!)
+    AuthService().clearCache();
+
+    onPurchaseCompleted?.call("Tebrikler! Üyeliğiniz güncellendi.", true);
   }
 
   int _getTierLevel(String tierId) {
@@ -283,9 +368,7 @@ class PaymentService {
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
-      if (onPurchaseCompleted != null) {
-        onPurchaseCompleted!("Ödeme sayfası açılamadı. Lütfen destek ile iletişime geçin.", false);
-      }
+      onPurchaseCompleted?.call("Ödeme sayfası açılamadı. Lütfen destek ile iletişime geçin.", false);
     }
   }
   

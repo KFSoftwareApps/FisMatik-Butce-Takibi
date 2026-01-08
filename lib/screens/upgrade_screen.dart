@@ -8,6 +8,9 @@ import '../services/supabase_database_service.dart';
 import '../services/payment_service.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../utils/l10n_helper.dart';
+import 'privacy_policy_screen.dart';
+import 'terms_of_service_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class UpgradeScreen extends StatefulWidget {
   const UpgradeScreen({super.key});
@@ -57,11 +60,22 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
 
   Future<void> _handleUpgrade(String tierId) async {
     setState(() => _isLoading = true);
+    
     if (kIsWeb) {
       await _paymentService.openWebPaymentLink(tierId);
       setState(() => _isLoading = false);
     } else {
       await _paymentService.buyProduct(tierId);
+      
+      // 45 saniyelik zaman aşımı - Eğer mağazadan yanıt gelmezse sonsuz döngüyü kır
+      Future.delayed(const Duration(seconds: 45), () {
+        if (mounted && _isLoading) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text("İşlem mağaza tarafından henüz tamamlanmadı. Lütfen aboneliklerinizi kontrol edin.")),
+          );
+        }
+      });
     }
   }
 
@@ -88,10 +102,24 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
         return Scaffold(
           backgroundColor: Colors.grey[50],
           appBar: AppBar(
+            leading: IconButton(
+              icon: Icon(Icons.adaptive.arrow_back),
+              onPressed: () => Navigator.pop(context),
+            ),
             title: Text(AppLocalizations.of(context)!.membershipUpgradeTitle),
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             elevation: 0,
+            actions: [
+              if (!kIsWeb)
+                TextButton(
+                  onPressed: () => _paymentService.restorePurchases(),
+                  child: Text(
+                    AppLocalizations.of(context)!.restorePurchases,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+            ],
           ),
           body: Column(
             children: [
@@ -208,6 +236,67 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                   child: _buildComparisonTable(context, tiers, currentTier),
                 ),
               ),
+
+              // Subscription Summary (Apple Compliance - iOS/MacOS Only)
+              if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blueGrey.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blueGrey.withOpacity(0.1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)!.subscriptionTermsSummaryTitle,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        AppLocalizations.of(context)!.subscriptionTermsSummaryBody,
+                        style: TextStyle(fontSize: 10, color: Colors.grey[700], height: 1.3),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton(
+                            onPressed: () => _paymentService.manageSubscriptions(),
+                            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                            child: Text(
+                              AppLocalizations.of(context)!.manageSubscription,
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              TextButton(
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsOfServiceScreen())),
+                                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                child: Text(AppLocalizations.of(context)!.termsOfService, style: const TextStyle(fontSize: 10)),
+                              ),
+                              Text(" • ", style: TextStyle(color: Colors.grey[400], fontSize: 10)),
+                              TextButton(
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
+                                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                child: Text(AppLocalizations.of(context)!.privacyPolicy, style: const TextStyle(fontSize: 10)),
+                              ),
+                              Text(" • ", style: TextStyle(color: Colors.grey[400], fontSize: 10)),
+                              TextButton(
+                                onPressed: () => launchUrl(Uri.parse('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')),
+                                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                child: const Text("EULA", style: TextStyle(fontSize: 10)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
 
               // Purchase Button
               Container(

@@ -8,6 +8,7 @@ class MembershipTier {
   final int manualEntryLimit;    // Manuel harcama kotası
   final bool canManageCategories;
   final bool canAccessAICoach;
+  final int aiMessageLimit;      // AI Mesaj hakkı (Aylık)
 
   const MembershipTier({
     required this.id,
@@ -19,6 +20,7 @@ class MembershipTier {
     required this.manualEntryLimit,
     required this.canManageCategories,
     required this.canAccessAICoach,
+    required this.aiMessageLimit,
   });
 
   // Üyelik seviyeleri
@@ -33,6 +35,7 @@ class MembershipTier {
       manualEntryLimit: 20,      // 20 manuel giriş
       canManageCategories: false,
       canAccessAICoach: false,
+      aiMessageLimit: 0,
     ),
     'premium': MembershipTier(
       id: 'premium',
@@ -44,6 +47,7 @@ class MembershipTier {
       manualEntryLimit: 50,      // 50 manuel giriş
       canManageCategories: true,
       canAccessAICoach: false,
+      aiMessageLimit: 0,
     ),
     'limitless': MembershipTier(
       id: 'limitless',
@@ -54,7 +58,8 @@ class MembershipTier {
       subscriptionLimit: 999999,   // Sınırsız
       manualEntryLimit: 100,    // 100 manuel giriş
       canManageCategories: true,
-      canAccessAICoach: true, // Yüksek limit (100 hak)
+      canAccessAICoach: true, 
+      aiMessageLimit: 20, // 20 hak
     ),
     'limitless_family': MembershipTier(
       id: 'limitless_family',
@@ -65,7 +70,8 @@ class MembershipTier {
       subscriptionLimit: 999999,
       manualEntryLimit: 200,
       canManageCategories: true,
-      canAccessAICoach: true, // Yüksek limit (200 hak)
+      canAccessAICoach: true, 
+      aiMessageLimit: 50, // 50 hak
     ),
   };
 }

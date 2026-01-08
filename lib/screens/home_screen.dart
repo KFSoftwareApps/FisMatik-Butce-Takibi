@@ -29,8 +29,12 @@ import 'package:flutter/foundation.dart';
 import 'package:fismatik/services/data_refresh_service.dart';
 import 'package:fismatik/services/widget_service.dart';
 import 'package:fismatik/utils/currency_formatter.dart';
+import 'history_screen.dart';
 import '../providers/currency_provider.dart';
 import 'package:provider/provider.dart';
+import '../services/demo_data_service.dart';
+import '../widgets/ai_coach_header_button.dart';
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -68,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _currentTierId = 'standart';
   List<Map<String, dynamic>> _pendingSmsExpenses = [];
   StreamSubscription<void>? _refreshSubscription;
+  late Stream<List<Map<String, dynamic>>> _notificationsStream;
 
   // Filter constants if not imported
   static const String FILTER_WEEK = 'Bu Hafta';
@@ -78,8 +83,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Initialize stream immediately to prevent LateInitializationError
+    _homeDataStream = _getCombinedHomeData();
+    _notificationsStream = _databaseService.getNotifications();
+
     _loadDateFilter().then((_) {
-      _refreshData();
+      // Re-fetch if filter changed
+      if (mounted) _refreshData();
       _checkUserTier();
     });
     
@@ -87,6 +98,18 @@ class _HomeScreenState extends State<HomeScreen> {
     _refreshSubscription = DataRefreshService().onUpdate.listen((_) {
       if (mounted) _refreshData();
     });
+
+    // Request ATT permission after build
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initPlugin());
+  }
+
+  Future<void> _initPlugin() async {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final status = await AppTrackingTransparency.trackingAuthorizationStatus;
+      if (status == TrackingStatus.notDetermined) {
+        await AppTrackingTransparency.requestTrackingAuthorization();
+      }
+    }
   }
 
   @override
@@ -219,6 +242,21 @@ class _HomeScreenState extends State<HomeScreen> {
     return controller.stream;
   }
 
+  Future<void> _refreshData() async {
+    if (mounted) {
+      await _loadPendingSmsExpenses();
+      // Simule a delay for better UX or wait for critical data
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (mounted) {
+        setState(() {
+          _homeDataStream = _getCombinedHomeData();
+        });
+      }
+    }
+  }
+
+  // ... (keeping other methods same)
+
   @override
   Widget build(BuildContext context) {
     context.watch<CurrencyProvider>();
@@ -272,79 +310,116 @@ class _HomeScreenState extends State<HomeScreen> {
         final totalFixedExpenses = totalSubscriptions + totalInstallments;
         final remainingBudget = data.monthlyLimit - totalSpending - totalFixedExpenses;
 
-        // Background check (Side effect inside build is bad, but keeping original logic for stability)
-        _performBackgroundChecks(context, totalSpending, data.monthlyLimit, remainingBudget);
+        // Perform background checks (Widget update & budget warning & demo data check)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _performBackgroundChecks(context, totalSpending, data.monthlyLimit, remainingBudget, data.receipts);
+        });
+
 
         return Container(
           color: AppColors.background,
-          child: CustomScrollView(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-            slivers: [
-              SliverToBoxAdapter(
-                child: _buildHeaderSection(context, totalSpending, data.monthlyLimit, totalFixedExpenses, totalSubscriptions, totalInstallments),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              SliverToBoxAdapter(
-                child: _buildFilterTabs(),
-              ),
-              if (_pendingSmsExpenses.isNotEmpty) 
-                SliverToBoxAdapter(child: _buildPendingSmsBanner()),
-              
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    _buildQuickActions(context),
-                    const SizedBox(height: 24),
-                    _buildSectionHeader(context, filteredReceipts.length),
-                    const SizedBox(height: 16),
-                  ]),
+          child: RefreshIndicator(
+            onRefresh: _refreshData,
+            color: Colors.white,
+            backgroundColor: AppColors.primary,
+            displacement: 40,
+            edgeOffset: MediaQuery.of(context).padding.top + 20, // Header'ın altına denk gelmesi için
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _buildHeaderSection(context, totalSpending, data.monthlyLimit, totalFixedExpenses, totalSubscriptions, totalInstallments),
                 ),
-              ),
-
-              if (filteredReceipts.isEmpty)
-                SliverToBoxAdapter(child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildEmptyState(),
-                ))
-              else
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                SliverToBoxAdapter(
+                  child: _buildFilterTabs(),
+                ),
+                if (_pendingSmsExpenses.isNotEmpty) 
+                  SliverToBoxAdapter(child: _buildPendingSmsBanner()),
+                
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                   sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final receipt = filteredReceipts[index];
-                        return _buildHomeReceiptTile(
-                          context: context,
-                          receipt: receipt,
-                        );
-                      },
-                      childCount: filteredReceipts.length,
-                    ),
+                    delegate: SliverChildListDelegate([
+                      _buildQuickActions(context),
+                      const SizedBox(height: 24),
+                      _buildSectionHeader(context, filteredReceipts.length),
+                      const SizedBox(height: 16),
+                    ]),
                   ),
                 ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              if (kIsWeb && _currentTierId == 'standart')
-                const SliverToBoxAdapter(
-                  child: Center(
-                    child: WebAdBanner(
-                      adSlot: '8945074304',
-                      width: 320,
-                      height: 100,
+                if (filteredReceipts.isEmpty)
+                  SliverToBoxAdapter(child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildEmptyState(),
+                  ))
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final receipt = filteredReceipts[index];
+                          return _buildHomeReceiptTile(
+                            context: context,
+                            receipt: receipt,
+                          );
+                        },
+                        childCount: filteredReceipts.length,
+                      ),
                     ),
                   ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 40)),
-            ],
+
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                if (kIsWeb && _currentTierId == 'standart')
+                  const SliverToBoxAdapter(
+                    child: Center(
+                      child: WebAdBanner(
+                        adSlot: '8945074304',
+                        width: 320,
+                        height: 100,
+                      ),
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  Future<void> _performBackgroundChecks(BuildContext context, double totalSpending, double monthlyLimit, double remainingBudget) async {
+  Future<void> _performBackgroundChecks(BuildContext context, double totalSpending, double monthlyLimit, double remainingBudget, List<Receipt> receipts) async {
+    // 0. Demo Data Check
+    if (receipts.any((r) => r.source == 'demo')) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar(); // Hide previous if any
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text("Demo verileri tespit edildi."),
+            backgroundColor: Colors.orange.shade800,
+            duration: const Duration(seconds: 10),
+            action: SnackBarAction(
+              label: "Temizle",
+              textColor: Colors.white,
+              onPressed: () async {
+                await DemoDataService().deleteDemoData();
+                _refreshData();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Demo verileri temizlendi.")),
+                  );
+                }
+              },
+            ),
+          ),
+        );
+      }
+    }
+
     if (monthlyLimit > 0) {
       final now = DateTime.now();
       final key = 'budget_warning_shown_${now.year}_${now.month}';
@@ -372,69 +447,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildActionButton(
-            icon: Icons.camera_alt, // Changed from QR to Camera for "Scan"
-            label: AppLocalizations.of(context)!.scanReceipt, // Fiş Tara
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ScanScreen()),
-              );
-              if (mounted) _refreshData();
-            },
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildActionButton(
-            icon: Icons.pie_chart, // Changed from Add to Pie Chart for "Statistics"
-            label: AppLocalizations.of(context)!.statistics ?? "İstatistikler", // İstatistikler
-            isPrimary: false,
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const StatisticsScreen()),
-              );
-              // if (mounted) _refreshData(); // Statistics usually read-only but harmless
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(BuildContext context, int count) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          "${AppLocalizations.of(context)!.recentExpenses} ($count)",
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textDark,
-          ),
-        ),
-        TextButton(
-          onPressed: () async {
-            // Navigate to all receipts or filter view
-             // For now just scroll or refresh
-             if (mounted) _refreshData();
-          },
-          child: Text(AppLocalizations.of(context)!.seeAll),
-        ),
-      ],
-    );
-  }
-
   // --- HEADER SECTION ---
   Widget _buildHeaderSection(BuildContext context, double totalSpending, double monthlyLimit, double totalFixedExpenses, double totalSubscriptions, double totalInstallments) {
     final percent = monthlyLimit == 0 ? 0.0 : ((totalSpending + totalFixedExpenses) / monthlyLimit).clamp(0.0, 1.0);
-    // Kalan bütçeden sabit giderleri de düş
     final remaining = monthlyLimit - totalSpending - totalFixedExpenses;
 
     return Container(
@@ -459,179 +474,161 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    AppLocalizations.of(context)!.totalSpending,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    CurrencyFormatter.format(totalSpending),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+              StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _notificationsStream,
+                builder: (context, snapshot) {
+                  final allNotifications = snapshot.data ?? [];
+                  final notifications = allNotifications.where((n) {
+                    final type = n['type'];
+                    return type != 'account_deletion_request' && type != 'system_test';
+                  }).toList();
+                  final hasUnread = notifications.any((n) => n['is_read'] == false);
+
+                  return IconButton(
+                    onPressed: () => _openNotificationCenter(context),
+                    icon: Stack(
+                      children: [
+                        const Icon(Icons.notifications_outlined, color: Colors.white),
+                        if (hasUnread)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-                  // Sabit Giderler Eklendi
-                  // Sabit Giderler
-                  if (totalFixedExpenses > 0) ...[
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () async {
-                        // Navigation Logic
-                        if (totalSubscriptions > 0 && totalInstallments > 0) {
-                          // Both exist, ask user
+                    style: IconButton.styleFrom(backgroundColor: Colors.white24),
+                  );
+                },
+              ),
+              
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      AppLocalizations.of(context)!.totalSpending,
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      CurrencyFormatter.format(totalSpending),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (totalFixedExpenses > 0) ...[
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () {
                           showModalBottomSheet(
                             context: context,
-                            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-                            builder: (ctx) => SafeArea(
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                            ),
+                            builder: (context) => Container(
+                              padding: const EdgeInsets.all(24),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Text(AppLocalizations.of(context)!.selectExpense, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                                  Text(
+                                    AppLocalizations.of(context)!.fixedExpenses,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
+                                  const SizedBox(height: 16),
                                   ListTile(
-                                    leading: const Icon(Icons.repeat, color: Colors.purple),
-                                    title: Text("Abonelikler"),
+                                    leading: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.calendar_today, color: Colors.orange),
+                                    ),
+                                    title: const Text('Sabit Giderler (Abonelikler)'),
+                                    subtitle: Text(AppLocalizations.of(context)!.subscriptionRemindersDesc ?? 'Aylık tekrarlayan ödemeler'),
                                     onTap: () {
-                                      Navigator.pop(ctx);
-                                      Navigator.push(context, MaterialPageRoute(builder: (context) => const SubscriptionsScreen())).then((_) => _refreshData());
+                                      Navigator.pop(context);
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const FixedExpensesScreen()));
                                     },
+                                    trailing: const Icon(Icons.chevron_right),
                                   ),
+                                  const SizedBox(height: 8),
                                   ListTile(
-                                    leading: const Icon(Icons.credit_card, color: Colors.orange),
-                                    title: Text("Taksitler"),
-                                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                    leading: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.credit_card, color: Colors.blue),
+                                    ),
+                                    title: Text(AppLocalizations.of(context)!.myCredits ?? 'Taksitli Giderler'),
+                                    subtitle: Text(AppLocalizations.of(context)!.addCreditInstallmentSub ?? 'Kredi kartı ve kredi taksitleri'),
                                     onTap: () {
-                                      Navigator.pop(ctx);
-                                      Navigator.push(context, MaterialPageRoute(builder: (context) => InstallmentExpensesScreen())).then((_) => _refreshData());
+                                      Navigator.pop(context);
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const InstallmentExpensesScreen()));
                                     },
+                                    trailing: const Icon(Icons.chevron_right),
                                   ),
                                   const SizedBox(height: 16),
                                 ],
                               ),
                             ),
                           );
-                        } else if (totalInstallments > 0) {
-                          // Only installments
-                          await Navigator.push(context, MaterialPageRoute(builder: (context) => InstallmentExpensesScreen()));
-                          if (mounted) _refreshData();
-                        } else {
-                          // Only subscriptions or default
-                          await Navigator.push(context, MaterialPageRoute(builder: (context) => const SubscriptionsScreen()));
-                          if (mounted) _refreshData();
-                        }
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.calendar_today, color: Colors.white.withOpacity(0.9), size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            "${AppLocalizations.of(context)!.fixedExpenses}: ${CurrencyFormatter.format(totalFixedExpenses)}",
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 13,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right, color: Colors.white70, size: 16),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                ],
-              ),
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const SearchScreen()),
-                      );
-                      if (mounted) _refreshData();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.search, color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: _databaseService.getNotifications(),
-                    builder: (context, snapshot) {
-                      final notifications = snapshot.data ?? [];
-                      // Admin bildirimlerini (hesap silme vb.) ana ekranda gösterme
-                      final filteredNotifications = notifications.where((n) {
-                        final type = n['type'];
-                        return type != 'account_deletion_request' && type != 'system_test';
-                      }).toList();
-                      
-                      final unreadCount = filteredNotifications.where((n) => n['is_read'] != true).length;
-
-                      return GestureDetector(
-                        onTap: () async {
-                          await _openNotificationCenter(context);
-                          if (mounted) _refreshData();
                         },
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(Icons.notifications, color: Colors.white),
-                            ),
-                            if (unreadCount > 0)
-                              Positioned(
-                                right: -2,
-                                top: -2,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 16,
-                                    minHeight: 16,
-                                  ),
-                                  child: Text(
-                                    unreadCount > 9 ? '9+' : unreadCount.toString(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.calendar_today, color: Colors.white.withOpacity(0.9), size: 12),
+                              const SizedBox(width: 4),
+                              Text(
+                                "${AppLocalizations.of(context)!.fixedExpenses}: ${CurrencyFormatter.format(totalFixedExpenses)}",
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 11,
                                 ),
                               ),
-                          ],
+                              const Icon(Icons.chevron_right, color: Colors.white70, size: 14),
+                            ],
+                          ),
                         ),
-                      );
-                    },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              Row(
+                children: [
+                  if (defaultTargetPlatform == TargetPlatform.iOS)
+                    const AICoachHeaderButton(),
+                  IconButton(
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen())),
+                    icon: const Icon(Icons.search, color: Colors.white),
+                    style: IconButton.styleFrom(backgroundColor: Colors.white24),
                   ),
                 ],
               ),
             ],
           ),
-
           const SizedBox(height: 24),
           // Progress Bar
           TweenAnimationBuilder<double>(
@@ -673,8 +670,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
-                      decoration: TextDecoration.underline,
-                      decorationColor: Colors.white,
                     ),
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
@@ -687,8 +682,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-
 
   // --- SEKME/BUTON YAPISI ---
   Widget _buildFilterTabs() {
@@ -776,8 +769,86 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool isPrimary = true,
+    Color? customColor,
+    Color? customBackgroundColor,
+  }) {
+    final Color foregroundColor = customColor ??
+        (isPrimary ? AppColors.primary : AppColors.success);
+    final Color backgroundColor = customBackgroundColor ??
+        (isPrimary ? const Color(0xFFE8EAF6) : const Color(0xFFE0F2F1));
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: foregroundColor,
+              size: 28,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: foregroundColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.camera_alt, // Changed from QR to Camera for "Scan"
+            label: AppLocalizations.of(context)!.scanReceipt, // Fiş Tara
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ScanScreen()),
+              );
+              if (mounted) _refreshData();
+            },
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.pie_chart, // Changed from Add to Pie Chart for "Statistics"
+            label: AppLocalizations.of(context)!.statistics ?? "İstatistikler", // İstatistikler
+            isPrimary: false,
+            customColor: Colors.orange.shade800,
+            customBackgroundColor: Colors.orange.shade50,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const StatisticsScreen()),
+              );
+              // if (mounted) _refreshData(); // Statistics usually read-only but harmless
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   void _showSalaryDayDialog() {
-    // Önce mevcut ayarı çekelim, sonra dialogu gösterelim
     _databaseService.getUserSettings().first.then((settings) {
       int currentDay = (settings['salary_day'] as int?) ?? 1;
       
@@ -835,7 +906,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         setState(() {
                           _selectedFilter = FILTER_SALARY;
                         });
-                        _refreshData();
+                        // _refreshData(); // Handled by refresh helper if needed
                       }
                     },
                     child: Text(AppLocalizations.of(context)!.save),
@@ -847,15 +918,6 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       );
     });
-  }
-
-  void _refreshData() {
-    if (mounted) {
-      _loadPendingSmsExpenses();
-      setState(() {
-        _homeDataStream = _getCombinedHomeData();
-      });
-    }
   }
 
   void _showEditLimitDialog(BuildContext context, double currentLimit) {
@@ -907,8 +969,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             await _databaseService.updateMonthlyLimit(newLimit);
                             if (context.mounted) {
                               Navigator.pop(context);
-                              // Ana ekranı güncelle
-                              _refreshData();
+                              // _refreshData();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text(AppLocalizations.of(context)!.budgetLimitUpdated)),
                               );
@@ -917,7 +978,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             if (context.mounted) {
                               setDialogState(() => isLoading = false);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text("${AppLocalizations.of(context)!.analysisError}: $e")),
+                                SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
                               );
                             }
                           }
@@ -1198,9 +1259,8 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
-
+  
   Widget _buildEmptyState() {
-
     return EmptyState(
       icon: Icons.receipt_long_outlined,
       title: AppLocalizations.of(context)!.noData,
@@ -1213,189 +1273,8 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         if (mounted) _refreshData();
       },
+      // Demo data button removed to prevent accidental usage
       color: AppColors.primary,
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isPrimary = true,
-    Color? customColor,
-    Color? customBackgroundColor,
-  }) {
-    final Color foregroundColor = customColor ??
-        (isPrimary ? AppColors.primary : AppColors.success);
-    final Color backgroundColor = customBackgroundColor ??
-        (isPrimary ? const Color(0xFFE8EAF6) : const Color(0xFFE0F2F1));
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: foregroundColor,
-              size: 28,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: foregroundColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- ANA SAYFA FİŞ KARTI (manuel / tarama etiketi ile) ---
-  Widget _buildHomeReceiptTile({
-    required BuildContext context,
-    required Receipt receipt,
-  }) {
-    final bool isManual = receipt.isManual;
-    final Color accentColor =
-        isManual ? AppColors.warning : AppColors.primary;
-    final IconData icon =
-        isManual ? Icons.edit_note : Icons.receipt_long;
-    final String sourceText =
-        isManual ? AppLocalizations.of(context)!.manualEntryLabel : AppLocalizations.of(context)!.scanReceiptLabel;
-
-        CurrencyFormatter.format(0); // Dummy call to ensure formatter is ready, but we should use the dynamic one below
-        final currencyFormat = NumberFormat.currency(locale: CurrencyFormatter.locale, symbol: CurrencyFormatter.currencySymbol, decimalDigits: 2);
-    final dateText =
-        DateFormat('d MMM yyyy', Localizations.localeOf(context).toString()).format(receipt.date);
-
-    return InkWell(
-      onTap: () async {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                ReceiptDetailScreen(receipt: receipt),
-          ),
-        );
-        
-        if (result == true && mounted) {
-          _refreshData();
-        }
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: accentColor, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    receipt.merchantName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        dateText,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textLight,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        "•",
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textLight,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          receipt.category,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textLight,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      sourceText,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: accentColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              CurrencyFormatter.format(receipt.totalAmount),
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-                color: AppColors.textDark,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1458,8 +1337,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPendingSmsBanner() {
-    // Using CurrencyFormatter
-    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(16),
@@ -1579,5 +1456,217 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     }
+  }
+  
+
+  
+  Widget _buildHomeReceiptTile({
+    required BuildContext context,
+    required Receipt receipt,
+  }) {
+    final bool isManual = receipt.isManual;
+    final Color accentColor =
+        isManual ? AppColors.warning : AppColors.primary;
+    final IconData icon =
+        isManual ? Icons.edit_note : Icons.receipt_long;
+    final String sourceText =
+        isManual ? AppLocalizations.of(context)!.manualEntryLabel : AppLocalizations.of(context)!.scanReceiptLabel;
+
+        CurrencyFormatter.format(0); // Dummy call to ensure formatter is ready, but we should use the dynamic one below
+        final currencyFormat = NumberFormat.currency(locale: CurrencyFormatter.locale, symbol: CurrencyFormatter.currencySymbol, decimalDigits: 2);
+    final dateText =
+        DateFormat('d MMM yyyy', Localizations.localeOf(context).toString()).format(receipt.date);
+
+    return InkWell(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                ReceiptDetailScreen(receipt: receipt),
+          ),
+        );
+        
+        if (result == true && mounted) {
+          _refreshData();
+        }
+      },
+      onLongPress: () {
+        if (receipt.id.startsWith('sub_')) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const FixedExpensesScreen()));
+          return;
+        }
+        if (receipt.id.startsWith('credit_')) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const InstallmentExpensesScreen()));
+          return;
+        }
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(AppLocalizations.of(context)!.deleteReceipt ?? 'Fişi Sil'),
+            content: Text(AppLocalizations.of(context)!.deleteReceiptConfirmation ?? 'Bu fişi silmek istediğinize emin misiniz?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(AppLocalizations.of(context)!.cancel ?? 'Vazgeç'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context); // Dialog'u kapat
+                  try {
+                    await _databaseService.deleteReceipt(receipt.id);
+                    if (mounted) {
+                      _refreshData();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                         SnackBar(content: Text(AppLocalizations.of(context)!.receiptDeleted ?? 'Fiş silindi')),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Hata: $e')),
+                      );
+                    }
+                  }
+                },
+                child: Text(AppLocalizations.of(context)!.delete ?? 'Sil', style: const TextStyle(color: Colors.red)),
+              ),
+            ],
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: accentColor, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    receipt.merchantName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        dateText,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textLight,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        "•",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textLight,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          receipt.category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textLight,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      sourceText,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: accentColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              CurrencyFormatter.format(receipt.totalAmount),
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                color: AppColors.textDark,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(BuildContext context, int count) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          "${AppLocalizations.of(context)!.recentExpenses} ($count)",
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        TextButton(
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const HistoryScreen()),
+            );
+            if (mounted) _refreshData();
+          },
+          child: Text(AppLocalizations.of(context)!.seeAll, style: TextStyle(color: AppColors.primary)),
+        ),
+      ],
+    );
   }
 }

@@ -12,6 +12,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => 'FişMatik';
 
   @override
+  String cheapestAt(Object merchant) {
+    return 'Cheaper at $merchant!';
+  }
+
+  @override
   String get loginTitle => 'Login';
 
   @override
@@ -70,7 +75,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminPanel => 'Admin Panel';
 
   @override
-  String get adminSubtitle => 'Manage users and limits';
+  String get adminSubtitle => 'Admin Dashboard';
 
   @override
   String get notifications => 'Notifications';
@@ -144,6 +149,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scanReceipt => 'Scan Receipt';
+
+  @override
+  String get scan => 'Scan';
 
   @override
   String get analysis => 'Analysis';
@@ -240,7 +248,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get setBudgetLimit => 'Set Budget Limit';
 
   @override
-  String get monthlyLimitAmount => 'Monthly Limit Amount';
+  String get monthlyLimitAmount => 'Monthly Limit';
 
   @override
   String get cancel => 'Cancel';
@@ -299,7 +307,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Checking connection, please do not close the page.';
 
   @override
-  String get aiExtractingData => 'AI is extracting data...';
+  String get aiExtractingData => 'Extracting data...';
 
   @override
   String get processSuccess => 'Process successful!';
@@ -435,7 +443,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get exportExcel => 'Export to Excel';
+  String get exportExcel => 'Export Excel';
 
   @override
   String get totalSavings => 'Total Savings';
@@ -456,7 +464,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get yearlyTax => 'Yearly Tax';
 
   @override
-  String get exportTaxReport => 'Download Tax Report';
+  String get exportTaxReport => 'Tax Report';
 
   @override
   String get daily => 'Daily';
@@ -575,11 +583,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectLanguage => 'Select Language';
 
   @override
-  String get confirmLogoutTitle => 'Log Out';
+  String get confirmLogoutTitle => 'Logout';
 
   @override
-  String get confirmLogoutMessage =>
-      'Are you sure you want to log out of your account?';
+  String get confirmLogoutMessage => 'Are you sure you want to logout?';
 
   @override
   String get statsThisMonth => 'This Month';
@@ -621,11 +628,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get familyPlanMembersLimit =>
-      '35 receipts/day • 20 AI Chats • 200 Manual Entries • Family Sharing';
+      '35 receipts/day • 20 Smart Chats • 200 Manual Entries • Family Sharing';
 
   @override
   String get limitlessPlanLimit =>
-      '25 receipts/day • 10 AI Chats • 100 Manual Entries';
+      '25 receipts/day • 10 Smart Chats • 100 Manual Entries';
 
   @override
   String get premiumPlanLimit => '10 receipts/day • 50 Manual Entries';
@@ -670,7 +677,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureScanSubTitle => 'Scan & Detect Subscriptions';
 
   @override
-  String get featureScanSubDesc => 'AI-powered bill recognition and tracking';
+  String get featureScanSubDesc => 'Smart bill recognition and tracking';
 
   @override
   String get featurePriceCompTitle => 'Where is it Cheaper?';
@@ -707,11 +714,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String priceRange(Object max, Object min, Object symbol) {
     return '$min $symbol - $max $symbol';
-  }
-
-  @override
-  String cheapestAt(Object merchant) {
-    return 'Cheaper at $merchant!';
   }
 
   @override
@@ -1215,21 +1217,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get termsSection1Content =>
-      'FişMatik is a mobile application that allows users to scan and digitize their shopping receipts, track their expenses, and manage their budget.';
+      'FişMatik is a comprehensive financial management app offering expense tracking, receipt scanning, subscription detection, AI-powered budget forecasting, and location-based price comparison (Shopping Guide).';
 
   @override
   String get termsSection2Title => '2. Account Creation';
 
   @override
   String get termsSection2Content =>
-      '• You must be over 13 years old\n• You must provide a valid email address\n• You must provide accurate and up-to-date information\n• You are responsible for the security of your password';
+      '• You must be at least 13 years old to use the application.\n• You agree to provide accurate, current, and complete information during registration.\n• You are entirely responsible for account security and password confidentiality.\n• You are held responsible for all activities occurring in your account.';
 
   @override
-  String get termsSection3Title => '3. Membership Levels';
+  String get termsSection3Title => '3. Subscriptions and Payments';
 
   @override
   String get termsSection3Content =>
-      'Free (0 TL):\n• 1 receipt scan per day\n• 20 manual entries per month\n• Unlimited subscription tracking\n• Ad-supported experience\n\nStandard (49.99 TL / Month):\n• 10 receipt scans per day\n• 50 manual entries per month\n• Unlimited subscription tracking\n• Category management\n• Ad-free experience\n• Reports\n• Shopping Guide\n\nPremium (79.99 TL / Month):\n• 25 receipt scans per day\n• 100 manual entries per month\n• Unlimited subscription tracking\n• Ad-free experience\n• AI Finance Coach\n• Smart Budget Forecasting\n• Category management\n• Reports\n• Shopping Guide\n\nFamily Economy (99.99 TL / Month):\n• 35 receipt scans per day (Family total)\n• 200 manual entries per month (Family total)\n• Unlimited subscription tracking\n• Ad-free experience\n• AI Finance Coach\n• Smart Budget Forecasting\n• Category management\n• Reports\n• Shopping Guide\n• Family Sharing';
+      '• Subscription Fees: Prices and features of current packages are specified on the relevant screen. Payments are charged to your App Store account at purchase confirmation.\n• Auto-Renewal: Your subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period.\n• Renewal Charge: A renewal fee is charged to your account within 24 hours prior to the end of the period.\n• Management and Cancellation: You can manage and cancel your subscriptions at any time via App Store Account Settings.\n• Unused Periods: No refunds are issued for periods cancelled during an active subscription period.';
+
+  @override
+  String get termsSection3Packages =>
+      'Package Details:\n\nFree (\$0):\n• 1 receipt scan/day, 20 manual entries/month.\n\nStandard (\$1.99 / Month):\n• 10 scans/day, 50 manual entries, ad-free, reports.\n\nPremium (\$2.99 / Month):\n• 25 scans/day, 100 manual entries, Financial Coach, Smart Forecasts.\n\nFamily Economy (\$3.49 / Month):\n• 35 scans/day (Total), 200 manual entries, Family Sharing (5 persons).';
 
   @override
   String get termsSection4Title => '4. Rules of Use';
@@ -1243,7 +1249,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get termsSection5Content =>
-      '• You use the app at your own risk\n• We are not responsible for your financial decisions\n• We do not provide tax or accounting advice\n• OCR and AI analysis may not be 100% accurate';
+      '• You use the app at your own risk\n• We are not responsible for your financial decisions\n• We do not provide tax or accounting advice\n• OCR and analysis may not be 100% accurate, user verification is essential\n• Location data is only used to show you nearby deals';
 
   @override
   String get termsSection6Title => '6. Account Termination';
@@ -1253,15 +1259,26 @@ class AppLocalizationsEn extends AppLocalizations {
       '• You can delete your account at any time\n• Your account may be suspended in case of violation of terms of use\n• Deletion is irreversible';
 
   @override
-  String get termsSection7Title => '7. Contact';
-
-  @override
   String get termsSection7Content =>
-      'For questions about the terms of use:\n\nEmail: info@kfsoftware.app';
+      'For questions about the terms of use and subscriptions:\n\nEmail: info@kfsoftware.app';
 
   @override
   String get termsFooter =>
       'By using the FişMatik application, you declare that you have read, understood, and accepted these terms of use.';
+
+  @override
+  String get termsSection8Title => '8. Cancellation Policy';
+
+  @override
+  String get termsSection8Content =>
+      'You can cancel your subscription at any time through your App Store settings. The cancellation will be effective from the next billing period.';
+
+  @override
+  String get subscriptionTermsSummaryTitle => 'Subscription Terms';
+
+  @override
+  String get subscriptionTermsSummaryBody =>
+      'Payment will be charged to your iTunes Account at confirmation of purchase. Your subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage your subscription and turn off auto-renewal in your Account Settings after purchase.';
 
   @override
   String get salaryDay => 'Salary Day';
@@ -1334,6 +1351,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get googleSignIn => 'Sign in with Google';
+
+  @override
+  String get appleSignIn => 'Sign in with Apple';
 
   @override
   String get unconfirmedEmailError => 'Email address not confirmed.';
@@ -2097,7 +2117,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your account has been blocked for violating our terms. Please contact support.';
 
   @override
-  String get loginLogout => 'Log Out';
+  String get loginLogout => 'Logout';
 
   @override
   String get accountDeletionPendingTitle => 'Account Deletion Pending';
@@ -2148,22 +2168,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editProfile => 'Edit Profile';
 
   @override
-  String get spendingTrendsSubtitle => 'See your spending habits';
+  String get spendingTrendsSubtitle => 'Weekly and monthly analysis';
 
   @override
-  String get achievementsSubtitle => 'See your earned badges';
+  String get achievementsSubtitle => 'Badges and rewards';
 
   @override
   String get settingsSection => 'Settings';
 
   @override
-  String get notificationSettingsSubtitle => 'Manage reminders';
+  String get notificationSettingsSubtitle => 'Manage your alerts';
 
   @override
-  String get smsTrackingTitle => 'Automatic SMS Tracking';
+  String get smsTrackingTitle => 'SMS Tracking';
 
   @override
-  String get smsTrackingDesc => 'Automatically capture expense SMS';
+  String get smsTrackingDesc => 'Automatically track bank SMS';
 
   @override
   String get otherSection => 'Other';
@@ -2471,7 +2491,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureSharedDashboard => 'Shared Expense Dashboard';
 
   @override
-  String get intelligenceTitle => 'AI Insights & Alerts';
+  String get intelligenceTitle => 'Spending Insights & Alerts';
 
   @override
   String get budgetPrediction => 'Budget Forecasting';
@@ -2569,4 +2589,53 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deleteAllConfirm =>
       'All items in the list will be deleted. Are you sure?';
+
+  @override
+  String get restorePurchases => 'Restore Purchases';
+
+  @override
+  String get manageSubscription => 'Manage Subscription';
+
+  @override
+  String get loadDemoData => 'Load Demo Data';
+
+  @override
+  String get demoDataDescription =>
+      'You can load sample spending and subscription data to explore the app immediately.';
+
+  @override
+  String get demoDataSuccess => 'Sample data loaded successfully!';
+
+  @override
+  String get onboardingDemoOption => 'Start app with sample data';
+
+  @override
+  String get onboardingDemoDetail => '(You can delete them later)';
+
+  @override
+  String get statisticsMockupTitle => 'Sample View';
+
+  @override
+  String get statisticsMockupDesc =>
+      'Here you will see your category-based spending distribution and monthly trends. Scan a receipt to start!';
+
+  @override
+  String get orKeepExploring => 'or continue exploring the app';
+
+  @override
+  String get termsSection7Title => '7. Privacy and Security';
+
+  @override
+  String get deleteReceipt => 'Delete Receipt';
+
+  @override
+  String get deleteReceiptConfirmation =>
+      'Are you sure you want to delete this receipt?';
+
+  @override
+  String get deleteAccount => 'Delete Account';
+
+  @override
+  String get deleteAccountConfirmation =>
+      'Are you sure you want to delete your account? This action cannot be undone.';
 }

@@ -1,5 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -11,6 +14,16 @@ import '../models/membership_model.dart';
 
 class AuthService {
   final supa.SupabaseClient _supabase = supa.Supabase.instance.client;
+
+  // Caching membership tier to avoid redundant queries
+  static MembershipTier? _cachedTier;
+  static String? _cachedTierUserId;
+
+  /// Cache clean func
+  void clearCache() {
+    _cachedTier = null;
+    _cachedTierUserId = null;
+  }
 
   /// Şu anki Supabase kullanıcısı
   supa.User? get currentUser => _supabase.auth.currentUser;
@@ -111,7 +124,14 @@ class AuthService {
   Future<MembershipTier> getCurrentTier() async {
     final user = currentUser;
     if (user == null) {
+      _cachedTier = null;
+      _cachedTierUserId = null;
       return MembershipTier.Tiers['standart']!;
+    }
+
+    // Return cached value if user is same
+    if (_cachedTier != null && _cachedTierUserId == user.id) {
+      return _cachedTier!;
     }
 
     try {
@@ -123,8 +143,13 @@ class AuthService {
 
       if (res != null && res['tier_id'] != null) {
         final tierId = res['tier_id'] as String;
-        return MembershipTier.Tiers[tierId] ??
-            MembershipTier.Tiers['standart']!;
+        final tier = MembershipTier.Tiers[tierId] ?? MembershipTier.Tiers['standart']!;
+        
+        // Cache the result
+        _cachedTier = tier;
+        _cachedTierUserId = user.id;
+        
+        return tier;
       }
 
       return MembershipTier.Tiers['standart']!;
@@ -188,7 +213,7 @@ class AuthService {
     return tier.id == 'limitless_family';
   }
 
-  Future<void> _assignInitialRole(String userId, String email) async {
+  Future<void> ensureUserRole(String userId, String email) async {
     try {
       // "ensure_user_role" fonksiyonu:
       // - Eğer kayıt varsa DOKUNMAZ (Mevcut veriyi/premium'u korur).
@@ -265,7 +290,7 @@ class AuthService {
       
       // Cihaz ID güncelle
       if (res.user != null) {
-        await _assignInitialRole(res.user!.id, email); // Role kaydını garantiye al
+        await ensureUserRole(res.user!.id, email); // Role kaydını garantiye al
         await _updateDeviceIdInDb(res.user!.id);
       }
 
@@ -314,10 +339,10 @@ class AuthService {
         print('⚠️ User is null after signUp');
       } else {
         print('✅ User created: ${user.id}');
-        print('🔄 Calling _assignInitialRole...');
+        print('🔄 Calling ensureUserRole...');
         // Sadece yeni kullanıcı oluşturulduysa role ata
-        await _assignInitialRole(user.id, email);
-        print('✅ _assignInitialRole completed');
+        await ensureUserRole(user.id, email);
+        print('✅ ensureUserRole completed');
       }
       
     } on supa.AuthException catch (e) {
@@ -336,36 +361,38 @@ class AuthService {
 
   Future<void> signInWithGoogle() async {
     try {
-      // WEB PLATFORMU İÇİN (Redirect Flow)
+      // 1. WEB PLATFORMU İÇİN (Supabase Native OAuth Flow)
+      // Web'de Supabase'in kendi OAuth akışını kullanmak, Google Cloud Console'da redirect_uri 
+      // karmaşasını önler. Çünkü Google sadece Supabase URL'sini tanır, Supabase ise bizim localhost portumuzu.
       if (kIsWeb) {
         await _supabase.auth.signInWithOAuth(
           supa.OAuthProvider.google,
-          redirectTo: Uri.base.origin, // Web'de açıkça origin belirt
-          // authScreenLaunchMode: supa.LaunchMode.inAppWebView, // Gerekirse
+          // Geliştirme aşamasında portun çakışmaması için sabit bir port öneriyoruz.
+          redirectTo: kDebugMode ? 'http://localhost:5000' : Uri.base.origin,
         );
-        return; // Redirect olacağı için buradan sonrası çalışmaz
+        return; 
       }
       
-      // MOBİL PLATFORM İÇİN (Native Flow)
-      // 1. Google Sign In başlat
-      // 1. Google Sign In başlat
+      // 2. MOBİL PLATFORM İÇİN (Native Flow - idToken)
+      const webClientId = '650635272198-sf9ha4oi6bsifebnq0ocdhd7skmsvohs.apps.googleusercontent.com';
 
-      final googleSignIn = gsi.GoogleSignIn.instance;
+      final googleSignIn = gsi.GoogleSignIn(
+        serverClientId: webClientId,
+        scopes: ['email', 'profile', 'openid'],
+      );
       
-      // Google Sign In 7.x+ requires authenticate() instead of signIn()
-      final googleUser = await googleSignIn.authenticate();
+      final googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         throw 'Google girişi iptal edildi.';
       }
       
-      final googleAuth = googleUser.authentication;
+      final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
 
       if (idToken == null) {
         throw 'Google ID Token alınamadı.';
       }
 
-      // 2. Supabase ile giriş yap
       final res = await _supabase.auth.signInWithIdToken(
         provider: supa.OAuthProvider.google,
         idToken: idToken,
@@ -373,13 +400,11 @@ class AuthService {
       
       final user = res.user;
       if (user != null) {
-        await _assignInitialRole(user.id, user.email ?? '');
+        await ensureUserRole(user.id, user.email ?? '');
         await _updateDeviceIdInDb(user.id);
         
-        // 🛡️ BLOK KONTROLÜ
         final blocked = await isBlocked();
         if (blocked) {
-          print('🚫 User is blocked (Google), signing out immediately.');
           await signOut();
           throw 'Hesabınız engellenmiştir.\n\nLütfen yönetici ile iletişime geçin.';
         }
@@ -389,6 +414,51 @@ class AuthService {
       throw e.message ?? 'Google ile giriş başarısız.';
     } catch (e) {
       throw 'Google girişi sırasında hata: $e';
+    }
+  }
+
+  Future<void> signInWithApple() async {
+    try {
+      final rawNonce = _supabase.auth.generateRawNonce();
+      final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
+      final appleIdCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+      );
+
+      final idToken = appleIdCredential.identityToken;
+      if (idToken == null) {
+        throw 'Apple ID Token alınamadı.';
+      }
+
+      final res = await _supabase.auth.signInWithIdToken(
+        provider: supa.OAuthProvider.apple,
+        idToken: idToken,
+        nonce: rawNonce,
+      );
+
+      final user = res.user;
+      if (user != null) {
+        await ensureUserRole(user.id, user.email ?? '');
+        await _updateDeviceIdInDb(user.id);
+        
+        final blocked = await isBlocked();
+        if (blocked) {
+          await signOut();
+          throw 'Hesabınız engellenmiştir.\n\nLütfen yönetici ile iletişime geçin.';
+        }
+      }
+    } on supa.AuthException catch (e) {
+      throw e.message ?? 'Apple ile giriş başarısız.';
+    } catch (e) {
+      if (e.toString().contains('canceled')) {
+        throw 'Apple girişi iptal edildi.';
+      }
+      throw 'Apple girişi sırasında hata: $e';
     }
   }
 
@@ -414,6 +484,10 @@ class AuthService {
 
   Future<void> signOut() async {
     try {
+      // Clear caches
+      _cachedTier = null;
+      _cachedTierUserId = null;
+      
       await _supabase.auth.signOut();
       // Session temizliği için kısa bir bekleme
       await Future.delayed(const Duration(milliseconds: 500));
@@ -425,6 +499,11 @@ class AuthService {
 
   Future<void> refreshSession() async {
     await _supabase.auth.refreshSession();
+  }
+
+  Future<Map<String, dynamic>> cancelDeletionRequest() async {
+    final res = await _supabase.rpc('cancel_deletion_request');
+    return res as Map<String, dynamic>;
   }
 
   Future<void> updateUserPassword(String newPassword) async {

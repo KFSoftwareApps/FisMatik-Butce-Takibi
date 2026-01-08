@@ -104,6 +104,12 @@ abstract class AppLocalizations {
   /// **'FişMatik'**
   String get appTitle;
 
+  /// No description provided for @cheapestAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Cheaper at {merchant}!'**
+  String cheapestAt(Object merchant);
+
   /// No description provided for @loginTitle.
   ///
   /// In en, this message translates to:
@@ -221,7 +227,7 @@ abstract class AppLocalizations {
   /// No description provided for @adminSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Manage users and limits'**
+  /// **'Admin Dashboard'**
   String get adminSubtitle;
 
   /// No description provided for @notifications.
@@ -361,6 +367,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Scan Receipt'**
   String get scanReceipt;
+
+  /// No description provided for @scan.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan'**
+  String get scan;
 
   /// No description provided for @analysis.
   ///
@@ -545,7 +557,7 @@ abstract class AppLocalizations {
   /// No description provided for @monthlyLimitAmount.
   ///
   /// In en, this message translates to:
-  /// **'Monthly Limit Amount'**
+  /// **'Monthly Limit'**
   String get monthlyLimitAmount;
 
   /// No description provided for @cancel.
@@ -653,7 +665,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiExtractingData.
   ///
   /// In en, this message translates to:
-  /// **'AI is extracting data...'**
+  /// **'Extracting data...'**
   String get aiExtractingData;
 
   /// No description provided for @processSuccess.
@@ -887,7 +899,7 @@ abstract class AppLocalizations {
   /// No description provided for @exportExcel.
   ///
   /// In en, this message translates to:
-  /// **'Export to Excel'**
+  /// **'Export Excel'**
   String get exportExcel;
 
   /// No description provided for @totalSavings.
@@ -929,7 +941,7 @@ abstract class AppLocalizations {
   /// No description provided for @exportTaxReport.
   ///
   /// In en, this message translates to:
-  /// **'Download Tax Report'**
+  /// **'Tax Report'**
   String get exportTaxReport;
 
   /// No description provided for @daily.
@@ -1151,13 +1163,13 @@ abstract class AppLocalizations {
   /// No description provided for @confirmLogoutTitle.
   ///
   /// In en, this message translates to:
-  /// **'Log Out'**
+  /// **'Logout'**
   String get confirmLogoutTitle;
 
   /// No description provided for @confirmLogoutMessage.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to log out of your account?'**
+  /// **'Are you sure you want to logout?'**
   String get confirmLogoutMessage;
 
   /// No description provided for @statsThisMonth.
@@ -1223,13 +1235,13 @@ abstract class AppLocalizations {
   /// No description provided for @familyPlanMembersLimit.
   ///
   /// In en, this message translates to:
-  /// **'35 receipts/day • 20 AI Chats • 200 Manual Entries • Family Sharing'**
+  /// **'35 receipts/day • 20 Smart Chats • 200 Manual Entries • Family Sharing'**
   String get familyPlanMembersLimit;
 
   /// No description provided for @limitlessPlanLimit.
   ///
   /// In en, this message translates to:
-  /// **'25 receipts/day • 10 AI Chats • 100 Manual Entries'**
+  /// **'25 receipts/day • 10 Smart Chats • 100 Manual Entries'**
   String get limitlessPlanLimit;
 
   /// No description provided for @premiumPlanLimit.
@@ -1307,7 +1319,7 @@ abstract class AppLocalizations {
   /// No description provided for @featureScanSubDesc.
   ///
   /// In en, this message translates to:
-  /// **'AI-powered bill recognition and tracking'**
+  /// **'Smart bill recognition and tracking'**
   String get featureScanSubDesc;
 
   /// No description provided for @featurePriceCompTitle.
@@ -1369,12 +1381,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{min} {symbol} - {max} {symbol}'**
   String priceRange(Object max, Object min, Object symbol);
-
-  /// No description provided for @cheapestAt.
-  ///
-  /// In en, this message translates to:
-  /// **'Cheaper at {merchant}!'**
-  String cheapestAt(Object merchant);
 
   /// No description provided for @viewAllBrands.
   ///
@@ -2267,7 +2273,7 @@ abstract class AppLocalizations {
   /// No description provided for @termsSection1Content.
   ///
   /// In en, this message translates to:
-  /// **'FişMatik is a mobile application that allows users to scan and digitize their shopping receipts, track their expenses, and manage their budget.'**
+  /// **'FişMatik is a comprehensive financial management app offering expense tracking, receipt scanning, subscription detection, AI-powered budget forecasting, and location-based price comparison (Shopping Guide).'**
   String get termsSection1Content;
 
   /// No description provided for @termsSection2Title.
@@ -2279,20 +2285,26 @@ abstract class AppLocalizations {
   /// No description provided for @termsSection2Content.
   ///
   /// In en, this message translates to:
-  /// **'• You must be over 13 years old\n• You must provide a valid email address\n• You must provide accurate and up-to-date information\n• You are responsible for the security of your password'**
+  /// **'• You must be at least 13 years old to use the application.\n• You agree to provide accurate, current, and complete information during registration.\n• You are entirely responsible for account security and password confidentiality.\n• You are held responsible for all activities occurring in your account.'**
   String get termsSection2Content;
 
   /// No description provided for @termsSection3Title.
   ///
   /// In en, this message translates to:
-  /// **'3. Membership Levels'**
+  /// **'3. Subscriptions and Payments'**
   String get termsSection3Title;
 
   /// No description provided for @termsSection3Content.
   ///
   /// In en, this message translates to:
-  /// **'Free (0 TL):\n• 1 receipt scan per day\n• 20 manual entries per month\n• Unlimited subscription tracking\n• Ad-supported experience\n\nStandard (49.99 TL / Month):\n• 10 receipt scans per day\n• 50 manual entries per month\n• Unlimited subscription tracking\n• Category management\n• Ad-free experience\n• Reports\n• Shopping Guide\n\nPremium (79.99 TL / Month):\n• 25 receipt scans per day\n• 100 manual entries per month\n• Unlimited subscription tracking\n• Ad-free experience\n• AI Finance Coach\n• Smart Budget Forecasting\n• Category management\n• Reports\n• Shopping Guide\n\nFamily Economy (99.99 TL / Month):\n• 35 receipt scans per day (Family total)\n• 200 manual entries per month (Family total)\n• Unlimited subscription tracking\n• Ad-free experience\n• AI Finance Coach\n• Smart Budget Forecasting\n• Category management\n• Reports\n• Shopping Guide\n• Family Sharing'**
+  /// **'• Subscription Fees: Prices and features of current packages are specified on the relevant screen. Payments are charged to your App Store account at purchase confirmation.\n• Auto-Renewal: Your subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period.\n• Renewal Charge: A renewal fee is charged to your account within 24 hours prior to the end of the period.\n• Management and Cancellation: You can manage and cancel your subscriptions at any time via App Store Account Settings.\n• Unused Periods: No refunds are issued for periods cancelled during an active subscription period.'**
   String get termsSection3Content;
+
+  /// No description provided for @termsSection3Packages.
+  ///
+  /// In en, this message translates to:
+  /// **'Package Details:\n\nFree (\$0):\n• 1 receipt scan/day, 20 manual entries/month.\n\nStandard (\$1.99 / Month):\n• 10 scans/day, 50 manual entries, ad-free, reports.\n\nPremium (\$2.99 / Month):\n• 25 scans/day, 100 manual entries, Financial Coach, Smart Forecasts.\n\nFamily Economy (\$3.49 / Month):\n• 35 scans/day (Total), 200 manual entries, Family Sharing (5 persons).'**
+  String get termsSection3Packages;
 
   /// No description provided for @termsSection4Title.
   ///
@@ -2315,7 +2327,7 @@ abstract class AppLocalizations {
   /// No description provided for @termsSection5Content.
   ///
   /// In en, this message translates to:
-  /// **'• You use the app at your own risk\n• We are not responsible for your financial decisions\n• We do not provide tax or accounting advice\n• OCR and AI analysis may not be 100% accurate'**
+  /// **'• You use the app at your own risk\n• We are not responsible for your financial decisions\n• We do not provide tax or accounting advice\n• OCR and analysis may not be 100% accurate, user verification is essential\n• Location data is only used to show you nearby deals'**
   String get termsSection5Content;
 
   /// No description provided for @termsSection6Title.
@@ -2330,16 +2342,10 @@ abstract class AppLocalizations {
   /// **'• You can delete your account at any time\n• Your account may be suspended in case of violation of terms of use\n• Deletion is irreversible'**
   String get termsSection6Content;
 
-  /// No description provided for @termsSection7Title.
-  ///
-  /// In en, this message translates to:
-  /// **'7. Contact'**
-  String get termsSection7Title;
-
   /// No description provided for @termsSection7Content.
   ///
   /// In en, this message translates to:
-  /// **'For questions about the terms of use:\n\nEmail: info@kfsoftware.app'**
+  /// **'For questions about the terms of use and subscriptions:\n\nEmail: info@kfsoftware.app'**
   String get termsSection7Content;
 
   /// No description provided for @termsFooter.
@@ -2347,6 +2353,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'By using the FişMatik application, you declare that you have read, understood, and accepted these terms of use.'**
   String get termsFooter;
+
+  /// No description provided for @termsSection8Title.
+  ///
+  /// In en, this message translates to:
+  /// **'8. Cancellation Policy'**
+  String get termsSection8Title;
+
+  /// No description provided for @termsSection8Content.
+  ///
+  /// In en, this message translates to:
+  /// **'You can cancel your subscription at any time through your App Store settings. The cancellation will be effective from the next billing period.'**
+  String get termsSection8Content;
+
+  /// No description provided for @subscriptionTermsSummaryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription Terms'**
+  String get subscriptionTermsSummaryTitle;
+
+  /// No description provided for @subscriptionTermsSummaryBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment will be charged to your iTunes Account at confirmation of purchase. Your subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage your subscription and turn off auto-renewal in your Account Settings after purchase.'**
+  String get subscriptionTermsSummaryBody;
 
   /// No description provided for @salaryDay.
   ///
@@ -2491,6 +2521,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign in with Google'**
   String get googleSignIn;
+
+  /// No description provided for @appleSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with Apple'**
+  String get appleSignIn;
 
   /// No description provided for @unconfirmedEmailError.
   ///
@@ -3911,7 +3947,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginLogout.
   ///
   /// In en, this message translates to:
-  /// **'Log Out'**
+  /// **'Logout'**
   String get loginLogout;
 
   /// No description provided for @accountDeletionPendingTitle.
@@ -3995,13 +4031,13 @@ abstract class AppLocalizations {
   /// No description provided for @spendingTrendsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'See your spending habits'**
+  /// **'Weekly and monthly analysis'**
   String get spendingTrendsSubtitle;
 
   /// No description provided for @achievementsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'See your earned badges'**
+  /// **'Badges and rewards'**
   String get achievementsSubtitle;
 
   /// No description provided for @settingsSection.
@@ -4013,19 +4049,19 @@ abstract class AppLocalizations {
   /// No description provided for @notificationSettingsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Manage reminders'**
+  /// **'Manage your alerts'**
   String get notificationSettingsSubtitle;
 
   /// No description provided for @smsTrackingTitle.
   ///
   /// In en, this message translates to:
-  /// **'Automatic SMS Tracking'**
+  /// **'SMS Tracking'**
   String get smsTrackingTitle;
 
   /// No description provided for @smsTrackingDesc.
   ///
   /// In en, this message translates to:
-  /// **'Automatically capture expense SMS'**
+  /// **'Automatically track bank SMS'**
   String get smsTrackingDesc;
 
   /// No description provided for @otherSection.
@@ -4583,7 +4619,7 @@ abstract class AppLocalizations {
   /// No description provided for @intelligenceTitle.
   ///
   /// In en, this message translates to:
-  /// **'AI Insights & Alerts'**
+  /// **'Spending Insights & Alerts'**
   String get intelligenceTitle;
 
   /// No description provided for @budgetPrediction.
@@ -4759,6 +4795,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All items in the list will be deleted. Are you sure?'**
   String get deleteAllConfirm;
+
+  /// No description provided for @restorePurchases.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore Purchases'**
+  String get restorePurchases;
+
+  /// No description provided for @manageSubscription.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Subscription'**
+  String get manageSubscription;
+
+  /// No description provided for @loadDemoData.
+  ///
+  /// In en, this message translates to:
+  /// **'Load Demo Data'**
+  String get loadDemoData;
+
+  /// No description provided for @demoDataDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'You can load sample spending and subscription data to explore the app immediately.'**
+  String get demoDataDescription;
+
+  /// No description provided for @demoDataSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample data loaded successfully!'**
+  String get demoDataSuccess;
+
+  /// No description provided for @onboardingDemoOption.
+  ///
+  /// In en, this message translates to:
+  /// **'Start app with sample data'**
+  String get onboardingDemoOption;
+
+  /// No description provided for @onboardingDemoDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'(You can delete them later)'**
+  String get onboardingDemoDetail;
+
+  /// No description provided for @statisticsMockupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample View'**
+  String get statisticsMockupTitle;
+
+  /// No description provided for @statisticsMockupDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Here you will see your category-based spending distribution and monthly trends. Scan a receipt to start!'**
+  String get statisticsMockupDesc;
+
+  /// No description provided for @orKeepExploring.
+  ///
+  /// In en, this message translates to:
+  /// **'or continue exploring the app'**
+  String get orKeepExploring;
+
+  /// No description provided for @termsSection7Title.
+  ///
+  /// In en, this message translates to:
+  /// **'7. Privacy and Security'**
+  String get termsSection7Title;
+
+  /// No description provided for @deleteReceipt.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Receipt'**
+  String get deleteReceipt;
+
+  /// No description provided for @deleteReceiptConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this receipt?'**
+  String get deleteReceiptConfirmation;
+
+  /// No description provided for @deleteAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Account'**
+  String get deleteAccount;
+
+  /// No description provided for @deleteAccountConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete your account? This action cannot be undone.'**
+  String get deleteAccountConfirmation;
 }
 
 class _AppLocalizationsDelegate

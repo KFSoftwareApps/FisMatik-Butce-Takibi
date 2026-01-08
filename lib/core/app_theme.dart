@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class AppColors {
@@ -60,6 +61,11 @@ class AppTheme {
         seedColor: AppColors.primary,
         background: AppColors.background,
         brightness: Brightness.light,
+      ),
+      appBarTheme: AppBarTheme(
+        centerTitle: defaultTargetPlatform == TargetPlatform.iOS,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,

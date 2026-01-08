@@ -19,10 +19,29 @@ class SupabaseDatabaseService {
   final SupabaseClient _client = Supabase.instance.client;
   final DataRefreshService _refreshService = DataRefreshService();
 
+
+
+  // Static cache for household_id to prevent redundant queries in streams
+  static String? _cachedHouseholdId;
+  static String? _cachedHouseholdUserId;
+  static String? _cachedOwnerId;
+  static String? _cachedTier;
+
   // --- KULLANICI ID ---
   User? get currentUser => _client.auth.currentUser;
 
   // --- KREDİLER İŞLEMLERİ ---
+  
+  Future<void> deleteDemoData() async {
+    final uid = _userId;
+    try {
+      await _client.from('receipts').delete().eq('user_id', uid).eq('source', 'demo');
+      await _client.from('subscriptions').delete().eq('user_id', uid).eq('source', 'demo');
+      await _client.from('user_credits').delete().eq('user_id', uid).eq('source', 'demo');
+    } catch (e) {
+      print("Demo verileri silinirken hata: $e");
+    }
+  }
 
   Stream<List<Credit>> getCredits() async* {
     final uid = _userId;
@@ -50,6 +69,10 @@ class SupabaseDatabaseService {
     if (user == null) throw Exception('Kullanıcı oturumu kapalı');
 
     final familyId = await _getFamilyIdForCurrentUser();
+
+    if (credit.source != 'demo') {
+      await deleteDemoData();
+    }
 
     await _client.from('user_credits').insert({
       ...credit.toMap(),
@@ -79,29 +102,54 @@ class SupabaseDatabaseService {
 
   Future<String?> _getFamilyIdForCurrentUser() async {
     try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        _cachedHouseholdId = null;
+        _cachedHouseholdUserId = null;
+        return null; // Sessizce çık
+      }
+
+      // Return cached value if user is same
+      if (_cachedHouseholdId != null && _cachedHouseholdUserId == user.id) {
+        return _cachedHouseholdId;
+      }
+
       final response = await _client
           .from('household_members')
           .select('household_id')
-          .eq('user_id', _userId)
+          .eq('user_id', user.id)
           .maybeSingle()
           .timeout(
             const Duration(seconds: 5),
-            onTimeout: () {
-              print('⚠️ household_id check timed out!');
-              return null;
-            },
+            onTimeout: () => null,
           );
 
       if (response != null && response['household_id'] != null) {
-        return response['household_id'] as String;
+        final familyId = response['household_id'] as String;
+        
+        // Cache the result
+        _cachedHouseholdId = familyId;
+        _cachedHouseholdUserId = user.id;
+        
+        return familyId;
       }
     } catch (e) {
-      print("household_id okunurken hata: $e");
+      // Log kirliliği yapma
     }
     return null;
   }
 
+  /// Caches can be cleared if needed (e.g. after leaving family)
+  static void clearCache() {
+    _cachedHouseholdId = null;
+    _cachedHouseholdUserId = null;
+    _cachedOwnerId = null;
+    _cachedTier = null;
+  }
+
   Future<String> _getScopeOwnerId() async {
+    if (_cachedOwnerId != null) return _cachedOwnerId!;
+
     try {
       final familyId = await _getFamilyIdForCurrentUser();
       if (familyId != null) {
@@ -109,19 +157,17 @@ class SupabaseDatabaseService {
             .from('households')
             .select('owner_id')
             .eq('id', familyId)
-            .maybeSingle()
-            .timeout(
-              const Duration(seconds: 4),
-              onTimeout: () => null,
-            );
+            .maybeSingle();
         
         if (familyRes != null && familyRes['owner_id'] != null) {
-          return familyRes['owner_id'] as String;
+          _cachedOwnerId = familyRes['owner_id'] as String;
+          return _cachedOwnerId!;
         }
       }
     } catch (e) {
       print("Scope owner ID alınırken hata: $e");
     }
+    _cachedOwnerId = _userId;
     return _userId;
   }
 
@@ -137,7 +183,9 @@ class SupabaseDatabaseService {
 
   Future<MembershipTier> getCurrentTier() async {
     final authService = AuthService();
-    return await authService.getCurrentTier();
+    final tier = await authService.getCurrentTier();
+    _cachedTier = tier.id;
+    return tier;
   }
 
   Future<double> getMonthlyLimitOnce() async {
@@ -181,6 +229,8 @@ class SupabaseDatabaseService {
         'family_name': name,
         'user_address': address,
       });
+      clearCache();
+      _refreshService.notifyUpdate();
       return response as Map<String, dynamic>;
     } catch (e) {
       print("Aile oluşturma hatası: $e");
@@ -206,6 +256,8 @@ class SupabaseDatabaseService {
         'invite_id': inviteId,
         'user_address': address,
       });
+      clearCache();
+      _refreshService.notifyUpdate();
       return response as Map<String, dynamic>;
     } catch (e) {
       print("Davet kabul hatası: $e");
@@ -228,6 +280,8 @@ class SupabaseDatabaseService {
   Future<Map<String, dynamic>> leaveFamily() async {
     try {
       final response = await _client.rpc('leave_family');
+      clearCache();
+      _refreshService.notifyUpdate();
       return response as Map<String, dynamic>;
     } catch (e) {
       print("Aileden ayrılma hatası: $e");
@@ -240,6 +294,8 @@ class SupabaseDatabaseService {
       final response = await _client.rpc('remove_family_member', params: {
         'target_user_id': userId,
       });
+      clearCache();
+      _refreshService.notifyUpdate();
       return response as Map<String, dynamic>;
     } catch (e) {
       print("Üye çıkarma hatası: $e");
@@ -278,13 +334,33 @@ class SupabaseDatabaseService {
   }
 
   Future<void> updateSalaryDay(int day) async {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) return;
-    
-    await _client.from('user_settings').upsert({
-      'user_id': uid,
-      'salary_day': day,
-    });
+    try {
+      final ownerId = await _getScopeOwnerId();
+      
+      await _client.from('user_settings').upsert({
+        'user_id': ownerId,
+        'salary_day': day,
+      });
+      
+      _refreshService.notifyUpdate();
+    } catch (e) {
+      if (e.toString().contains('42501') || e.toString().contains('violates row-level security')) {
+        print("RLS Error in updateSalaryDay. Clearing cache and retrying...");
+        clearCache();
+        try {
+            final freshOwnerId = await _getScopeOwnerId();
+            await _client.from('user_settings').upsert({
+              'user_id': freshOwnerId,
+              'salary_day': day,
+            });
+            _refreshService.notifyUpdate();
+            return;
+        } catch (retryError) {
+             throw "Maaş gününü sadece aile yöneticisi değiştirebilir.";
+        }
+      }
+      rethrow;
+    }
   }
 
   // --- ÜYELİK İŞLEMLERİ ---
@@ -445,26 +521,31 @@ class SupabaseDatabaseService {
   }
 
   Future<void> updateUserTier(String tierId) async {
-    // Kullanıcının kendi tier'ını güncellemesi (PaymentService için)
-    // Güvenlik notu: Bu işlem normalde sunucu tarafında (webhook ile) yapılmalıdır.
-    // Şimdilik client-side yapıyoruz.
-    
-    // Standart paket ise süresiz (null), diğerleri için 30 gün
-    // UTC Kullanımı:
-    final DateTime? expiresAt = (tierId == 'standart') 
-        ? null 
-        : DateTime.now().toUtc().add(const Duration(days: 30));
-
-    await _client.from('user_roles').update({
-      'tier_id': tierId,
-      'update_date': DateTime.now().toUtc().toIso8601String(),
-      'expires_at': expiresAt?.toIso8601String(),
-    }).eq('user_id', _userId);
+    try {
+      // RPC kullanarak güvenli güncelleme (SQL: update_user_tier)
+      // 15 saniye timeout ekle
+      await _client.rpc('update_user_tier', params: {
+        'target_tier_id': tierId,
+      }).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException("Sunucu yanıt vermedi (RPC Timeout).");
+        },
+      );
+    } catch (e) {
+      print("Tier update error: $e");
+      // RPC hatası durumunda yukarı fırlat, PaymentService yakalasın
+      throw e;
+    }
   }
 
   // --- FİŞ İŞLEMLERİ ---
-
+  
   Future<void> saveReceipt(Map<String, dynamic> aiData, {String? city, String? district}) async {
+    final source = aiData['source'] ?? 'scan';
+    if (source != 'demo') {
+      await deleteDemoData();
+    }
     try {
       final String userId = _userId;
       final String? familyId = await _getFamilyIdForCurrentUser();
@@ -539,6 +620,27 @@ class SupabaseDatabaseService {
     }
   }
 
+  Future<void> deleteAccount(String reason) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) throw Exception("Kullanıcı oturumu yok");
+
+      // Yeni RPC çağrısı (reason parametresi ile)
+      final response = await _client.rpc('request_account_deletion', params: {
+        'reason': reason
+      });
+      
+      print("Deletion request response: $response");
+      
+      // İşlem başarılıysa hesaptan çıkış yapma (UI tarafında yapılıyor ki dialog kapanabilsin)
+      // await _client.auth.signOut();
+      
+    } catch (e) {
+      print("Error requesting account deletion: $e");
+      rethrow;
+    }
+  }
+
   Future<void> saveManualReceipt({
     required String merchantName,
     required DateTime date,
@@ -549,7 +651,11 @@ class SupabaseDatabaseService {
     List<ReceiptItem>? items,
     String? city,
     String? district,
+    String source = 'manual',
   }) async {
+    if (source != 'demo') {
+      await deleteDemoData();
+    }
     try {
       final String userId = _userId;
       final String? familyId = await _getFamilyIdForCurrentUser();
@@ -578,11 +684,22 @@ class SupabaseDatabaseService {
         familyId: familyId,
         city: finalCity,
         district: finalDistrict,
+        source: source,
       );
 
       await _client.from('receipts').insert(newReceipt.toMap());
     } catch (e) {
       print("Manuel kayıt hatası: $e");
+      rethrow;
+    }
+  }
+
+  Future<void> deleteReceiptsBySource(String source) async {
+    final uid = _userId;
+    try {
+      await _client.from('receipts').delete().eq('user_id', uid).eq('source', source);
+    } catch (e) {
+      print("Fiş silme hatası ($source): $e");
       rethrow;
     }
   }
@@ -1020,12 +1137,35 @@ class SupabaseDatabaseService {
   }
 
   Future<void> updateMonthlyLimit(double newLimit) async {
-    final ownerId = await _getScopeOwnerId();
-    await _client.from('user_settings').upsert({
-      'user_id': ownerId,
-      'monthly_limit': newLimit,
-    });
-    _refreshService.notifyUpdate();
+    try {
+      final ownerId = await _getScopeOwnerId();
+      await _client.from('user_settings').upsert({
+        'user_id': ownerId,
+        'monthly_limit': newLimit,
+      });
+      _refreshService.notifyUpdate();
+    } catch (e) {
+      // Stale cache check: If we get RLS error, maybe we are no longer in that family?
+      if (e.toString().contains('42501') || e.toString().contains('violates row-level security')) {
+        // Clear cache and retry once
+        print("RLS Error encountered. Clearing cache and retrying updateMonthlyLimit...");
+        clearCache();
+        
+        try {
+          final freshOwnerId = await _getScopeOwnerId();
+          await _client.from('user_settings').upsert({
+            'user_id': freshOwnerId,
+            'monthly_limit': newLimit,
+          });
+           _refreshService.notifyUpdate();
+           return; // Success on retry
+        } catch (retryError) {
+           // If it fails again, then it's a real permission issue
+           throw "Bütçe limitini sadece aile yöneticisi değiştirebilir.";
+        }
+      }
+      rethrow;
+    }
   }
 
   // --- KATEGORİ İŞLEMLERİ ---
@@ -1371,11 +1511,22 @@ class SupabaseDatabaseService {
     }
   }
 
-  Future<void> createUserForAdmin(String email, String password) async {
+  Future<Map<String, dynamic>> cancelDeletionRequest() async {
+    try {
+      final response = await _client.rpc('cancel_deletion_request');
+      return response as Map<String, dynamic>;
+    } catch (e) {
+      print("İptal talebi hatası: $e");
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<void> createUserForAdmin(String email, String password, String? fullName) async {
     try {
       final response = await _client.rpc('admin_create_user', params: {
-        'new_email': email,
-        'new_password': password,
+        'email': email,
+        'password': password,
+        'full_name': fullName,
       });
 
       if (response['success'] != true) {
@@ -1489,6 +1640,22 @@ class SupabaseDatabaseService {
     } catch (e) {
       print("Kullanıcı fişleri çekilirken hata: $e");
       return [];
+    }
+  }
+
+  Future<bool> hasAnyUserActivity() async {
+    try {
+      final response = await _client
+          .from('receipts')
+          .select('id')
+          .eq('user_id', _userId)
+          .limit(1)
+          .maybeSingle();
+      
+      return response != null;
+    } catch (e) {
+      print("Aktivite kontrolü hatası: $e");
+      return false;
     }
   }
 
@@ -1902,5 +2069,80 @@ class SupabaseDatabaseService {
       print("Konum bazlı fiyat istatistikleri çekilirken hata: $e");
     }
     return null;
+  }
+
+  // --- AI KOÇU KULLANIM TAKİBİ ---
+
+  Future<int> getAICoachUsageCount() async {
+    final user = currentUser;
+    if (user == null) return 0;
+
+    final now = DateTime.now();
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+
+    // Caching logic for tier
+    String tierId = _cachedTier ?? 'standart';
+    if (_cachedTier == null) {
+      final tier = await getCurrentTier();
+      tierId = tier.id;
+    }
+
+    if (tierId == 'limitless_family') {
+      final householdId = await _getFamilyIdForCurrentUser();
+
+      if (householdId != null) {
+        // Aile üyelerinin toplam harcamalarını say (SQL JOIN gerektirmeyen optimize edilmiş versiyon)
+        final List<String> familyUserIds = await _getScopeUserIds();
+
+        final res = await _client
+            .from('ai_interactions')
+            .select('id')
+            .inFilter('user_id', familyUserIds)
+            .gte('created_at', firstDayOfMonth.toIso8601String())
+            .count(CountOption.exact);
+        
+        return res.count;
+      }
+    }
+
+    // Bireysel veya ailede olmayan kullanıcı
+    final res = await _client
+        .from('ai_interactions')
+        .select('id')
+        .eq('user_id', user.id)
+        .gte('created_at', firstDayOfMonth.toIso8601String())
+        .count(CountOption.exact);
+
+    return res.count;
+  }
+
+  Future<void> recordAICoachInteraction([Map<String, dynamic>? metadata]) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    await _client.from('ai_interactions').insert({
+      'user_id': user.id,
+      'metadata': metadata,
+    });
+  }
+  Future<void> deleteUserViaEdgeFunction(String targetUserId) async {
+    try {
+      final response = await _client.functions.invoke(
+        'delete-user',
+        body: {'target_user_id': targetUserId},
+      );
+
+      if (response.status != 200) {
+        throw "Fonksiyon hatası: ${response.status} - ${response.data}";
+      }
+      
+      final data = response.data;
+      if (data != null && data['error'] != null) {
+        throw data['error'];
+      }
+    } catch (e) {
+      print("Delete user edge function error: $e");
+      rethrow;
+    }
   }
 }

@@ -4,6 +4,27 @@ import '../models/user_profile_model.dart';
 class ProfileService {
   final SupabaseClient _client = Supabase.instance.client;
 
+  Future<UserProfile?> getUserProfile(String userId) async {
+    // For now we ignore userId if it's strictly for the current user, 
+    // or we use it if we want to fetch specific user (but RLS might block).
+    // Assuming mostly for current user or public profile logic.
+    if (userId == _client.auth.currentUser?.id) {
+      return getMyProfileOnce();
+    }
+    // Logic for other users if needed:
+    try {
+      final data = await _client
+          .from('user_profiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+      if (data == null) return null;
+      return UserProfile.fromMap(data);
+    } catch (e) {
+      return null;
+    }
+  }
+
   String get _uid {
     final user = _client.auth.currentUser;
     if (user == null) {

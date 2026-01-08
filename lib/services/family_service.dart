@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/family_model.dart';
 import '../services/notification_service.dart';
+import '../services/supabase_database_service.dart';
 
 class FamilyService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -12,40 +13,20 @@ class FamilyService {
 
   // --- Aile oluştur ---
   Future<String> createFamily({required String name, String address = ''}) async {
-    final userId = _userId;
-    if (userId == null) throw Exception("Oturum açmanız gerekiyor.");
-
-    print("DEBUG: createFamily direct table insert starting...");
+    print("DEBUG: createFamily RPC calling...");
     try {
-      // 1. Zaten bir ailede mi kontrol et
-      final existing = await _client
-          .from('household_members')
-          .select('household_id')
-          .eq('user_id', userId)
-          .maybeSingle();
-      
-      if (existing != null) {
-        throw Exception('Zaten bir ailedesiniz.');
-      }
-
-      // 2. Household oluştur
-      final household = await _client.from('households').insert({
+      final response = await _client.rpc('create_family', params: {
         'name': name,
-        'owner_id': userId,
         'address': address,
-      }).select().single();
-
-      final householdId = household['id'] as String;
-
-      // 3. Üye olarak kendini ekle
-      await _client.from('household_members').insert({
-        'household_id': householdId,
-        'user_id': userId,
-        'role': 'owner',
       });
 
-      print("DEBUG: createFamily success: $householdId");
-      return householdId;
+      print("DEBUG: createFamily RPC response: $response");
+
+      if (response is Map && response['success'] == true) {
+        return response['family_id'] as String;
+      } else {
+        throw Exception(response['message'] ?? "Aile oluşturulamadı.");
+      }
     } catch (e) {
       print("DEBUG: createFamily error: $e");
       rethrow;
@@ -126,6 +107,10 @@ class FamilyService {
       print("DEBUG: leaveFamily RPC calling...");
       final response = await _client.rpc('leave_family');
       print("DEBUG: leaveFamily response: $response");
+      
+      // Cache'i temizle ki UI güncellensin ve eski aile verileri görünmesin
+      SupabaseDatabaseService.clearCache();
+      
       return Map<String, dynamic>.from(response);
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -182,6 +167,10 @@ class FamilyService {
         'target_user_id': targetId,
       });
       print("DEBUG: removeFamilyMember response: $response");
+      
+      // Önbelleği temizle (Kendi kendimizi silmiş olabiliriz veya durum değişti)
+      SupabaseDatabaseService.clearCache();
+      
       return Map<String, dynamic>.from(response);
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -298,7 +287,11 @@ class FamilyService {
   Future<Family?> _fetchFamilyData() async {
     try {
        final status = await getFamilyStatus();
-       if (status['has_family'] != true) return null;
+       if (status['has_family'] != true) {
+         // Aileden çıkmışsak cache'i temizle
+         SupabaseDatabaseService.clearCache();
+         return null;
+       }
        
        final householdId = status['household_id'];
        final membersRaw = (status['members'] as List?) ?? [];

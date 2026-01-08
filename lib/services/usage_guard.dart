@@ -107,7 +107,7 @@ class UsageGuard {
             case 'premium': dailyLimit = 10; break;
             case 'limitless': dailyLimit = 25; break;
             case 'limitless_family': dailyLimit = 35; break;
-            default: dailyLimit = 1;
+            default: dailyLimit = 10;
           }
         } else if (feature == UsageFeature.aiChat) {
            // AI Chat limitleri
@@ -129,9 +129,15 @@ class UsageGuard {
           }
         }
       }
+
     } catch (e) {
-      debugPrint('UsageGuard: Tier bilgisi alınamadı: $e');
-      // Hata durumunda varsayılan limitler (yukarıda set edildi) kullanılır
+      debugPrint('UsageGuard: Tier bilgisi alınamadı (Catch): $e');
+    }
+
+    // SON GÜVENLİK AĞI: Eğer tier verisi okunamadıysa ve limit 0 kaldıysa (ve özellik OCR ise)
+    // Standart limiti (1) zorla. Böylece kullanıcı asla kilitli kalmaz.
+    if (feature == UsageFeature.ocrScan && dailyLimit == 0) {
+       dailyLimit = 1;
     }
 
     return _UsageContext(dailyLimit, targetUserId);

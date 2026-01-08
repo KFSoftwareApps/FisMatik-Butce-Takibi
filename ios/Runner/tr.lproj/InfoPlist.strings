@@ -1,0 +1,5 @@
+NSCameraUsageDescription = "Fiş ve faturalarınızı anında tarayıp masraflarınızı otomatik kaydetmek için kameranızı kullanırız.";
+NSLocationAlwaysAndWhenInUseUsageDescription = "Harcamalarınızı şehre göre gruplamak ve bölgenizdeki en uygun fiyatları sunmak için konumunuzu kullanırız.";
+NSLocationWhenInUseUsageDescription = "Harcamalarınızı şehre göre gruplamak ve bölgenizdeki en uygun fiyatları sunmak için konumunuzu kullanırız.";
+NSPhotoLibraryUsageDescription = "Galerinizdeki fiş görsellerini seçerek masraf verilerini otomatik olarak içeri aktarabilirsiniz.";
+NSUserTrackingUsageDescription = "Verileriniz, size daha kişiselleştirilmiş bir deneyim ve ilgili finansal ipuçları sunmak için kullanılır.";

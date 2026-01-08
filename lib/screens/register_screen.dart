@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import '../core/app_theme.dart';
@@ -246,13 +247,111 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ],
                 ),
+                // SOCIAL LOGINS
+                Column(
+                  children: [
+                    // APPLE SIGN IN
+                    if (Platform.isIOS || Platform.isMacOS)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading 
+                            ? null 
+                            : () async {
+                                setState(() => _isLoading = true);
+                                try {
+                                  await AuthService().signInWithApple();
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) setState(() => _isLoading = false);
+                                }
+                              },
+                          icon: const Icon(Icons.apple, size: 28, color: Colors.white),
+                          label: Text(
+                            AppLocalizations.of(context)!.appleSignIn,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    
+                    if (Platform.isIOS || Platform.isMacOS) const SizedBox(height: 12),
+
+                    // GOOGLE SIGN IN BUTTON
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: OutlinedButton.icon(
+                        onPressed: _isLoading 
+                          ? null 
+                          : () async {
+                              setState(() => _isLoading = true);
+                              try {
+                                await AuthService().signInWithGoogle();
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) setState(() => _isLoading = false);
+                              }
+                            },
+                        icon: const Icon(Icons.g_mobiledata, size: 32, color: Colors.red),
+                        label: Text(
+                          AppLocalizations.of(context)!.googleSignUp,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.grey.shade300),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
                 const SizedBox(height: 24),
+
+                // OR DIVIDER
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        "veya e-posta ile",
+                        style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
                 SizedBox(
-                  height: 55,
+                  height: 50,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleRegister,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
+                      elevation: 2,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -270,35 +369,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // GOOGLE SIGN IN BUTTON
-                SizedBox(
-                  height: 55,
-                  child: OutlinedButton.icon(
-                    onPressed: _isLoading 
-                      ? null 
-                      : () async {
-                          setState(() => _isLoading = true);
-                          try {
-                            await AuthService().signInWithGoogle();
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                              );
-                            }
-                          } finally {
-                            if (mounted) setState(() => _isLoading = false);
-                          }
-                        },
-                    icon: const Icon(Icons.g_mobiledata, size: 32, color: Colors.red),
-                    label: Text(AppLocalizations.of(context)!.googleSignUp),
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),

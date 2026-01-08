@@ -55,17 +55,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
   Future<void> _openExactAlarmSettings() async {
     if (defaultTargetPlatform != TargetPlatform.android) return;
-    // Android specifi bir intent atmamız lazım. home_widget plugin'i bunu doğrudan yapmıyor olabilir.
-    // Ancak flutter_local_notifications bu izni uygulama detaylarından açmamızı isteyebilir.
-    // Şimdilik basitçe loglayalım veya bir metod varsa onu çağıralım. 
-    // Android 13+ için: android.settings.REQUEST_SCHEDULE_EXACT_ALARM
-    const intent = 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM';
-    final channel = MethodChannel('com.fismatik.app/settings');
-    try {
-      await channel.invokeMethod('openSettings', {'intent': intent});
-    } catch (e) {
-      debugPrint('Ayarlar açılırken hata: $e');
-    }
+    await _notificationService.openExactAlarmSettings();
   }
 
   Future<void> _loadPreferences() async {
@@ -206,6 +196,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                             if (value) {
                               final granted = await _notificationService.requestPermissions();
                               if (!granted) return; // İzni vermezse açma
+                              await _notificationService.scheduleWeeklySummary(context);
+                            } else {
+                              await _notificationService.cancelWeeklySummary();
                             }
                             await _updatePreference(
                               _preferences!.copyWith(weeklySummaryEnabled: value),
@@ -220,6 +213,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                             if (value) {
                               final granted = await _notificationService.requestPermissions();
                               if (!granted) return;
+                              await _notificationService.scheduleMonthlySummary(context);
+                            } else {
+                              await _notificationService.cancelMonthlySummary();
                             }
                             await _updatePreference(
                               _preferences!.copyWith(monthlySummaryEnabled: value),

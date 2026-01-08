@@ -54,18 +54,18 @@
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
-		<true/>
+		<false/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>FişMatik ihtiyaç duyduğunuz fiş ve faturaları tarayabilmek için kameranıza erişim ister.</string>
+	<string>Fismatik needs access to your camera to scan receipts and invoices.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Fişlerinizi taradığınızda şehre ve ilçeye göre otomatik etiketlemek ve bölgenizdeki en ucuz fiyatları karşılaştırabilmek için konumunuza ihtiyaç duyarız.</string>
+	<string>We need your location to automatically tag receipts by city/district and find the cheapest prices in your region.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Fişlerinizi taradığınızda şehre ve ilçeye göre otomatik etiketlemek ve bölgenizdeki en ucuz fiyatları karşılaştırabilmek için konumunuza ihtiyaç duyarız.</string>
+	<string>We need your location to automatically tag receipts by city/district and find the cheapest prices in your region.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>FişMatik galerinize kayıtlı fiş ve fatura görsellerini yükleyebilmeniz için galerinize erişim ister.</string>
+	<string>Fismatik needs access to your photo library to assist you in uploading receipt images.</string>
 	<key>NSUserTrackingUsageDescription</key>
-	<string>Bu izin, size daha ilgili reklamlar gösterebilmemiz için kullanılır.</string>
+	<string>This identifier will be used to deliver personalized ads to you.</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>

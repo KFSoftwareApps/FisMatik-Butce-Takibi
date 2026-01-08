@@ -15,12 +15,12 @@ class NotificationPreference {
   NotificationPreference({
     required this.id,
     required this.userId,
-    this.dailyReminderEnabled = true,
+    this.dailyReminderEnabled = false,
     this.dailyReminderTime = '20:00',
-    this.weeklySummaryEnabled = true,
-    this.monthlySummaryEnabled = true,
-    this.budgetAlertsEnabled = true,
-    this.subscriptionRemindersEnabled = true,
+    this.weeklySummaryEnabled = false,
+    this.monthlySummaryEnabled = false,
+    this.budgetAlertsEnabled = false,
+    this.subscriptionRemindersEnabled = false,
     required this.createdAt,
   });
 
@@ -28,12 +28,12 @@ class NotificationPreference {
     return NotificationPreference(
       id: map['id'] as String,
       userId: map['user_id'] as String,
-      dailyReminderEnabled: map['daily_reminder_enabled'] as bool? ?? true,
+      dailyReminderEnabled: map['daily_reminder_enabled'] as bool? ?? false,
       dailyReminderTime: map['daily_reminder_time'] as String? ?? '20:00',
-      weeklySummaryEnabled: map['weekly_summary_enabled'] as bool? ?? true,
-      monthlySummaryEnabled: map['monthly_summary_enabled'] as bool? ?? true,
-      budgetAlertsEnabled: map['budget_alerts_enabled'] as bool? ?? true,
-      subscriptionRemindersEnabled: map['subscription_reminders_enabled'] as bool? ?? true,
+      weeklySummaryEnabled: map['weekly_summary_enabled'] as bool? ?? false,
+      monthlySummaryEnabled: map['monthly_summary_enabled'] as bool? ?? false,
+      budgetAlertsEnabled: map['budget_alerts_enabled'] as bool? ?? false,
+      subscriptionRemindersEnabled: map['subscription_reminders_enabled'] as bool? ?? false,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }

@@ -3,6 +3,7 @@ import 'package:fismatik/models/subscription_model.dart';
 import 'package:fismatik/services/supabase_database_service.dart';
 import 'package:fismatik/services/gamification_service.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // [NEW]
 
 class IntelligenceService {
   final SupabaseDatabaseService _dbService = SupabaseDatabaseService();
@@ -153,5 +154,95 @@ class IntelligenceService {
   /// Fiyat keşfi sayısını artırır (Phase 7)
   Future<void> incrementPriceDiscoveries() async {
     await GamificationService().incrementPriceDiscoveries();
+  }
+
+  /// AI Sohbet Cevabı (Hybrid: Edge Function -> Fallback Local Rule-Based)
+  Future<String> getChatResponse(String prompt) async {
+    // 1. Önce Edge Function'ı dene (Gerçek AI)
+    try {
+      print("Invoking Edge Function: chat with prompt: $prompt");
+      final response = await Supabase.instance.client.functions.invoke(
+        'chat',
+        body: {'message': prompt}, 
+      );
+
+      print("Edge Function Response Status: ${response.status}");
+      final data = response.data;
+
+      if (data != null) {
+        if (data['ok'] == true) {
+          return data['reply']?.toString() ?? data['data']?.toString() ?? "Boş yanıt.";
+        } else {
+          // Limit dolduysa veya yetki yoksa hata mesajını direkt dön
+          if (data['code'] == 'CHAT_LIMIT_REACHED' || data['code'] == 'UNAUTHORIZED') {
+            return "⚠️ ${data['message']}";
+          }
+          // Diğer hatalar için (örn: API key hatası) yerel moda geç
+          print("Edge Function Hata: ${data['code']} - ${data['message']}");
+        }
+      }
+    } catch (e) {
+      print("Edge Function Call Failed (Switching to Local Loop): $e");
+    }
+
+    // 2. Fallback: Yerel Kural Tabanlı Mantık
+    return _getLocalHeuristicResponse(prompt);
+  }
+
+  Future<String> _getLocalHeuristicResponse(String prompt) async {
+    final lowerPrompt = prompt.toLowerCase();
+
+    // 1. Selamlama
+    if (lowerPrompt.contains('merhaba') || lowerPrompt.contains('selam') || lowerPrompt.contains('naber')) {
+      return "Merhaba! Harcamalarını kontrol altına almaya hazır mısın? Bugün senin için ne yapabilirim?";
+    }
+
+    // 2. Bütçe Durumu
+    if (lowerPrompt.contains('bütçe') || lowerPrompt.contains('durum') || lowerPrompt.contains('kaldı') || lowerPrompt.contains('limit')) {
+      final prediction = await getBudgetPrediction();
+      final double current = prediction['currentSpent'];
+      final double limit = prediction['limit'];
+      final double remaining = limit - current;
+      final currency = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+      
+      if (remaining < 0) {
+        return "Dikkat! Aylık bütçeni ${currency.format(remaining.abs())} aşmış durumdasın. 🚨 Biraz daha dikkatli olmalısın.";
+      } else {
+        return "Bu ay toplam ${currency.format(current)} harcama yaptın. Limite ulaşmana daha ${currency.format(remaining)} var. gayet iyi gidiyorsun! 👍";
+      }
+    }
+
+    // 3. Tasarruf ve Tavsiye İpuçları
+    if (lowerPrompt.contains('tasarruf') || 
+        lowerPrompt.contains('öneri') || 
+        lowerPrompt.contains('ipucu') || 
+        lowerPrompt.contains('yardım') ||
+        lowerPrompt.contains('düzelt') ||
+        lowerPrompt.contains('borç') ||
+        lowerPrompt.contains('kredi') ||
+        (lowerPrompt.contains('çok') && lowerPrompt.contains('harcama'))) {
+      
+      final tips = await getPersonalizedSavingTips();
+      if (tips.isNotEmpty) {
+        return "Gereksiz harcamaları kısmak için buradayım! 🛡️\n\nAnalizlerime göre: ${tips.first}\n\nAyrıca sabit giderlerini ve aboneliklerini 'Abonelikler' menüsünden gözden geçirebilirsin.";
+      } else {
+        return "Harcamalarını düzeltmek için bütçe limiti koymanı öneririm. 'Ayarlar' menüsünden aylık limit belirleyebilirsin. Ayrıca market alışverişlerinde 'En Ucuz' özelliğimizi kullanarak tasarruf edebilirsin.";
+      }
+    }
+
+    // 4. Harcama Sorgusu (Raporlama)
+    if (lowerPrompt.contains('harcadım') || lowerPrompt.contains('ne kadar') || lowerPrompt.contains('toplam') || lowerPrompt.contains('ekstre')) {
+      final now = DateTime.now();
+      final allReceipts = await _dbService.getUnifiedReceiptsOnce();
+      final currentMonthReceipts = allReceipts.where((r) => r.date.month == now.month && r.date.year == now.year).toList();
+      double total = 0;
+      for (var r in currentMonthReceipts) total += r.totalAmount;
+      
+      final currency = NumberFormat.currency(locale: 'tr_TR', symbol: '₺');
+      return "Bu ay şu ana kadar toplam ${currency.format(total)} harcama yaptın.";
+    }
+
+    // 5. Bilinmeyen
+    return "Şu an yerel moddayım ve bunu tam anlayamadım. 🤖\n\nŞunları sorabilirsin:\n• 'Bütçem ne durumda?'\n• 'Bu ay ne kadar harcadım?'\n• 'Tasarruf önerisi ver' (veya 'Çok harcama yapıyorum')";
   }
 }

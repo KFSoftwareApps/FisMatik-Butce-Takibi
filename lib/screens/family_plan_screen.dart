@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/family_service.dart';
 import '../core/app_theme.dart';
@@ -26,6 +27,26 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
     print("DEBUG: _loadFamilyStatus started");
     setState(() => _isLoading = true);
     try {
+      await Future.wait([
+        _fetchStatus(),
+        // Add artificial delay to ensure UI doesn't flicker if response is too fast
+        Future.delayed(const Duration(milliseconds: 500)), 
+      ]).timeout(const Duration(seconds: 15)); // 15s timeout
+    } catch (e) {
+      print("DEBUG: Aile durumu yüklenirken hata veya zaman aşımı: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin.")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _fetchStatus() async {
       print("DEBUG: fetching getFamilyStatus...");
       final status = await _familyService.getFamilyStatus();
       
@@ -39,34 +60,29 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
       }
 
       print("DEBUG: updating state with status: $status");
-      setState(() {
-        _familyStatus = status;
-        _pendingInvitations = invitations;
-        
-        // Mevcut üyelerin yanına bekleyenleri de ekle (eğer zaten yoksa)
-        if (status['members'] != null) {
-          final List members = List.from(status['members']);
-          for (var inv in sentInvitations) {
-            final email = inv['email'].toString().toLowerCase();
-            if (!members.any((m) => m['email'].toString().toLowerCase() == email)) {
-              members.add({
-                'user_id': 'invite_${inv['id']}',
-                'email': inv['email'],
-                'role': 'member',
-                'status': 'pending',
-                'invite_id': inv['id'],
-              });
+      if (mounted) {
+        setState(() {
+          _familyStatus = status;
+          _pendingInvitations = invitations;
+          
+          if (status['members'] != null) {
+            final List members = List.from(status['members']);
+            for (var inv in sentInvitations) {
+              final email = inv['email'].toString().toLowerCase();
+              if (!members.any((m) => m['email'].toString().toLowerCase() == email)) {
+                members.add({
+                  'user_id': 'invite_${inv['id']}',
+                  'email': inv['email'],
+                  'role': 'member',
+                  'status': 'pending',
+                  'invite_id': inv['id'],
+                });
+              }
             }
+            _familyStatus!['members'] = members;
           }
-          _familyStatus!['members'] = members;
-        }
-
-        _isLoading = false;
-      });
-    } catch (e) {
-      print("DEBUG: Aile durumu yüklenirken hata: $e");
-      setState(() => _isLoading = false);
-    }
+        });
+      }
   }
 
   Future<void> _createFamily() async {
@@ -122,7 +138,8 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
                 final result = await _familyService.createFamilyWrapper(
                   nameController.text.isEmpty ? "Ailem" : nameController.text,
                   addressController.text,
-                );
+                ).timeout(const Duration(seconds: 15)); // Timeout added
+
                 print("DEBUG: createFamilyWrapper result: $result");
                 
                 if (result['success'] == true) {
@@ -138,15 +155,19 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
                       SnackBar(content: Text(result['message'] ?? "Hata oluştu")),
                     );
                   }
-                  setState(() => _isLoading = false);
                 }
               } catch (e) {
                 if (mounted) {
+                  String message = "Hata: $e";
+                  if (e is TimeoutException) {
+                    message = "İşlem zaman aşımına uğradı. Sunucu yanıt vermedi.";
+                  }
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Hata: $e")),
+                    SnackBar(content: Text(message)),
                   );
                 }
-                setState(() => _isLoading = false);
+              } finally {
+                if (mounted) setState(() => _isLoading = false);
               }
             },
             child: Text(AppLocalizations.of(context)!.createButton),

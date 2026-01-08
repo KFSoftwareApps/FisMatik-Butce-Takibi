@@ -10,6 +10,9 @@ import '../utils/currency_formatter.dart';
 import 'package:provider/provider.dart';
 import '../providers/currency_provider.dart';
 
+import 'fixed_expenses_screen.dart';
+import 'installment_expenses_screen.dart';
+
 class ReceiptDetailScreen extends StatefulWidget {
   final Receipt receipt; // Başlangıç verisi (Listeden gelen)
 
@@ -92,7 +95,7 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
             ? AppLocalizations.of(context)!.fixedExpenses 
             : isCredit 
                 ? AppLocalizations.of(context)!.installment 
-                : currentReceipt.isManual 
+            : currentReceipt.isManual 
                     ? AppLocalizations.of(context)!.manualEntrySource 
                     : AppLocalizations.of(context)!.scanReceiptSource;
 
@@ -133,6 +136,21 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
                   onPressed: () =>
                       _showDeleteConfirmDialog(context, currentReceipt.id),
                 ),
+              ] else ...[
+                 // Sanal fişler (Sabit gider / Taksit) için silme yerine yönlendirme
+                 IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.white70, // Biraz daha sönük, tıklanabilir ama farklı
+                    ), 
+                    onPressed: () {
+                      if (isSubscription) {
+                         Navigator.push(context, MaterialPageRoute(builder: (_) => const FixedExpensesScreen()));
+                      } else if (isCredit) {
+                         Navigator.push(context, MaterialPageRoute(builder: (_) => const InstallmentExpensesScreen()));
+                      }
+                    },
+                 ),
               ],
             ],
           ),

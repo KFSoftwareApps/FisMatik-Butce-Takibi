@@ -114,3 +114,6 @@ macos/Flutter/ephemeral/
 **/build/
 
 .ipa
+.sql
+*.hprof
+node_modules/

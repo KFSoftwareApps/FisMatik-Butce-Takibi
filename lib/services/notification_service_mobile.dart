@@ -22,6 +22,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static const int _dailyReminderId = 100;
+  static const MethodChannel _settingsChannel = MethodChannel('com.fismatik.app/settings');
 
   String _getRandomVariant(String source) {
     final variants = source.split('|');
@@ -35,9 +36,9 @@ class NotificationService {
 
     // iOS / macOS: izinleri sonra ayrıca isteyeceğiz
     const darwinInit = DarwinInitializationSettings(
-      requestAlertPermission: false,
-      requestBadgePermission: false,
-      requestSoundPermission: false,
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
     );
 
     const initSettings = InitializationSettings(
@@ -79,6 +80,18 @@ class NotificationService {
     final androidImpl = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     return await androidImpl?.canScheduleExactNotifications() ?? false;
+  }
+
+  /// Exact alarm ayarlarını aç (Android 12+)
+  Future<void> openExactAlarmSettings() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      await _settingsChannel.invokeMethod('openSettings', {
+        'intent': 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM'
+      });
+    } catch (e) {
+      debugPrint('Exact alarm ayarları açılırken hata: $e');
+    }
   }
 
   /// Bildirim izni iste (Android 13+ ve iOS/macOS)
@@ -126,9 +139,13 @@ class NotificationService {
       final bool? granted =
           await androidImpl?.requestNotificationsPermission();
 
-      // Opsiyonel: Exact alarm izni yoksa ayarları açabiliriz (Burada sadece log/check yapıyoruz)
+      // Android 12+ için Exact alarm kontrolü
       final bool exactGranted = await canScheduleExactNotifications();
       debugPrint('🔔 System notification permission: $granted, Exact: $exactGranted');
+      
+      // Eğer ana bildirim izni verilmiş ama exact alarm izni yoksa,
+      // bu durum Android 12 ve üzeri bazı cihazlarda bildirimlerin gecikmesine neden olur.
+      // Burada kullanıcıyı zorlamıyoruz ama logluyoruz.
       
       return granted ?? false;
     }
@@ -369,5 +386,97 @@ class NotificationService {
         }
       }
     }
+  }
+
+  /// Haftalık Özet Bildirimi Planla (Pazar akşamı 20:00)
+  Future<void> scheduleWeeklySummary(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    const notificationId = 101; 
+    
+    // Pazar günü (Sunday = 7) saat 20:00
+    final now = tz.TZDateTime.now(tz.local);
+    var targetDate = tz.TZDateTime(tz.local, now.year, now.month, now.day, 20, 0);
+
+    // Eğer bugün Pazar değilse veya saat geçtiyse bir sonraki Pazara kadar ekle
+    while (targetDate.weekday != DateTime.sunday || targetDate.isBefore(now)) {
+      targetDate = targetDate.add(const Duration(days: 1));
+    }
+
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'summary_channel',
+        'Özet Bildirimleri',
+        channelDescription: 'Haftalık ve aylık harcama özetleri',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+
+    try {
+      await _plugin.zonedSchedule(
+        notificationId,
+        _getRandomVariant("📊 Haftalık Özet Hazır"),
+        _getRandomVariant("Geçen haftanın harcama detaylarını inceleyin."),
+        targetDate,
+        details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime, // Her hafta aynı gün ve saatte
+        payload: 'weekly_summary',
+      );
+      debugPrint('📅 Haftalık özet planlandı: $targetDate');
+    } catch (e) {
+      debugPrint('⚠️ Haftalık özet planlama hatası: $e');
+    }
+  }
+
+  Future<void> cancelWeeklySummary() async {
+    await _plugin.cancel(101);
+  }
+
+  /// Aylık Özet Bildirimi Planla (Ayın son günü 21:00)
+  Future<void> scheduleMonthlySummary(BuildContext context) async {
+    const notificationId = 102;
+    
+    final now = tz.TZDateTime.now(tz.local);
+    // Gelecek ayın 1. gününden 1 gün çıkararak bu ayın son gününü bulabiliriz
+    // Ama basitçe her ayın 1'inde "Geçen ayın özeti" diye atmak daha kolay ve güvenilir.
+    // Biz ayın 1'i saat 09:00 yapalım.
+    
+    var targetDate = tz.TZDateTime(tz.local, now.year, now.month, 1, 9, 0);
+    if (targetDate.isBefore(now)) {
+      targetDate = tz.TZDateTime(tz.local, now.year, now.month + 1, 1, 9, 0);
+    }
+
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'summary_channel',
+        'Özet Bildirimleri',
+        channelDescription: 'Haftalık ve aylık harcama özetleri',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+
+    try {
+      await _plugin.zonedSchedule(
+        notificationId,
+        _getRandomVariant("📅 Aylık Bütçe Raporu"),
+        _getRandomVariant("Geçen ayın harcamaları hazır. İncelemek için dokun."),
+        targetDate,
+        details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime, // Her ayın 1'inde
+        payload: 'monthly_summary',
+      );
+      debugPrint('📅 Aylık özet planlandı: $targetDate');
+    } catch (e) {
+      debugPrint('⚠️ Aylık özet planlama hatası: $e');
+    }
+  }
+
+  Future<void> cancelMonthlySummary() async {
+    await _plugin.cancel(102);
   }
 }

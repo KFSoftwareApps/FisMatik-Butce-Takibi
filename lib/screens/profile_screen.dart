@@ -2,17 +2,15 @@ import 'package:flutter/foundation.dart'; // [NEW]
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supa;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-import '../providers/currency_provider.dart';
 import 'package:provider/provider.dart';
+import '../providers/currency_provider.dart';
 import '../utils/currency_formatter.dart';
 import '../services/network_time_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:provider/provider.dart';
-import '../providers/currency_provider.dart';
 import '../core/app_theme.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
@@ -28,6 +26,12 @@ import 'package:fismatik/services/product_normalization_service.dart';
 
 import 'login_screen.dart';
 import 'about_screen.dart';
+import 'edit_profile_screen.dart';
+import 'privacy_policy_screen.dart';
+import 'terms_of_service_screen.dart';
+import 'upgrade_screen.dart';
+import 'history_screen.dart';
+import 'family_plan_screen.dart';
 import 'history_screen.dart';
 import 'subscriptions_screen.dart';
 import 'fixed_expenses_screen.dart';
@@ -59,130 +63,80 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final SupabaseDatabaseService _databaseService = SupabaseDatabaseService();
+  final supa.SupabaseClient _client = supa.Supabase.instance.client;
   bool _isLoadingDelete = false;
   bool _smsTrackingEnabled = false;
   String? _city;
   String? _district;
 
 
+  late Stream<Map<String, dynamic>> _userRoleStream;
+  late Stream<List<Receipt>> _receiptsStream;
+
+
   @override
   void initState() {
     super.initState();
-    // Profil ekranı açıldığında süresi dolmuş üyelikleri kontrol et
+    _initStreams();
     _checkExpiration();
-    // Global ürün eşleşmelerini yükle
-    _databaseService.loadGlobalProductMappings();
-    // SMS Takibi tercihini yükle
+    _loadGlobalProductMappings();
     _loadSmsPreference();
-    // Profil verilerini (şehir/ilçe) yükle
     _loadUserProfile();
   }
 
-  Future<void> _checkExpiration() async {
+  void _initStreams() {
+    _userRoleStream = _databaseService.getUserRoleDataStream();
+    _receiptsStream = _databaseService.getReceipts();
+  }
+  
+  void _checkExpiration() async {
     try {
       await _databaseService.checkAndDowngradeIfExpired();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context)!.membershipCheckError(e.toString())),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
+         // Error handling
       }
     }
   }
 
-  Future<void> _loadSmsPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _smsTrackingEnabled = prefs.getBool('sms_tracking_enabled') ?? false;
-      });
-    }
+  void _loadGlobalProductMappings() {
+     _databaseService.loadGlobalProductMappings();
   }
 
-  Future<void> _loadUserProfile() async {
-    try {
-      final profile = await ProfileService().getMyProfileOnce();
-      if (profile != null) {
-        if (mounted) {
-          setState(() {
-            _city = profile.city;
-            _district = profile.district;
-          });
-        }
-      }
-    } catch (e) {
-      print("Profil yükleme hatası: $e");
-    }
-  }
-
-  Future<void> _toggleSmsTracking(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('sms_tracking_enabled', value);
-    setState(() => _smsTrackingEnabled = value);
-    if (value) {
-      await SmsService().init();
-    }
-  }
-
-  Future<String> _timeAgo(DateTime date) async {
-    final now = await NetworkTimeService.now;
-    final difference = date.difference(now); // Bitiş tarihi - Şu an (Kalan süre)
-
-    if (difference.isNegative) {
-      return AppLocalizations.of(context)!.membershipStatusExpired;
-    }
-
-    if (difference.inDays > 0) {
-      return AppLocalizations.of(context)!.membershipStatusDaysLeft(difference.inDays.toString());
-    } else if (difference.inHours > 0) {
-      return AppLocalizations.of(context)!.membershipStatusHoursLeft(difference.inHours.toString());
-    } else if (difference.inMinutes > 0) {
-      return AppLocalizations.of(context)!.membershipStatusMinutesLeft(difference.inMinutes.toString());
-    } else {
-      return AppLocalizations.of(context)!.membershipStatusSoon;
-    }
-  }
-
-  String _timeAgoSync(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays > 0) {
-      return AppLocalizations.of(context)!.daysAgo(difference.inDays.toString());
-    } else if (difference.inHours > 0) {
-      return AppLocalizations.of(context)!.hoursAgo(difference.inHours.toString());
-    } else if (difference.inMinutes > 0) {
-      return AppLocalizations.of(context)!.minutesAgo(difference.inMinutes.toString());
-    } else {
-      return AppLocalizations.of(context)!.justNow;
-    }
-  }
-
-
+  // ... (keeping other init methods)
 
   @override
   Widget build(BuildContext context) {
     context.watch<CurrencyProvider>();
     return StreamBuilder<Map<String, dynamic>>(
-      stream: SupabaseDatabaseService().getUserRoleDataStream(),
+      stream: _userRoleStream,
       builder: (context, roleSnapshot) {
+        if (roleSnapshot.hasError) {
+          debugPrint("Role stream error: ${roleSnapshot.error}");
+          // Fallback to empty map or proceed
+        }
+        
+        if (roleSnapshot.connectionState == ConnectionState.waiting && !roleSnapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
         final roleData = roleSnapshot.data ?? {};
+        
+
         final tierId = roleData['tier_id'] as String? ?? 'standart';
         final expiresAtStr = roleData['expires_at'] as String?;
         final expiresAt = expiresAtStr != null ? DateTime.tryParse(expiresAtStr) : null;
 
         final currentTier = MembershipTier.Tiers[tierId] ?? MembershipTier.Tiers['standart']!;
-        final user = Supabase.instance.client.auth.currentUser;
+        final user = supa.Supabase.instance.client.auth.currentUser;
         final String email = user?.email ?? "Misafir Kullanıcı";
         final String displayName = user?.userMetadata?['full_name'] ?? email.split('@')[0];
 
         return StreamBuilder<List<Receipt>>(
-          stream: SupabaseDatabaseService().getReceipts(),
+          stream: _receiptsStream,
           builder: (context, receiptsSnapshot) {
+            // Show loading or use empty list if waiting but allow building structure
+            final bool isReceiptsLoading = receiptsSnapshot.connectionState == ConnectionState.waiting && !receiptsSnapshot.hasData;
             final receipts = receiptsSnapshot.data ?? [];
             final now = DateTime.now();
 
@@ -199,87 +153,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ? 0.0
               : receipts.fold<double>(0, (sum, r) => sum + r.totalAmount) / receipts.length;
 
-            return StreamBuilder<double>(
-              stream: SupabaseDatabaseService().getMonthlyLimit(),
-              builder: (context, limitSnapshot) {
-                final monthlyLimit = limitSnapshot.data ?? 0;
+            if (isReceiptsLoading) {
+               return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            }
 
-                return StreamBuilder<List<Subscription>>(
-                  stream: SupabaseDatabaseService().getSubscriptions(),
-                  builder: (context, subSnapshot) {
-                    final subscriptions = subSnapshot.data ?? [];
-                    
-                    return StreamBuilder<List<Credit>>(
-                      stream: SupabaseDatabaseService().getCredits(),
-                      builder: (context, creditSnapshot) {
-                        final credits = creditSnapshot.data ?? [];
-
-                        // Calculate Fixed Expenses
-                        double totalFixedExpenses = 0;
-                        for (var sub in subscriptions) {
-                          totalFixedExpenses += sub.price;
-                        }
-                        for (var credit in credits) {
-                          totalFixedExpenses += credit.monthlyAmount;
-                        }
-
-                        // Total Spent used for budget = Receipts + Fixed Expenses
-                        final totalBudgetSpent = monthlySpent + totalFixedExpenses;
-
-                        return Scaffold(
-                          backgroundColor: AppColors.background,
-                          body: SafeArea(
-                            child: RefreshIndicator(
-                              onRefresh: () async {
-                                await _databaseService.checkAndDowngradeIfExpired();
-                                setState(() {});
-                              },
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.all(20),
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                child: Column(
-                                  children: [
-                                    const SizedBox(height: 20),
-                                    _buildProfileHeader(displayName, email),
-                                    const SizedBox(height: 24),
-                                    _buildStatsCards(monthlySpent, receipts.length, avgPerReceipt),
-                                    const SizedBox(height: 20),
-                                    const SizedBox(height: 20),
-                                    _buildMembershipCard(currentTier, expiresAt),
-                                    const SizedBox(height: 20),
-                                    if (tierId == 'limitless' || tierId == 'limitless_family' || tierId == 'premium') ...[
-                                      _buildSmartPriceTracker(context, receipts),
-                                      const SizedBox(height: 20),
-                                    ],
-                                    _buildMonthlyProgress(totalBudgetSpent, monthlyLimit),
-                            const SizedBox(height: 20),
-                            // Admin Paneli Kontrolü
-                            FutureBuilder<bool>(
-                              future: Supabase.instance.client
-                                  .from('user_roles')
-                                  .select('is_admin')
-                                  .eq('user_id', user?.id ?? '')
-                                  .maybeSingle()
-                                  .then((val) => val?['is_admin'] == true)
-                                  .catchError((_) => false),
-                              builder: (context, adminSnapshot) {
-                                if (adminSnapshot.data == true) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 20),
-                                    child: _buildSettingsTile(
-                                      context,
-                                      icon: Icons.admin_panel_settings,
-                                      title: "Admin Paneli",
-                                      subtitle: AppLocalizations.of(context)!.adminSubtitle,
-                                      color: Colors.deepPurple,
-                                      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.deepPurple),
-                                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminScreen())),
-                                    ),
-                                  );
-                                }
-                                return const SizedBox.shrink();
-                              },
-                            ),
+            return Scaffold(
+              backgroundColor: AppColors.background,
+              body: SafeArea(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    await _databaseService.checkAndDowngradeIfExpired();
+                    setState(() {});
+                  },
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
+                        _buildProfileHeader(displayName, email),
+                        const SizedBox(height: 24),
+                        _buildStatsCards(monthlySpent, receipts.length, avgPerReceipt),
+                        const SizedBox(height: 20),
+                        const SizedBox(height: 20),
+                        _buildMembershipCard(currentTier, expiresAt),
+                        const SizedBox(height: 20),
+                        if (tierId == 'limitless' || tierId == 'limitless_family' || tierId == 'premium') ...[
+                          _buildSmartPriceTracker(context, receipts),
+                          const SizedBox(height: 20),
+                        ],
+                        // Budget Progress Removed
+                        // _buildMonthlyProgress(totalBudgetSpent, monthlyLimit), 
+                        
+                const SizedBox(height: 20),
+                // Admin Paneli Kontrolü
+                FutureBuilder<bool>(
+                  future: supa.Supabase.instance.client
+                      .from('user_roles')
+                      .select('is_admin')
+                      .eq('user_id', user?.id ?? '')
+                      .maybeSingle()
+                      .then((val) => val?['is_admin'] == true)
+                      .catchError((_) => false),
+                  builder: (context, adminSnapshot) {
+                    if (adminSnapshot.data == true) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 20),
+                        child: _buildSettingsTile(
+                          context,
+                          icon: Icons.admin_panel_settings,
+                          title: "Admin Paneli",
+                          subtitle: AppLocalizations.of(context)!.adminSubtitle,
+                          color: Colors.deepPurple,
+                          trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.deepPurple),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminScreen())),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
                             const SizedBox(height: 20),
                             _buildSectionTitle(AppLocalizations.of(context)!.accountSection),
                             if (tierId == 'limitless_family')
@@ -463,6 +396,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
                             ),
+
+                            _buildSettingsTile(
+                              context,
+                              icon: Icons.gavel,
+                              title: "EULA (Apple Standard)",
+                              color: Colors.blueGrey,
+                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                              onTap: () => launchUrl(Uri.parse('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')),
+                            ),
+                            const SizedBox(height: 10),
+                            _buildSettingsTile(
+                              context,
+                              icon: Icons.delete_forever,
+                              title: AppLocalizations.of(context)!.deleteAccountTitle,
+                              color: Colors.red.shade700,
+                              onTap: _handleDeleteAccount,
+                            ),
                             const SizedBox(height: 10),
                             _buildSettingsTile(
                               context,
@@ -478,12 +428,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 );
-                      },
-                    );
-                  },
-                );
-              },
-            );
+
           },
         );
       },
@@ -508,7 +453,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileHeader(String displayName, String email) {
-    final user = Supabase.instance.client.auth.currentUser;
+    final user = supa.Supabase.instance.client.auth.currentUser;
     final avatarUrl = user?.userMetadata?['avatar_url'];
 
     return Center(
@@ -991,18 +936,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             const Icon(Icons.timer_outlined, color: Colors.white, size: 14),
                             const SizedBox(width: 4),
-                            FutureBuilder<String>(
-                              future: _timeAgo(expiresAt),
-                              builder: (context, snapshot) {
-                                return Text(
-                                  'Bitiş: ${snapshot.data ?? "..."}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                );
-                              },
+                            Text(
+                              'Bitiş: ${_timeRemaining(expiresAt)}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -1100,80 +1040,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildMonthlyProgress(double monthlySpent, double monthlyLimit) {
-    // Using CurrencyFormatter
-    final progress = monthlyLimit > 0 ? monthlySpent / monthlyLimit : 0.0;
-    final isOverBudget = monthlySpent > monthlyLimit && monthlyLimit > 0;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                AppLocalizations.of(context)!.monthlyBudget,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              GestureDetector(
-                onTap: () => _showEditLimitDialog(context, monthlyLimit),
-                child: Row(
-                  children: [
-                    Text(
-                      '${CurrencyFormatter.format(monthlySpent)} / ${CurrencyFormatter.format(monthlyLimit)}',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.edit, size: 16, color: Colors.grey),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              backgroundColor: Colors.grey[200],
-              valueColor: AlwaysStoppedAnimation(
-                isOverBudget ? Colors.red : AppColors.primary,
-              ),
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            isOverBudget
-                ? AppLocalizations.of(context)!.budgetExceeded(CurrencyFormatter.format(monthlySpent - monthlyLimit))
-                : monthlyLimit > 0
-                    ? AppLocalizations.of(context)!.remainingLabel(CurrencyFormatter.format(monthlyLimit - monthlySpent))
-                    : AppLocalizations.of(context)!.setBudgetLimitPrompt,
-            style: TextStyle(
-              fontSize: 12,
-              color: isOverBudget ? Colors.red : Colors.green,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildRecentActivity(List<Receipt> recentReceipts) {
 
@@ -1358,44 +1225,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showEditLimitDialog(BuildContext context, double currentLimit) {
-    final TextEditingController controller =
-        TextEditingController(text: currentLimit.toInt().toString());
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.setBudgetLimit),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: AppLocalizations.of(context)!.monthlyLimitAmount,
-            border: const OutlineInputBorder(),
-            prefixText: "${CurrencyFormatter.currencySymbol} ",
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final newLimit = double.tryParse(controller.text);
-              if (newLimit != null) {
-                await SupabaseDatabaseService().updateMonthlyLimit(newLimit);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  setState(() {});
-                }
-              }
-            },
-            child: Text(AppLocalizations.of(context)!.save),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildSettingsTile(
     BuildContext context, {
@@ -1444,5 +1274,261 @@ class _ProfileScreenState extends State<ProfileScreen> {
         trailing: trailing,
       ),
     );
+  }
+  Future<void> _loadUserProfile() async {
+    final user = _client.auth.currentUser;
+    if (user != null) {
+      final profileService = ProfileService();
+      final profile = await profileService.getUserProfile(user.id);
+      if (mounted) {
+        setState(() {
+          _city = profile?.city;
+          _district = profile?.district;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadSmsPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _smsTrackingEnabled = prefs.getBool('sms_tracking_enabled') ?? false;
+      });
+    }
+  }
+
+  Future<void> _toggleSmsTracking(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('sms_tracking_enabled', value);
+    if (mounted) {
+      setState(() {
+        _smsTrackingEnabled = value;
+      });
+    }
+  }
+
+  void _handleDeleteAccount() {
+    final List<String> reasons = [
+      "Uygulamayı yeterli bulmadım",
+      "Başka bir hesap açacağım",
+      "Çok fazla bildirim geliyor",
+      "Kullanımı zor geldi",
+      "Diğer"
+    ];
+    String selectedReason = reasons[0];
+    final TextEditingController otherReasonController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.deleteAccount,
+                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Hesabınızı ve tüm verilerinizi silmek üzeresiniz. Bu işlem geri alınamaz."),
+                    const SizedBox(height: 20),
+                    const Text(
+                      "Silme Nedeni:",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: selectedReason,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: reasons.map((reason) {
+                        return DropdownMenuItem(
+                          value: reason,
+                          child: Text(reason, style: const TextStyle(fontSize: 14)),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setDialogState(() {
+                          selectedReason = val!;
+                        });
+                      },
+                    ),
+                    if (selectedReason == "Diğer") ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: otherReasonController,
+                        decoration: const InputDecoration(
+                          labelText: "Lütfen sebep belirtiniz",
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Vazgeç"),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: () {
+                     String finalReason = selectedReason;
+                     if (selectedReason == "Diğer") {
+                       final customText = otherReasonController.text.trim();
+                       if (customText.isNotEmpty) {
+                         finalReason = "Diğer: $customText";
+                       }
+                     }
+                     Navigator.pop(ctx);
+                     // Direkt silme fonksiyonunu çağır (Confirmation dialog'u atla, zaten burası confirmation)
+                     _performAccountDeletion(finalReason);
+                  },
+                  child: const Text("Hesabı Sil", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _performAccountDeletion(String reason) async {
+     try {
+       // Loading göster
+       showDialog(
+         context: context, 
+         barrierDismissible: false,
+         builder: (_) => const Center(child: CircularProgressIndicator())
+       );
+
+       await _databaseService.deleteAccount(reason);
+       
+       // Loading kapat (ÖNCE bunu yapmalıyız, aksi takdirde çıkış yapılınca context kaybolur)
+       if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+
+       // Başarılı mesajı
+       if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text("Hesap silme talebi alındı. Çıkış yapılıyor...")),
+         );
+       }
+       
+       // ŞİMDİ çıkış yap
+       await AuthService().signOut();
+
+       // Zaten AuthWrapper bunu yakalayıp Login ekranına atacak.
+     } catch (e) {
+       // Loading kapat
+       if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+       
+       if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text("Hata: $e")),
+         );
+       }
+     }
+  }
+
+  void _showFinalDeletionConfirmation(String reason) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(AppLocalizations.of(context)!.deleteAccount),
+        content: Text("Hesabınızı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.\n\nSebep: $reason"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() => _isLoadingDelete = true);
+              try {
+                await _databaseService.deleteAccount(reason);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Hesap silme talebi gönderildi.")),
+                  );
+                  // Çıkış yap ve login ekranına dön
+                  await AuthService().signOut();
+                  if (mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  }
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Hata: $e")),
+                  );
+                }
+              } finally {
+                if (mounted) {
+                  setState(() => _isLoadingDelete = false);
+                }
+              }
+            },
+            child: Text(AppLocalizations.of(context)!.delete),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _timeRemaining(DateTime? date) {
+    if (date == null) return '';
+    final now = DateTime.now();
+    final difference = date.difference(now);
+
+    if (difference.isNegative) return "Süresi doldu";
+
+    if (difference.inDays > 0) {
+      return "${difference.inDays} gün";
+    } else if (difference.inHours > 0) {
+      return "${difference.inHours} saat";
+    } else if (difference.inMinutes > 0) {
+      return "${difference.inMinutes} dk";
+    } else {
+      return "Az kaldı";
+    }
+  }
+
+  String _timeAgo(DateTime? date) { // Keep _timeAgo for recent activity if needed, or update usage
+    if (date == null) return '';
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays > 365) {
+      return "${(difference.inDays / 365).floor()}y";
+    } else if (difference.inDays > 30) {
+      return "${(difference.inDays / 30).floor()}ay";
+    } else if (difference.inDays > 0) {
+      return "${difference.inDays}g";
+    } else if (difference.inHours > 0) {
+      return "${difference.inHours}s";
+    } else if (difference.inMinutes > 0) {
+      return "${difference.inMinutes}dk";
+    } else {
+      return "Şimdi";
+    }
+  }
+
+  String _timeAgoSync(DateTime? date) {
+    return _timeAgo(date);
   }
 }

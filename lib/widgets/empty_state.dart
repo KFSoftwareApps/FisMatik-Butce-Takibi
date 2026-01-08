@@ -6,6 +6,8 @@ class EmptyState extends StatelessWidget {
   final String description;
   final String? buttonText;
   final VoidCallback? onButtonPressed;
+  final String? secondaryButtonText;
+  final VoidCallback? onSecondaryButtonPressed;
   final Color? color;
 
   const EmptyState({
@@ -15,6 +17,8 @@ class EmptyState extends StatelessWidget {
     required this.description,
     this.buttonText,
     this.onButtonPressed,
+    this.secondaryButtonText,
+    this.onSecondaryButtonPressed,
     this.color,
   });
 
@@ -106,39 +110,55 @@ class EmptyState extends StatelessWidget {
               ),
             ),
 
-            // Button (optional)
             if (buttonText != null && onButtonPressed != null) ...[
               const SizedBox(height: 32),
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: const Duration(milliseconds: 800),
-                curve: const Interval(0.8, 1.0, curve: Curves.elasticOut),
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: value,
-                    child: child,
-                  );
-                },
-                child: ElevatedButton.icon(
-                  onPressed: onButtonPressed,
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  label: Text(
-                    buttonText!,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+              Column(
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 800),
+                    curve: const Interval(0.8, 1.0, curve: Curves.elasticOut),
+                    builder: (context, value, child) {
+                      return Transform.scale(
+                        scale: value,
+                        child: child,
+                      );
+                    },
+                    child: ElevatedButton.icon(
+                      onPressed: onButtonPressed,
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      label: Text(
+                        buttonText!,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: effectiveColor,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
                     ),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: effectiveColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  if (secondaryButtonText != null && onSecondaryButtonPressed != null) ...[
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: onSecondaryButtonPressed,
+                      child: Text(
+                        secondaryButtonText!,
+                        style: TextStyle(
+                          color: effectiveColor.withOpacity(0.8),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                    elevation: 0,
-                  ),
-                ),
+                  ],
+                ],
               ),
             ],
           ],

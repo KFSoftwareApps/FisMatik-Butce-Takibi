@@ -59,6 +59,15 @@ class TermsOfServiceScreen extends StatelessWidget {
               AppLocalizations.of(context)!.termsSection7Title,
               AppLocalizations.of(context)!.termsSection7Content,
             ),
+            _buildSection(
+              AppLocalizations.of(context)!.termsSection8Title,
+              AppLocalizations.of(context)!.termsSection8Content,
+            ),
+            const SizedBox(height: 20),
+            _buildSection(
+              "Paket Detayları", 
+              AppLocalizations.of(context)!.termsSection3Packages,
+            ),
             const SizedBox(height: 40),
             Container(
               padding: const EdgeInsets.all(16),

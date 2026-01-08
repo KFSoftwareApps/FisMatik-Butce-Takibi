@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/app_theme.dart';
 import 'home_screen.dart';
+import '../services/demo_data_service.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -20,10 +21,22 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  bool _startWithDemoData = true; // Default to true for Apple review
+  bool _isInserting = false;
 
 
 
   Future<void> _completeOnboarding() async {
+    setState(() => _isInserting = true);
+    
+    if (_startWithDemoData) {
+      try {
+        await DemoDataService().insertDemoData();
+      } catch (e) {
+        debugPrint("Demo data insertion error: $e");
+      }
+    }
+
     if (widget.onComplete != null) {
       widget.onComplete!();
       return;
@@ -32,9 +45,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     final user = Supabase.instance.client.auth.currentUser;
     
-    // Kullanıcı bazlı onboarding flag'i
+    // 1. Local Update
     final key = 'onboarding_completed_${user?.id ?? 'unknown'}';
     await prefs.setBool(key, true);
+
+    // 2. Remote Update (Sync)
+    if (user != null) {
+      try {
+        await Supabase.instance.client.auth.updateUser(
+          UserAttributes(data: {'onboarding_completed': true}),
+        );
+      } catch (e) {
+        debugPrint("Error syncing onboarding status: $e");
+      }
+    }
     
     if (mounted) {
       Navigator.of(context).pushReplacement(
@@ -163,7 +187,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: _nextPage,
+                  onPressed: _isInserting ? null : _nextPage,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: [
                       AppColors.primary,
@@ -177,14 +201,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: Text(
-                    _currentPage == 4 ? AppLocalizations.of(context)!.onboardingStart : AppLocalizations.of(context)!.onboardingNext,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: _isInserting 
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text(
+                        _currentPage == 4 ? AppLocalizations.of(context)!.onboardingStart : AppLocalizations.of(context)!.onboardingNext,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
                 ),
               ),
             ),
@@ -238,6 +264,43 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               height: 1.5,
             ),
           ),
+
+          // Demo Data Choice (Only on last page)
+          if (_currentPage == 4) ...[
+            const SizedBox(height: 40),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.green.withOpacity(0.1)),
+              ),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: _startWithDemoData,
+                    onChanged: (v) => setState(() => _startWithDemoData = v ?? false),
+                    activeColor: Colors.green,
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)!.onboardingDemoOption,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        Text(
+                          AppLocalizations.of(context)!.onboardingDemoDetail,
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -24,7 +24,7 @@ class _AdminScreenState extends State<AdminScreen> {
   String? _errorMessage;
   Map<String, dynamic> _stats = {};
   // Filter enum
-  String _filter = 'active'; // 'active', 'blocked', 'deleted'
+  String _filter = 'active'; // 'active', 'blocked', 'deleted', 'pending_deletion'
   // Sort enum
   String _sort = 'join_date'; // 'join_date', 'receipt_count', 'last_receipt', 'last_joined'
   
@@ -96,6 +96,10 @@ class _AdminScreenState extends State<AdminScreen> {
       // Filter logic
       if (_filter == 'active' && isBlocked) return false;
       if (_filter == 'blocked' && !isBlocked) return false;
+      
+      final accountStatus = user['account_status'] ?? user['raw_user_meta_data']?['account_status'];
+      if (_filter == 'pending_deletion' && accountStatus != 'pending_deletion') return false;
+      if (_filter == 'active' && accountStatus == 'pending_deletion') return false;
 
       if (_searchQuery.isEmpty) return true;
       final email = (user['email'] ?? '').toString().toLowerCase();
@@ -308,11 +312,8 @@ class _AdminScreenState extends State<AdminScreen> {
       await _databaseService.archiveDeletedUser(email);
 
       // RPC ile hem veritabanından hem auth'dan sil
-      // RPC ile hem veritabanından hem auth'dan sil
-      await Supabase.instance.client.rpc(
-        'admin_delete_user',
-        params: {'target_user_id': userId},
-      );
+      // RPC ile hem veritabanından hem auth'dan sil (Edge Function kullanan güvenli metot)
+      await _databaseService.deleteUserViaEdgeFunction(userId);
 
       if (!mounted) return;
       Navigator.pop(context); // Loading kapat
@@ -336,6 +337,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Future<void> _showCreateUserDialog() async {
     final emailController = TextEditingController();
+    final nameController = TextEditingController(); // [NEW] Ad Soyad Controller
     final passwordController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool isLoading = false;
@@ -352,6 +354,16 @@ class _AdminScreenState extends State<AdminScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                   // [NEW] Ad Soyad Alanı
+                    TextFormField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: "Ad Soyad",
+                        prefixIcon: Icon(Icons.person),
+                      ),
+                      textCapitalization: TextCapitalization.words,
+                    ),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: emailController,
                       decoration: const InputDecoration(
@@ -404,6 +416,7 @@ class _AdminScreenState extends State<AdminScreen> {
                               await _databaseService.createUserForAdmin(
                                 emailController.text.trim(),
                                 passwordController.text,
+                                nameController.text.trim().isNotEmpty ? nameController.text.trim() : null, // [NEW]
                               );
                               if (mounted) {
                                 Navigator.pop(ctx);
@@ -601,6 +614,8 @@ class _AdminScreenState extends State<AdminScreen> {
                                 const SizedBox(width: 8),
                                 _buildFilterChip('Engelli', 'blocked', Colors.red),
                                 const SizedBox(width: 8),
+                                _buildFilterChip('Silme Talebi', 'pending_deletion', Colors.orange),
+                                const SizedBox(width: 8),
                                 _buildFilterChip('Silinen', 'deleted', Colors.grey),
                               ],
                             ),
@@ -672,6 +687,8 @@ class _AdminScreenState extends State<AdminScreen> {
                           final tier = user['tier_id'] ?? 'standart';
                           final isBlocked = user['is_blocked'] == true;
                           final isAdmin = user['is_admin'] == true;
+                          final accountStatus = user['account_status'] ?? user['raw_user_meta_data']?['account_status'];
+                          final isPendingDeletion = accountStatus == 'pending_deletion';
                           final isCurrentUser = userId == Supabase.instance.client.auth.currentUser?.id;
                           
                           // İstatistikleri göster
@@ -683,7 +700,11 @@ class _AdminScreenState extends State<AdminScreen> {
                               : '-';
 
                           return Card(
-                            color: isBlocked ? Colors.red.shade50 : (isAdmin ? Colors.deepPurple.shade50 : Colors.white),
+                            color: isBlocked 
+                                ? Colors.red.shade50 
+                                : (isPendingDeletion 
+                                    ? Colors.orange.shade50 
+                                    : (isAdmin ? Colors.deepPurple.shade50 : Colors.white)),
                             margin: const EdgeInsets.only(bottom: 10),
                             child: ListTile(
                               onTap: () {
@@ -713,7 +734,11 @@ class _AdminScreenState extends State<AdminScreen> {
                                             }
                                           }()),
                                 child: Icon(
-                                  isBlocked ? Icons.block : (isAdmin ? Icons.admin_panel_settings : Icons.person),
+                                  isBlocked 
+                                      ? Icons.block 
+                                      : (isPendingDeletion 
+                                          ? Icons.person_remove 
+                                          : (isAdmin ? Icons.admin_panel_settings : Icons.person)),
                                   color: Colors.white,
                                 ),
                               ),
@@ -741,6 +766,30 @@ class _AdminScreenState extends State<AdminScreen> {
                                           SizedBox(width: 4),
                                           Text(
                                             "ADMIN",
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  if (isPendingDeletion)
+                                    Container(
+                                      margin: const EdgeInsets.only(left: 8),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.warning, color: Colors.white, size: 12),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            "SİLME TALEBİ",
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 10,

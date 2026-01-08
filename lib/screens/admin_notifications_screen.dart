@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/supabase_database_service.dart'; // [NEW] import
 import '../core/app_theme.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -12,6 +13,7 @@ class AdminNotificationsScreen extends StatefulWidget {
 
 class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   final SupabaseClient _client = Supabase.instance.client;
+  final SupabaseDatabaseService _databaseService = SupabaseDatabaseService(); // [NEW] service
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
 
@@ -249,7 +251,21 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     final isRead = notification['is_read'] == true;
 
     // Butonları gizle eğer: action alınmışsa VEYA bildirim okunmuşsa
-    if (targetUserId == null || requestId == null || actionTaken || isRead) return const SizedBox.shrink();
+    if (targetUserId == null || actionTaken || isRead) {
+      return Padding(
+        padding: const EdgeInsets.only(left: 72, bottom: 8),
+        child: Row(
+          children: [
+             Icon(Icons.check_circle, size: 16, color: Colors.green),
+             const SizedBox(width: 4),
+             Text(
+               actionTaken ? "İşlem Yapıldı" : "Tamamlandı / Okundu",
+               style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
+             ),
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.only(left: 72, right: 16, bottom: 8),
@@ -313,7 +329,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Kullanıcıyı Sil?"),
-        content: const Text("Bu işlem geri alınamaz. Kullanıcı ve tüm verileri silinecek."),
+        content: const Text("Bu işlem geri alınamaz. Kullanıcı ve tüm verileri (fişler, abonelikler vb.) silinecek."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("İptal")),
           TextButton(
@@ -327,21 +343,38 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     if (confirm != true) return;
 
     try {
-      await _client.rpc('admin_delete_user', params: {
+      // YENİ RPC: admin_confirm_deletion (Kullanıcıyı veritabanından siler)
+      await _client.rpc('admin_confirm_deletion', params: {
         'target_user_id': targetUserId,
       });
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Kullanıcı başarıyla silindi.")),
+        const SnackBar(content: Text("Kullanıcı ve tüm verileri başarıyla silindi.")),
       );
 
-      // Bildirimi okundu olarak işaretle
-      _markAsRead(notificationId);
+      // Bildirimi silmek yerine okundu olarak işaretle ve UI'ı güncelle
+      // _deleteNotification(notificationId);
+      
+      // UI güncellemesi için action_taken bilgisini yerel olarak güncelle
+      setState(() {
+        final index = _notifications.indexWhere((n) => n['id'] == notificationId);
+        if (index != -1) {
+          // Data objesini kopyala ve güncelle
+          final currentData = Map<String, dynamic>.from(_notifications[index]['data'] ?? {});
+          currentData['action_taken'] = true;
+          _notifications[index]['data'] = currentData;
+          _notifications[index]['is_read'] = true;
+        }
+      });
+      
+      // Backend'de okundu işaretle (Data update is optional atm as RPC does the heavy lifting)
+      await _markAsRead(notificationId);
+
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Hata: $e")),
+        SnackBar(content: Text("Silme hatası: $e")),
       );
     }
   }

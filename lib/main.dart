@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'core/app_theme.dart';
 import 'providers/theme_provider.dart';
@@ -49,6 +50,7 @@ void main() async {
     await Supabase.initialize(
       url: dotenv.env['SUPABASE_URL'] ?? '',
       anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+      debug: false, // Log kirliliğini önlemek için
     );
 
     // 3. Bildirim servisi başlat
@@ -73,6 +75,16 @@ void main() async {
       await SmsService().init();
     }
 
+    // 7. App Tracking Transparency (Sadece iOS)
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      try {
+        // permission_handler ile ATT izni iste
+        // Not: Bu pencere iOS 14.5+ cihazlarda açılır
+        await Permission.appTrackingTransparency.request();
+      } catch (e) {
+        debugPrint("ATT REQUEST ERROR: $e");
+      }
+    }
 
     // 5. Dil ayarları için initialize
     final prefs = await SharedPreferences.getInstance();
@@ -268,6 +280,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (mounted) {
       Provider.of<CurrencyProvider>(context, listen: false).init();
     }
+
+    // 8. Self-Repair: Ensure User Role Exists (Fixes '0 Limit' bug)
+    // Bu satır, veritabanında rolü eksik olan kullanıcıları sessizce tamir eder.
+    if (user.email != null) {
+      AuthService().ensureUserRole(user.id, user.email!);
+    }
   }
 
   void _handleUserLogout() {
@@ -396,6 +414,20 @@ class _AuthWrapperState extends State<AuthWrapper> {
     // Only load if needed
     if (_hasCompletedOnboarding != null) return;
 
+    // 1. Check Remote First (Source of Truth)
+    if (_currentUser?.userMetadata?['onboarding_completed'] == true) {
+      print("✅ Onboarding completed (from remote metadata)");
+      if (mounted) {
+        setState(() => _hasCompletedOnboarding = true);
+      }
+      // Sync to local for offline speed next time
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('onboarding_completed_$userId', true);
+      } catch (_) {}
+      return;
+    }
+
     setState(() => _isLoadingOnboardingCheck = true);
     try {
       final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
@@ -410,12 +442,47 @@ class _AuthWrapperState extends State<AuthWrapper> {
       }
     } catch (e) {
       print("Onboarding status error or timeout: $e");
-      if (mounted) {
-        setState(() {
-          _hasCompletedOnboarding = true; // Skip on error to avoid hang
-          _isLoadingOnboardingCheck = false;
-        });
+      // Continue to fallback
+    }
+
+    // 3. Fallback: Smart Recovery (Eski Kullanıcılar için)
+    // Eğer metadata yoksa ve localde de yoksa (örn: reinstall),
+    // kullanıcının içeride verisi var mı (fişler vs.) kontrol et.
+    try {
+      final hasData = await SupabaseDatabaseService().hasAnyUserActivity();
+      if (hasData) {
+         print("✅ User recovered (Old user with data). Skipping onboarding.");
+         
+         // Fix Metadata & Local Prefs
+          try {
+            await Supabase.instance.client.auth.updateUser(
+              UserAttributes(data: {'onboarding_completed': true}),
+            );
+          } catch (_) {}
+
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('onboarding_completed_${userId}', true);
+          } catch (_) {}
+
+         if (mounted) {
+           setState(() {
+             _hasCompletedOnboarding = true;
+             _isLoadingOnboardingCheck = false;
+           });
+         }
+         return;
       }
+    } catch (e) {
+      print("Smart recovery check failed: $e");
+    }
+
+    // Still nothing? Show Onboarding.
+    if (mounted) {
+       setState(() {
+         _hasCompletedOnboarding = false;
+         _isLoadingOnboardingCheck = false;
+       });
     }
   }
 
@@ -548,6 +615,54 @@ class _AuthWrapperState extends State<AuthWrapper> {
                   await _authService.signOut();
                 },
                 child: Text(AppLocalizations.of(context)!.loginLogout),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () async {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(child: CircularProgressIndicator()),
+                  );
+                  
+                  try {
+                    final res = await _authService.cancelDeletionRequest();
+                    if (!mounted) return;
+                    Navigator.pop(context); // Close loading
+
+                    if (res['success'] == true) {
+                      // 1. Force refresh session
+                      await _authService.refreshSession();
+                      
+                      // 2. Explicitly grab the fresh user object
+                      final freshUser = Supabase.instance.client.auth.currentUser;
+                      
+                      if (mounted) {
+                         setState(() {
+                           _currentUser = freshUser;
+                           // Force rebuild to re-evaluate _buildDeletionPendingScreen condition
+                         });
+                         
+                         // Optional: Force a navigation reset just in case
+                         // Navigator.of(context).popUntil((route) => route.isFirst);
+                      }
+                    } else {
+                      throw Exception(res['message'] ?? 'Bilinmeyen hata');
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      // Close dialog if open
+                      if (Navigator.canPop(context)) Navigator.pop(context); 
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Hata: $e')),
+                      );
+                    }
+                  }
+                },
+                child: const Text(
+                  "Vazgeç ve Giriş Yap", // TODO: Add to L10n
+                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),

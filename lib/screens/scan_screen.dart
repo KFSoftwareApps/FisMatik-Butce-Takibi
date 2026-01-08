@@ -305,7 +305,7 @@ class _ScanScreenState extends State<ScanScreen> {
             setState(() { _isScanning = false; });
             String uiMessage = e.code == 'SCAN_LIMIT_REACHED' 
                 ? AppLocalizations.of(context)!.monthlyLimitReached
-                : (e.code == 'RATE_LIMIT' ? e.message : AppLocalizations.of(context)!.analysisError);
+                : "${AppLocalizations.of(context)!.analysisError} (${e.code}: ${e.message})"; // DEBUG: Show real error
             setState(() { _statusMessage = uiMessage; });
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(uiMessage)));
           }
@@ -314,9 +314,9 @@ class _ScanScreenState extends State<ScanScreen> {
           if (mounted) {
             setState(() {
               _isScanning = false;
-              _statusMessage = AppLocalizations.of(context)!.genericError;
+              _statusMessage = "Hata: $e"; // DEBUG: Show raw error
             });
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.analysisError)));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Hata: $e")));
           }
         }
       }
@@ -506,7 +506,7 @@ class _ScanScreenState extends State<ScanScreen> {
                       Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
                       const SizedBox(width: 6),
                       Text(
-                        AppLocalizations.of(context)!.dailyLimitLabel(_dailyUsage.toString(), _dailyLimit.toString()),
+                        AppLocalizations.of(context)!.dailyLimitLabel(_dailyLimit.toString(), _dailyUsage.toString()),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -695,7 +695,7 @@ class _ScanScreenState extends State<ScanScreen> {
                         child: Padding(
                            padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
                            child: Text(
-                            "${CurrencyFormatter.currencySymbol}${_receiptData!['totalAmount']}",
+                            CurrencyFormatter.format((_receiptData!['totalAmount'] as num).toDouble()),
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w900,
@@ -756,7 +756,7 @@ class _ScanScreenState extends State<ScanScreen> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
                           child: Text(
-                            "${CurrencyFormatter.currencySymbol}${_receiptData!['taxAmount'] ?? 0.0}",
+                            CurrencyFormatter.format((_receiptData!['taxAmount'] ?? 0.0 as num).toDouble()),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
@@ -889,13 +889,14 @@ class _ScanScreenState extends State<ScanScreen> {
                               ),
                               const SizedBox(width: 4),
                               Expanded(
-                                flex: 1,
+                                flex: 2, // Increased flex for better visibility
                                 child: TextFormField(
                                   controller: _itemQuantityControllers[index],
                                   keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.center,
                                   decoration: const InputDecoration(
                                     isDense: true,
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 12),
                                     border: OutlineInputBorder(),
                                     suffixText: 'x',
                                   ),
@@ -1008,7 +1009,7 @@ class _ScanScreenState extends State<ScanScreen> {
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
                                     ),
                                   Text(
-                                    "${CurrencyFormatter.currencySymbol}${item['price']}",
+                                    CurrencyFormatter.format((item['price'] as num).toDouble()),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
                                   const SizedBox(width: 8),
@@ -1018,7 +1019,7 @@ class _ScanScreenState extends State<ScanScreen> {
                                       if (value == 'edit') {
                                         setState(() {
                                           _itemNameControllers[index] = TextEditingController(text: item['name']);
-                                          _itemPriceControllers[index] = TextEditingController(text: item['price'].toString());
+                                          _itemPriceControllers[index] = TextEditingController(text: (item['price'] as num).toStringAsFixed(2));
                                           _itemQuantityControllers[index] = TextEditingController(text: (item['quantity'] ?? 1).toString());
                                           _editingItemIndices.add(index);
                                         });
@@ -1434,25 +1435,48 @@ class _ScanScreenState extends State<ScanScreen> {
                             _retryCount = 0;
                           });
                           // Confetti Animation Dialog
+                          // Confetti Animation Dialog
                           showDialog(
                             context: context,
                             barrierDismissible: false,
                             builder: (ctx) {
-                              Future.delayed(const Duration(seconds: 2), () {
+                              Future.delayed(const Duration(seconds: 3), () {
                                 if (ctx.mounted) Navigator.pop(ctx); // Close dialog
                                 if (context.mounted) Navigator.pop(context); // Close ScanScreen
                               });
                               return Dialog(
-                                backgroundColor: Colors.transparent,
-                                insetPadding: EdgeInsets.zero,
-                                shadowColor: Colors.transparent,
-                                child: Lottie.asset(
-                                  'assets/lottie/confetti.json',
-                                  repeat: false,
-                                  errorBuilder: (context, error, stackTrace) {
-                                     // If asset missing, close immediately
-                                     return const SizedBox();
-                                  },
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                backgroundColor: Colors.white,
+                                elevation: 10,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24.0),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        height: 150,
+                                        width: 150,
+                                        child: Lottie.asset(
+                                          'assets/lottie/confetti.json',
+                                          repeat: false,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (context, error, stackTrace) {
+                                             return const Icon(Icons.check_circle, color: Colors.green, size: 80);
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        AppLocalizations.of(context)!.receiptSavedSuccess,
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textDark,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               );
                             }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fismatik/l10n/generated/app_localizations.dart';
 import '../core/app_theme.dart';
@@ -12,6 +13,7 @@ import 'package:home_widget/home_widget.dart';
 import '../services/supabase_database_service.dart';
 import '../services/smart_reminder_service.dart'; // [NEW]
 import '../services/data_refresh_service.dart';
+import '../widgets/ai_coach_bubble.dart';
 import 'package:provider/provider.dart';
 import '../providers/currency_provider.dart';
 
@@ -77,15 +79,23 @@ class _MainWrapperState extends State<MainWrapper> {
   @override
   Widget build(BuildContext context) {
     context.watch<CurrencyProvider>();
+    final bool isIOS = defaultTargetPlatform == TargetPlatform.iOS;
+
     return Scaffold(
       // Seçili sayfayı göster
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _currentIndex,
+            children: _pages,
+          ),
+          if (_currentIndex == 0 && !isIOS)
+            const AICoachBubble(),
+        ],
       ),
 
-      // ORTADAKİ SCAN (TARAMA) BUTONU
-      floatingActionButton: FloatingActionButton(
+      // ORTADAKİ SCAN (TARAMA) BUTONU (SADECE ANDROID/WEB İÇİN FAB)
+      floatingActionButton: isIOS ? null : FloatingActionButton(
         onPressed: () {
           // Tarama ekranına git (Menüden bağımsız tam ekran açılır)
           Navigator.push(context,
@@ -98,14 +108,14 @@ class _MainWrapperState extends State<MainWrapper> {
         elevation: 4,
         child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 30),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButtonLocation: isIOS ? null : FloatingActionButtonLocation.centerDocked,
 
       // ALT MENÜ (BOTTOM NAVIGATION BAR)
       bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8.0,
+        shape: isIOS ? null : const CircularNotchedRectangle(),
+        notchMargin: isIOS ? 0 : 8.0,
         color: Colors.white,
-        elevation: 10,
+        elevation: isIOS ? 1 : 10,
         child: SizedBox(
           height: 60,
           child: Row(
@@ -115,8 +125,13 @@ class _MainWrapperState extends State<MainWrapper> {
               _buildNavItem(Icons.home_rounded, AppLocalizations.of(context)!.summary, 0),
               _buildNavItem(Icons.pie_chart_rounded, AppLocalizations.of(context)!.analysis, 1),
 
-              // Orta Boşluk (FAB Butonu için)
-              const SizedBox(width: 40),
+              // iOS'ta FAB yerine ortada normal bir item
+              if (isIOS)
+                _buildNavItem(Icons.qr_code_scanner, AppLocalizations.of(context)!.scan, 2, isScanAction: true),
+              
+              if (!isIOS)
+                // Orta Boşluk (FAB Butonu için)
+                const SizedBox(width: 40),
 
               // Sağ Taraf
               _buildNavItem(Icons.calendar_month, AppLocalizations.of(context)!.calendar, 3), // <--- İKONA DİKKAT
@@ -129,30 +144,61 @@ class _MainWrapperState extends State<MainWrapper> {
   }
 
   // Alt Menü Elemanı Oluşturan Yardımcı Fonksiyon
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  Widget _buildNavItem(IconData icon, String label, int index, {bool isScanAction = false}) {
     final isSelected = _currentIndex == index;
 
     return InkWell(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () {
+        if (isScanAction) {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const ScanScreen())).then((_) {
+            DataRefreshService().notifyUpdate();
+          });
+          return;
+        }
+        setState(() => _currentIndex = index);
+      },
       borderRadius: BorderRadius.circular(10),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: isSelected ? AppColors.primary : Colors.grey.shade400,
-            size: 26,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
+          if (isScanAction) ...[
+             Container(
+               padding: const EdgeInsets.all(12),
+               decoration: BoxDecoration(
+                 color: AppColors.primary,
+                 shape: BoxShape.circle,
+                 boxShadow: [
+                   BoxShadow(
+                     color: AppColors.primary.withOpacity(0.4),
+                     blurRadius: 8,
+                     offset: const Offset(0, 4),
+                   ),
+                 ],
+               ),
+               child: const Icon(
+                 Icons.qr_code_scanner,
+                 color: Colors.white,
+                 size: 28,
+               ),
+             ),
+          ] else ...[
+            Icon(
+              icon,
               color: isSelected ? AppColors.primary : Colors.grey.shade400,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              size: 26,
             ),
-          )
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? AppColors.primary : Colors.grey.shade400,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ]
         ],
       ),
     );

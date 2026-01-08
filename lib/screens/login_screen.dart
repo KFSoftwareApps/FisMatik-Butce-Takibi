@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
@@ -152,6 +153,104 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 32),
 
+                        // SOCIAL LOGINS
+                        Column(
+                          children: [
+                            // APPLE SIGN IN (Only if platform is iOS/macOS or if you want it everywhere)
+                            if (Platform.isIOS || Platform.isMacOS)
+                              SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: ElevatedButton.icon(
+                                  onPressed: _isLoading 
+                                    ? null 
+                                    : () async {
+                                        setState(() => _isLoading = true);
+                                        try {
+                                          await AuthService().signInWithApple();
+                                        } catch (e) {
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                            );
+                                          }
+                                        } finally {
+                                          if (mounted) setState(() => _isLoading = false);
+                                        }
+                                      },
+                                  icon: const Icon(Icons.apple, size: 28, color: Colors.white),
+                                  label: Text(
+                                    AppLocalizations.of(context)!.appleSignIn,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            
+                            if (Platform.isIOS || Platform.isMacOS) const SizedBox(height: 12),
+
+                            // GOOGLE SIGN IN BUTTON
+                            SizedBox(
+                              width: double.infinity,
+                              height: 50,
+                              child: OutlinedButton.icon(
+                                onPressed: _isLoading 
+                                  ? null 
+                                  : () async {
+                                      setState(() => _isLoading = true);
+                                      try {
+                                        await AuthService().signInWithGoogle();
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                          );
+                                        }
+                                      } finally {
+                                        if (mounted) setState(() => _isLoading = false);
+                                      }
+                                    },
+                                icon: Image.asset('assets/images/google_logo.png', width: 24, height: 24, errorBuilder: (c, e, s) => const Icon(Icons.g_mobiledata, size: 32, color: Colors.red)),
+                                label: Text(
+                                  AppLocalizations.of(context)!.googleSignIn,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(color: Colors.grey.shade300),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // OR DIVIDER
+                        Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                "veya e-posta ile",
+                                style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                              ),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
                         // EMAIL
                         TextField(
                           controller: _emailController,
@@ -187,9 +286,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                             child: Text(AppLocalizations.of(context)!.forgotPassword),
                           ),
-                        ),
+                        ), 
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 12),
 
                         // LOGIN BUTTON
                         SizedBox(
@@ -198,6 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: _isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
+                              elevation: 2,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -216,36 +316,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
 
                         const SizedBox(height: 16),
-                        
-                        // GOOGLE SIGN IN BUTTON
-                        SizedBox(
-                          height: 50,
-                          child: OutlinedButton.icon(
-                            onPressed: _isLoading 
-                              ? null 
-                              : () async {
-                                  setState(() => _isLoading = true);
-                                  try {
-                                    await AuthService().signInWithGoogle();
-                                  } catch (e) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                                      );
-                                    }
-                                  } finally {
-                                    if (mounted) setState(() => _isLoading = false);
-                                  }
-                                },
-                            icon: const Icon(Icons.g_mobiledata, size: 32, color: Colors.red),
-                            label: Text(AppLocalizations.of(context)!.googleSignIn),
-                            style: OutlinedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
 
                         const SizedBox(height: 24),
 

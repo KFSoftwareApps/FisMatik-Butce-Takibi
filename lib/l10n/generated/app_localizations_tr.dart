@@ -12,6 +12,11 @@ class AppLocalizationsTr extends AppLocalizations {
   String get appTitle => 'FişMatik';
 
   @override
+  String cheapestAt(Object merchant) {
+    return '$merchant marketinde daha ucuz!';
+  }
+
+  @override
   String get loginTitle => 'Giriş';
 
   @override
@@ -70,7 +75,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get adminPanel => 'Admin Paneli';
 
   @override
-  String get adminSubtitle => 'Kullanıcıları ve limitleri yönet';
+  String get adminSubtitle => 'Yönetici Paneli';
 
   @override
   String get notifications => 'Bildirimler';
@@ -145,6 +150,9 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get scanReceipt => 'Fiş Tara';
+
+  @override
+  String get scan => 'Tara';
 
   @override
   String get analysis => 'Analiz';
@@ -241,7 +249,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get setBudgetLimit => 'Bütçe Limiti Belirle';
 
   @override
-  String get monthlyLimitAmount => 'Aylık Limit Tutarı';
+  String get monthlyLimitAmount => 'Aylık Limit';
 
   @override
   String get cancel => 'İptal';
@@ -301,7 +309,7 @@ class AppLocalizationsTr extends AppLocalizations {
       'Bağlantı kontrol ediliyor, lütfen sayfayı kapatmayın.';
 
   @override
-  String get aiExtractingData => 'Yapay zeka verileri ayıklıyor...';
+  String get aiExtractingData => 'Veriler ayıklanıyor...';
 
   @override
   String get processSuccess => 'İşlem başarılı!';
@@ -312,7 +320,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get monthlyLimitReached =>
-      'Bu ayki fiş hakkın doldu. Limitless’a geçersen daha fazla fiş tarayabilirsin.';
+      'Günlük fiş tarama hakkınız dolmuştur. Üyeliğinizi yükselterek fiş taramaya devam edebilirsiniz.';
 
   @override
   String get rateLimitExceeded =>
@@ -437,7 +445,7 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
-  String get exportExcel => 'Excel\'e Aktar';
+  String get exportExcel => 'Excel Dışa Aktar';
 
   @override
   String get totalSavings => 'Toplam İndirim Kazancı';
@@ -458,7 +466,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get yearlyTax => 'Yıllık Vergi';
 
   @override
-  String get exportTaxReport => 'Vergi Raporu İndir';
+  String get exportTaxReport => 'Vergi Raporu';
 
   @override
   String get daily => 'Günlük';
@@ -579,8 +587,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get confirmLogoutTitle => 'Çıkış Yap';
 
   @override
-  String get confirmLogoutMessage =>
-      'Hesabınızdan çıkış yapmak istediğinize emin misiniz?';
+  String get confirmLogoutMessage => 'Çıkış yapmak istediğinize emin misiniz?';
 
   @override
   String get statsThisMonth => 'Bu Ay';
@@ -622,11 +629,11 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get familyPlanMembersLimit =>
-      '35 fiş/gün • 20 AI Sohbet • 200 Manuel Giriş • Aile Paylaşımı';
+      '35 fiş/gün • 20 Asistan Sohbet • 200 Manuel Giriş • Aile Paylaşımı';
 
   @override
   String get limitlessPlanLimit =>
-      '25 fiş/gün • 10 AI Sohbet • 100 Manuel Giriş';
+      '25 fiş/gün • 10 Asistan Sohbet • 100 Manuel Giriş';
 
   @override
   String get premiumPlanLimit => '10 fiş/gün • 50 Manuel Giriş';
@@ -671,7 +678,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get featureScanSubTitle => 'Fiş Tara & Abonelik Tespiti';
 
   @override
-  String get featureScanSubDesc => 'AI ile fatura tanıma ve otomatik takip';
+  String get featureScanSubDesc => 'Akıllı fatura tanıma ve otomatik takip';
 
   @override
   String get featurePriceCompTitle => 'Nerede En Ucuz?';
@@ -708,11 +715,6 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String priceRange(Object max, Object min, Object symbol) {
     return '$min $symbol - $max $symbol';
-  }
-
-  @override
-  String cheapestAt(Object merchant) {
-    return '$merchant marketinde daha ucuz!';
   }
 
   @override
@@ -1214,21 +1216,25 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get termsSection1Content =>
-      'FişMatik; harcama takibi, fiş/fatura/dekont tarama, abonelik ve düzenli ödeme tespiti, yapay zeka destekli bütçe tahminleme (Forecasting) ve ürün fiyat karşılaştırması (Alışveriş Rehberi) hizmetlerini sunan kapsamlı bir finansal yönetim uygulamasıdır.';
+      'FişMatik; harcama takibi, fiş/fatura tarama, abonelik tespiti, akıllı bütçe tahminleme ve konum bazlı ürün fiyat karşılaştırması (Alışveriş Rehberi) hizmetlerini sunan kapsamlı bir finansal yönetim uygulamasıdır.';
 
   @override
   String get termsSection2Title => '2. Hesap Oluşturma';
 
   @override
   String get termsSection2Content =>
-      '• 13 yaşından büyük olmalısınız\n• Geçerli bir e-posta adresi sağlamalısınız\n• Doğru ve güncel bilgiler vermelisiniz\n• Şifrenizin güvenliğinden siz sorumlusunuz';
+      '• Uygulamayı kullanmak için en az 13 yaşında olmalısınız.\n• Kayıt sırasında doğru, güncel ve eksiksiz bilgiler sağlamayı kabul edersiniz.\n• Hesap güvenliğinizden ve şifrenizin gizliliğinden tamamen siz sorumlusunuz.\n• Hesabınızda gerçekleşen tüm aktivitelerden siz sorumlu tutulursunuz.';
 
   @override
-  String get termsSection3Title => '3. Üyelik Seviyeleri';
+  String get termsSection3Title => '3. Abonelikler ve Ödemeler';
 
   @override
   String get termsSection3Content =>
-      'Ücretsiz (0 TL):\n• Günlük 1 fiş tarama\n• Aylık 20 manuel giriş\n• Sınırsız abonelik takibi\n• Reklamlı deneyim\n\nStandart (49.99 TL / Ay):\n• Günlük 10 fiş tarama\n• Aylık 50 manuel giriş\n• Sınırsız abonelik takibi\n• Kategori yönetimi\n• Reklamsız deneyim\n• Raporlar\n• Alışveriş Rehberi\n\nPremium (79.99 TL / Ay):\n• Günlük 25 fiş tarama\n• Aylık 100 manuel giriş\n• Sınırsız abonelik takibi\n• Reklamsız deneyim\n• AI Finans Koçu\n• Akıllı Bütçe Tahmini\n• Kategori yönetimi\n• Raporlar\n• Alışveriş Rehberi\n\nAile Ekonomisi (99.99 TL / Ay):\n• Günlük 35 fiş tarama (Aile toplamı)\n• Aylık 200 manuel giriş (Aile toplamı)\n• Sınırsız abonelik takibi\n• Reklamsız deneyim\n• AI Finans Koçu\n• Akıllı Bütçe Tahmini\n• Kategori yönetimi\n• Raporlar\n• Alışveriş Rehberi\n• Aile Paylaşımı';
+      '• Abonelik Ücretleri: Mevcut paketlerin fiyatları ve özellikleri ilgili ekranda belirtilmiştir. Ödemeler, satın alma onayında App Store hesabınızdan tahsil edilir.\n• Otomatik Yenileme: Mevcut dönemin bitiminden en az 24 saat önce otomatik yenileme kapatılmadığı sürece aboneliğiniz otomatik olarak yenilenir.\n• Yenileme Ücreti: Dönem bitimine 24 saat kala hesabınızdan yenileme ücreti tahsil edilir.\n• İptal ve Yönetim: Aboneliklerinizi App Store Hesap Ayarları üzerinden yönetebilir ve istediğiniz zaman iptal edebilirsiniz.\n• Kullanılmayan Süreler: Aktif abonelik dönemi içinde iptal edilen süreler için para iadesi yapılmamaktadır.';
+
+  @override
+  String get termsSection3Packages =>
+      'Paket Detayları:\n\nÜcretsiz (0 TL):\n• Günlük 1 fiş tarama, 20 manuel giriş.\n\nStandart (49.99 TL / Ay):\n• Günlük 10 fiş tarama, 50 manuel giriş, reklamsız deneyim, raporlar.\n\nPremium (79.99 TL / Ay):\n• Günlük 25 fiş tarama, 100 manuel giriş, Akıllı Analiz, Akıllı Tahminler.\n\nAile Ekonomisi (99.99 TL / Ay):\n• Günlük 35 fiş tarama (Toplam), 200 manuel giriş, Aile Paylaşımı (5 kişi).';
 
   @override
   String get termsSection4Title => '4. Kullanım Kuralları';
@@ -1242,7 +1248,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get termsSection5Content =>
-      '• Uygulamayı kendi riskinizle kullanırsınız\n• Mali kararlarınızdan biz sorumlu değiliz\n• Vergi veya muhasebe danışmanlığı sağlamıyoruz\n• OCR ve AI analizi %100 doğru olmayabilir';
+      '• Uygulamayı kendi riskinizle kullanırsınız\n• Mali kararlarınızdan biz sorumlu değiliz\n• Vergi veya muhasebe danışmanlığı sağlamıyoruz\n• OCR ve analiz %100 doğru olmayabilir, kullanıcı kontrolü esastır\n• Konum verileri sadece size en yakın fırsatları göstermek için kullanılır';
 
   @override
   String get termsSection6Title => '6. Hesap Sonlandırma';
@@ -1252,15 +1258,26 @@ class AppLocalizationsTr extends AppLocalizations {
       '• Hesabınızı istediğiniz zaman silebilirsiniz\n• Kullanım şartlarını ihlal durumunda hesabınız askıya alınabilir\n• Silme işlemi geri alınamaz';
 
   @override
-  String get termsSection7Title => '7. İletişim';
-
-  @override
   String get termsSection7Content =>
-      'Kullanım şartları hakkında sorularınız için:\n\nE-posta: info@kfsoftware.app';
+      'Kullanım şartları ve abonelikler hakkında sorularınız için:\n\nE-posta: info@kfsoftware.app';
 
   @override
   String get termsFooter =>
       'FişMatik uygulamasını kullanarak bu kullanım şartlarını okuduğunuzu, anladığınızı ve kabul ettiğinizi beyan edersiniz.';
+
+  @override
+  String get termsSection8Title => '8. İptal Politikası';
+
+  @override
+  String get termsSection8Content =>
+      'Aboneliğinizi dilediğiniz zaman App Store ayarlarınızdan iptal edebilirsiniz. İptal işlemi, bir sonraki fatura döneminden itibaren geçerli olacaktır.';
+
+  @override
+  String get subscriptionTermsSummaryTitle => 'Abonelik Koşulları';
+
+  @override
+  String get subscriptionTermsSummaryBody =>
+      'Ödeme, satın alma onaylandığında iTunes Hesabınızdan tahsil edilecektir. Aboneliğiniz, mevcut dönemin bitiminden en az 24 saat önce otomatik yenileme kapatılmadığı sürece otomatik olarak yenilenir. Hesabınızdan, mevcut dönemin bitimine 24 saat kala yenileme ücreti tahsil edilecektir. Satın alma işleminden sonra Hesap Ayarlarınızdan aboneliğinizi yönetebilir ve otomatik yenilemeyi kapatabilirsiniz.';
 
   @override
   String get salaryDay => 'Maaş Günü';
@@ -1333,6 +1350,9 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get googleSignIn => 'Google ile Giriş Yap';
+
+  @override
+  String get appleSignIn => 'Apple ile Giriş Yap';
 
   @override
   String get unconfirmedEmailError => 'E-posta adresi doğrulanmamış.';
@@ -1434,7 +1454,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get passwordUpdateFailed => 'Şifre güncellenemedi.';
 
   @override
-  String get deleteAccountTitle => 'Hesabı Sil';
+  String get deleteAccountTitle => 'Hesabımı Sil';
 
   @override
   String get deleteAccountWarning => 'Bu işlem geri alınamaz!';
@@ -1636,7 +1656,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get earnThisBadge => 'Bu rozeti kazanmak için';
 
   @override
-  String get myAchievements => 'Başarımlarım';
+  String get myAchievements => 'Başarılarım';
 
   @override
   String get dataLoadError => 'Veri yüklenemedi';
@@ -2142,22 +2162,22 @@ class AppLocalizationsTr extends AppLocalizations {
   String get editProfile => 'Profili Düzenle';
 
   @override
-  String get spendingTrendsSubtitle => 'Harcama alışkanlıklarınızı görün';
+  String get spendingTrendsSubtitle => 'Haftalık ve aylık analizler';
 
   @override
-  String get achievementsSubtitle => 'Kazandığınız rozetleri görün';
+  String get achievementsSubtitle => 'Rozetler ve ödüller';
 
   @override
   String get settingsSection => 'Ayarlar';
 
   @override
-  String get notificationSettingsSubtitle => 'Hatırlatıcıları yönetin';
+  String get notificationSettingsSubtitle => 'Uyarıları yönet';
 
   @override
-  String get smsTrackingTitle => 'Otomatik SMS Takibi';
+  String get smsTrackingTitle => 'SMS Takibi';
 
   @override
-  String get smsTrackingDesc => 'Harcama SMS\'lerini otomatik yakala';
+  String get smsTrackingDesc => 'Banka SMS\'lerini otomatik takip et';
 
   @override
   String get otherSection => 'Diğer';
@@ -2566,4 +2586,53 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get deleteAllConfirm =>
       'Listedeki tüm ürünler silinecektir. Emin misiniz?';
+
+  @override
+  String get restorePurchases => 'Satın Almaları Geri Yükle';
+
+  @override
+  String get manageSubscription => 'Aboneliği Yönet';
+
+  @override
+  String get loadDemoData => 'Örnek Veri Yükle';
+
+  @override
+  String get demoDataDescription =>
+      'Uygulamayı hemen keşfetmek için örnek harcama ve abonelik verilerini yükleyebilirsiniz.';
+
+  @override
+  String get demoDataSuccess => 'Örnek veriler başarıyla yüklendi!';
+
+  @override
+  String get onboardingDemoOption => 'Uygulamayı örnek verilerle başlat';
+
+  @override
+  String get onboardingDemoDetail => '(Daha sonra silebilirsiniz)';
+
+  @override
+  String get statisticsMockupTitle => 'Örnek Görünüm';
+
+  @override
+  String get statisticsMockupDesc =>
+      'Burada harcamalarınızın kategori bazlı dağılımını ve aylık trendlerini göreceksiniz. Başlamak için bir fiş tarayın!';
+
+  @override
+  String get orKeepExploring => 'veya uygulamayı keşfetmeye devam et';
+
+  @override
+  String get termsSection7Title => '7. Gizlilik ve Güvenlik';
+
+  @override
+  String get deleteReceipt => 'Fişi Sil';
+
+  @override
+  String get deleteReceiptConfirmation =>
+      'Bu fişi silmek istediğinize emin misiniz?';
+
+  @override
+  String get deleteAccount => 'Hesabı Sil';
+
+  @override
+  String get deleteAccountConfirmation =>
+      'Hesabınızı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.';
 }

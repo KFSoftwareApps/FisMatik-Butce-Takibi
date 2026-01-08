@@ -314,10 +314,8 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
 
     try {
       await _databaseService.archiveDeletedUser(email);
-      await Supabase.instance.client.rpc(
-        'admin_delete_user',
-        params: {'target_user_id': userId},
-      );
+      // New: Use Edge Function for robust deletion
+      await _databaseService.deleteUserViaEdgeFunction(userId);
 
       if (!mounted) return;
       Navigator.pop(context); // Loading kapat
@@ -355,6 +353,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     
     final isBlocked = user['is_blocked'] == true;
     final isAdmin = user['is_admin'] == true;
+    final accountStatus = user['account_status'] ?? user['raw_user_meta_data']?['account_status'];
+    final isPendingDeletion = accountStatus == 'pending_deletion';
+    final deletionReason = user['deletion_reason'] ?? user['raw_user_meta_data']?['deletion_reason'];
 
     return Scaffold(
       appBar: AppBar(
@@ -370,6 +371,33 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (isPendingDeletion)
+              Card(
+                color: Colors.orange.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning, color: Colors.orange),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "BU KULLANICI SİLİNME TALEBİNDEDİR",
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                            ),
+                            if (deletionReason != null)
+                              Text("Neden: $deletionReason"),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (isPendingDeletion) const SizedBox(height: 16),
             // PROFİL KARTI
             Card(
               elevation: 4,
@@ -427,9 +455,11 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildInfoColumn("Üyelik", tier.toUpperCase(), Icons.card_membership, Colors.blue),
-                        _buildInfoColumn("Durum", isBlocked ? "Engelli" : "Aktif", 
-                            isBlocked ? Icons.block : Icons.check_circle, 
-                            isBlocked ? Colors.red : Colors.green),
+                        _buildInfoColumn(
+                            "Durum", 
+                            isBlocked ? "Engelli" : (isPendingDeletion ? "Silinecek" : "Aktif"), 
+                            isBlocked ? Icons.block : (isPendingDeletion ? Icons.person_remove : Icons.check_circle), 
+                            isBlocked ? Colors.red : (isPendingDeletion ? Colors.orange : Colors.green)),
                         _buildInfoColumn("Yetki", isAdmin ? "Admin" : "Kullanıcı", 
                             isAdmin ? Icons.admin_panel_settings : Icons.person, 
                             isAdmin ? Colors.deepPurple : Colors.grey),
