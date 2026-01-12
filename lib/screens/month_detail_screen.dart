@@ -271,13 +271,13 @@ class MonthDetailScreen extends StatelessWidget {
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 0); // Last day of month
     
-    await ReportService().generateAndSharePdfReport(receipts, start, end, title: AppLocalizations.of(context)!.expenseAnalysis);
+    await ReportService().generateAndSharePdfReport(receipts, start, end, AppLocalizations.of(context)!, title: AppLocalizations.of(context)!.expenseAnalysis);
   }
 
   void _generateExcel(BuildContext context, DateTime month) async {
     final databaseService = SupabaseDatabaseService();
     final receipts = await databaseService.getMonthAnalysisData(month);
     
-    await ReportService().generateAndShareExcelReport(receipts);
+    await ReportService().generateAndShareExcelReport(receipts, AppLocalizations.of(context)!);
   }
 }

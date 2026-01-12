@@ -11,16 +11,23 @@ import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 import 'package:universal_html/html.dart' as html;
 import '../models/receipt_model.dart';
+import 'package:fismatik/l10n/generated/app_localizations.dart';
 
 class ReportService {
   // --- PDF RAPORU ---
-  Future<void> generateAndSharePdfReport(List<Receipt> receipts, DateTime start, DateTime end, {String? title, bool isTaxReport = false}) async {
+  Future<void> generateAndSharePdfReport(
+    List<Receipt> receipts, 
+    DateTime start, 
+    DateTime end, 
+    AppLocalizations l10n, // New parameter
+    {String? title, bool isTaxReport = false}
+  ) async {
     final pdf = pw.Document();
     final font = await PdfGoogleFonts.robotoRegular();
     final boldFont = await PdfGoogleFonts.robotoBold();
 
     // Using CurrencyFormatter
-    final dateFormat = DateFormat('d MMM yyyy', 'tr_TR');
+    final dateFormat = DateFormat('d MMM yyyy', l10n.localeName);
 
     double totalAmount = receipts.fold(0, (sum, item) => sum + item.totalAmount);
     double totalTax = receipts.fold(0, (sum, item) {
@@ -28,7 +35,7 @@ class ReportService {
       return sum + tax;
     });
 
-    final reportTitle = title ?? (isTaxReport ? 'Vergi Raporu' : 'Harcama Raporu');
+    final reportTitle = title ?? (isTaxReport ? l10n.taxReport : l10n.expenseReport); // Localized
     final primaryColor = isTaxReport ? PdfColors.red700 : PdfColors.indigo700;
 
     // Kategori Özeti
@@ -51,14 +58,14 @@ class ReportService {
               child: pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('FişMatik $reportTitle', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: primaryColor)),
+                  pw.Text('${l10n.appTitle}$reportTitle', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: primaryColor)),
                   pw.Text(dateFormat.format(DateTime.now()), style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey)),
                 ],
               ),
             ),
             pw.SizedBox(height: 10),
             pw.Text(
-              'Tarih Aralığı: ${dateFormat.format(start)} - ${dateFormat.format(end)}',
+              '${l10n.dateRange}: ${dateFormat.format(start)} - ${dateFormat.format(end)}',
               style: const pw.TextStyle(fontSize: 14),
             ),
             pw.SizedBox(height: 20),
@@ -67,18 +74,18 @@ class ReportService {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                _buildSummaryBox('Toplam Gider', CurrencyFormatter.format(totalAmount), primaryColor),
-                _buildSummaryBox('Toplam KDV', CurrencyFormatter.format(totalTax), PdfColors.teal700),
-                _buildSummaryBox('İşlem Sayısı', receipts.length.toString(), PdfColors.blueGrey700),
+                _buildSummaryBox(l10n.totalExpense, CurrencyFormatter.format(totalAmount), primaryColor),
+                _buildSummaryBox(l10n.totalTax, CurrencyFormatter.format(totalTax), PdfColors.teal700),
+                _buildSummaryBox(l10n.transactionCount, receipts.length.toString(), PdfColors.blueGrey700),
               ],
             ),
             pw.SizedBox(height: 20),
 
             // KATEGORİ ÖZETİ (İLK 5)
-            pw.Text('Kategori Bazlı Harcama (Top 5)', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            pw.Text(l10n.categorySpendingTop5, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
             pw.Table.fromTextArray(
-              headers: ['Kategori', 'Tutar', 'Oran'],
+              headers: [l10n.category, l10n.amount, l10n.rate],
               data: sortedCategories.take(5).map((e) {
                 final percent = (e.value / totalAmount * 100).toStringAsFixed(1);
                 return [e.key, CurrencyFormatter.format(e.value), '%$percent'];
@@ -94,12 +101,12 @@ class ReportService {
             pw.SizedBox(height: 20),
 
             // DETAYLI LİSTE
-            pw.Text(isTaxReport ? 'Vergi Detayları (KDV)' : 'Harcama Detayları', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            pw.Text(isTaxReport ? l10n.taxDetails : l10n.expenseDetails, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
             pw.Table.fromTextArray(
               headers: isTaxReport 
-                ? ['Tarih', 'İşyeri', 'Matrah', 'KDV', 'Toplam']
-                : ['Tarih', 'İşyeri', 'Kategori', 'Tutar'],
+                ? [l10n.date, l10n.merchant, l10n.baseAmount, l10n.vat, l10n.total]
+                : [l10n.date, l10n.merchant, l10n.category, l10n.amount],
               data: receipts.map((r) {
                 if (isTaxReport) {
                   final tax = r.taxAmount > 0 ? r.taxAmount : (r.totalAmount / 1.10 * 0.10);
@@ -142,7 +149,7 @@ class ReportService {
     );
 
     // Dosya adı Belirle
-    final filename = isTaxReport ? 'fismatik_vergi_raporu.pdf' : 'fismatik_harcama_raporu.pdf';
+    final filename = isTaxReport ? 'fismatik_tax_report.pdf' : 'fismatik_expense_report.pdf'; // Kept somewhat neutral or could be generic
 
     // Paylaş
     await Printing.sharePdf(bytes: await pdf.save(), filename: filename);
@@ -167,9 +174,9 @@ class ReportService {
   }
 
   // --- EXCEL RAPORU ---
-  Future<void> generateAndShareExcelReport(List<Receipt> receipts, {bool isTaxReport = false}) async {
+  Future<void> generateAndShareExcelReport(List<Receipt> receipts, AppLocalizations l10n, {bool isTaxReport = false}) async { // Modified signature
     var excel = Excel.createExcel();
-    String sheetName = isTaxReport ? 'Vergi Raporu' : 'Harcamalar';
+    String sheetName = isTaxReport ? l10n.taxReport : l10n.expenseReport; // Localized
     Sheet sheetObject = excel[sheetName];
     excel.delete('Sheet1'); // Varsayılan boş sayfayı sil
 
@@ -196,14 +203,14 @@ class ReportService {
     sheetObject.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0), 
                       CellIndex.indexByColumnRow(columnIndex: isTaxReport ? 4 : 5, rowIndex: 0));
     var titleCell = sheetObject.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0));
-    titleCell.value = TextCellValue(isTaxReport ? 'FİŞMATİK VERGİ RAPORU' : 'FİŞMATİK HARCAMA RAPORU');
+    titleCell.value = TextCellValue(isTaxReport ? l10n.fismatikTaxReportTitle : l10n.fismatikExpenseReportTitle); // Localized
     titleCell.cellStyle = titleStyle;
     sheetObject.setRowHeight(0, 30);
 
     // 2. SATIR: SÜTUN BAŞLIKLARI
     List<String> headers = isTaxReport 
-      ? ['Tarih', 'İşyeri', 'Matrah (Ürün/Hizmet)', 'KDV', 'Toplam']
-      : ['Tarih', 'İşyeri', 'Kategori', 'Tutar', 'KDV', 'Açıklama/Ürünler'];
+      ? [l10n.date, l10n.merchant, l10n.matrahProdService, l10n.vat, l10n.total]
+      : [l10n.date, l10n.merchant, l10n.category, l10n.amount, l10n.vat, l10n.descriptionProducts]; // Localized
       
     for (int i = 0; i < headers.length; i++) {
       var cell = sheetObject.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 1));
@@ -212,7 +219,7 @@ class ReportService {
     }
 
     // VERİLER
-    final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
+    final dateFormat = DateFormat('dd.MM.yyyy HH:mm', l10n.localeName);
     double totalAmt = 0;
     double totalTx = 0;
 
@@ -249,7 +256,7 @@ class ReportService {
       sheetObject.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: summaryRowIndex), 
                         CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: summaryRowIndex));
       
-      _setCell(sheetObject, 0, summaryRowIndex, TextCellValue('TOPLAM'), headerStyle);
+      _setCell(sheetObject, 0, summaryRowIndex, TextCellValue(l10n.total.toUpperCase()), headerStyle);
       _setCell(sheetObject, 2, summaryRowIndex, DoubleCellValue(totalAmt - totalTx), headerStyle);
       _setCell(sheetObject, 3, summaryRowIndex, DoubleCellValue(totalTx), headerStyle);
       _setCell(sheetObject, 4, summaryRowIndex, DoubleCellValue(totalAmt), headerStyle);
@@ -257,7 +264,7 @@ class ReportService {
       sheetObject.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: summaryRowIndex), 
                         CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: summaryRowIndex));
       
-      _setCell(sheetObject, 0, summaryRowIndex, TextCellValue('TOPLAM'), headerStyle);
+      _setCell(sheetObject, 0, summaryRowIndex, TextCellValue(l10n.total.toUpperCase()), headerStyle);
       _setCell(sheetObject, 3, summaryRowIndex, DoubleCellValue(totalAmt), headerStyle);
       _setCell(sheetObject, 4, summaryRowIndex, DoubleCellValue(totalTx), headerStyle);
     }
@@ -280,7 +287,7 @@ class ReportService {
 
     // Dosyayı kaydet ve paylaş
     final fileBytes = excel.save();
-    final fileName = isTaxReport ? "fismatik_vergi_raporu.xlsx" : "fismatik_excel_rapor.xlsx";
+    final fileName = isTaxReport ? "fismatik_tax_report.xlsx" : "fismatik_excel_report.xlsx"; // Kept english filename or user preference
 
     if (fileBytes != null) {
       if (kIsWeb) {
@@ -299,7 +306,7 @@ class ReportService {
           ..createSync(recursive: true)
           ..writeAsBytesSync(fileBytes);
           
-        await Share.shareXFiles([XFile(path)], text: isTaxReport ? 'FişMatik Vergi Raporu' : 'FişMatik Excel Raporu');
+        await Share.shareXFiles([XFile(path)], text: isTaxReport ? '${l10n.fismatikTaxReportTitle}' : '${l10n.fismatikExpenseReportTitle}');
       }
     }
   }

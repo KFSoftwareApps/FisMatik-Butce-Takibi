@@ -46,12 +46,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _avatarUrl;
   String _selectedCurrency = 'TRY';
 
-  final List<Map<String, String>> _currencies = [
-    {'code': 'TRY', 'name': 'Türk Lirası (₺)'},
-    {'code': 'USD', 'name': 'Amerikan Doları (\$)'},
-    {'code': 'EUR', 'name': 'Euro (€)'},
-    {'code': 'GBP', 'name': 'İngiliz Sterlini (£)'},
-  ];
+
 
   @override
   void initState() {
@@ -557,12 +552,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: DropdownButtonFormField<String>(
                   value: _selectedCurrency,
                   decoration: InputDecoration(
-                    labelText: 'Para Birimi',
+                    labelText: AppLocalizations.of(context)!.currencyLabel,
                     icon: const Icon(Icons.currency_exchange_outlined, color: AppColors.primary),
                     border: InputBorder.none,
                     labelStyle: TextStyle(color: Colors.grey.shade600),
                   ),
-                  items: _currencies.map((c) {
+                  items: [
+                     {'code': 'TRY', 'name': AppLocalizations.of(context)!.currencyTRY},
+                     {'code': 'USD', 'name': AppLocalizations.of(context)!.currencyUSD},
+                     {'code': 'EUR', 'name': AppLocalizations.of(context)!.currencyEUR},
+                     {'code': 'GBP', 'name': AppLocalizations.of(context)!.currencyGBP},
+                  ].map((c) {
                     return DropdownMenuItem<String>(
                       value: c['code'],
                       child: Text(c['name']!),

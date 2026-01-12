@@ -79,6 +79,22 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     }
   }
 
+  String _getLocalizedPrice(BuildContext context, String tierId) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (tierId) {
+      case 'standart':
+        return l10n.priceFree;
+      case 'premium':
+        return l10n.pricePerMonth('49.99', 'TL');
+      case 'limitless':
+        return l10n.pricePerMonth('79.99', 'TL');
+      case 'limitless_family':
+        return l10n.pricePerMonth('99.99', 'TL');
+      default:
+        return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<MembershipTier>(
@@ -194,7 +210,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    'MEVCUT',
+                                    AppLocalizations.of(context)!.currentLabel,
                                     style: TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.bold,
@@ -213,7 +229,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                tier.price,
+                                _getLocalizedPrice(context, tier.id),
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -368,23 +384,23 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     // Define all features with their availability per tier
     final features = [
       _FeatureRow(
-        name: l10n.featureDailyScans,
+        name: l10n.featureDailyScansLabel,
         icon: Icons.camera_alt,
         values: [
-          '1 fiş/gün',
-          '10 fiş/gün',
-          '25 fiş/gün',
-          '35 fiş/gün',
+          l10n.featureDailyScansLimit('1'),
+          l10n.featureDailyScansLimit('10'),
+          l10n.featureDailyScansLimit('25'),
+          l10n.featureDailyScansLimit('35'),
         ],
       ),
       _FeatureRow(
-        name: l10n.featureMonthlyManual,
+        name: l10n.featureMonthlyManualLabel,
         icon: Icons.edit_note,
         values: [
-          '20 giriş/ay',
-          '50 giriş/ay',
-          '100 giriş/ay',
-          '200 giriş/ay',
+          l10n.featureMonthlyManualLimit('20'),
+          l10n.featureMonthlyManualLimit('50'),
+          l10n.featureMonthlyManualLimit('100'),
+          l10n.featureMonthlyManualLimit('200'),
         ],
       ),
       _FeatureRow(
@@ -453,7 +469,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
         values: [false, false, false, true],
       ),
     ];
-
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,

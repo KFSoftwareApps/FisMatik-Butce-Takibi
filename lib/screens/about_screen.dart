@@ -55,9 +55,9 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             // App Name & Version
-            const Text(
-              "FişMatik",
-              style: TextStyle(
+            Text(
+              AppLocalizations.of(context)!.appTitle,
+              style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textDark,

@@ -101,7 +101,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'FişMatik'**
+  /// **'FisMatik: Budget Tracker'**
   String get appTitle;
 
   /// No description provided for @cheapestAt.
@@ -181,6 +181,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Register'**
   String get registerButton;
+
+  /// No description provided for @currentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'CURRENT'**
+  String get currentLabel;
+
+  /// No description provided for @priceFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get priceFree;
+
+  /// No description provided for @pricePerMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'{price} {currency} / Month'**
+  String pricePerMonth(Object currency, Object price);
+
+  /// No description provided for @featureDailyScansLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Receipt Scans'**
+  String get featureDailyScansLabel;
+
+  /// No description provided for @featureDailyScansLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} scans/day'**
+  String featureDailyScansLimit(Object count);
+
+  /// No description provided for @featureMonthlyManualLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly Manual Entries'**
+  String get featureMonthlyManualLabel;
+
+  /// No description provided for @featureMonthlyManualLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} entries/month'**
+  String featureMonthlyManualLimit(Object count);
 
   /// No description provided for @profileTitle.
   ///
@@ -542,6 +584,30 @@ abstract class AppLocalizations {
   /// **'Other'**
   String get other;
 
+  /// No description provided for @health.
+  ///
+  /// In en, this message translates to:
+  /// **'Health'**
+  String get health;
+
+  /// No description provided for @household.
+  ///
+  /// In en, this message translates to:
+  /// **'Household'**
+  String get household;
+
+  /// No description provided for @vatOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'VAT (Optional)'**
+  String get vatOptional;
+
+  /// No description provided for @vatHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tax amount (Default 10% if empty)'**
+  String get vatHint;
+
   /// No description provided for @scanReceiptToStart.
   ///
   /// In en, this message translates to:
@@ -878,6 +944,12 @@ abstract class AppLocalizations {
   /// **'A short note about the expense...'**
   String get noteHint;
 
+  /// No description provided for @expiresLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires: '**
+  String get expiresLabel;
+
   /// No description provided for @manualQuotaError.
   ///
   /// In en, this message translates to:
@@ -1129,6 +1201,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Fixed Expenses: {amount}'**
   String fixedExpensesLabel(Object amount);
+
+  /// No description provided for @fixedExpenseDeleteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip: Long press on an item to delete it.'**
+  String get fixedExpenseDeleteHint;
 
   /// No description provided for @allNotificationsCleared.
   ///
@@ -4081,6 +4159,264 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error loading subscription page.'**
   String get subscriptionPageLoadError;
+
+  /// No description provided for @installmentsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Installments'**
+  String get installmentsTitle;
+
+  /// No description provided for @addInstallmentExpense.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Installment Expense'**
+  String get addInstallmentExpense;
+
+  /// No description provided for @addCredit.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Credit'**
+  String get addCredit;
+
+  /// No description provided for @expenseName.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense Name'**
+  String get expenseName;
+
+  /// No description provided for @creditName.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit/Card Name'**
+  String get creditName;
+
+  /// No description provided for @totalAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Amount'**
+  String get totalAmount;
+
+  /// No description provided for @totalInstallments.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Installments'**
+  String get totalInstallments;
+
+  /// No description provided for @remainingInstallments.
+  ///
+  /// In en, this message translates to:
+  /// **'Remaining Installments'**
+  String get remainingInstallments;
+
+  /// No description provided for @paymentDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Day'**
+  String get paymentDay;
+
+  /// No description provided for @prefixExpense.
+  ///
+  /// In en, this message translates to:
+  /// **'[Expense]'**
+  String get prefixExpense;
+
+  /// No description provided for @installmentsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No installments yet'**
+  String get installmentsEmptyTitle;
+
+  /// No description provided for @installmentsEmptyDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a new one to start'**
+  String get installmentsEmptyDesc;
+
+  /// No description provided for @installmentsLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} installments left'**
+  String installmentsLeft(Object count);
+
+  /// No description provided for @deleteCreditConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this installment?'**
+  String get deleteCreditConfirm;
+
+  /// No description provided for @monthlyAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly Amount'**
+  String get monthlyAmount;
+
+  /// No description provided for @total.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get total;
+
+  /// No description provided for @addInstallmentExpenseSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Add installments for phone, furniture, etc.'**
+  String get addInstallmentExpenseSub;
+
+  /// No description provided for @currencyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Currency'**
+  String get currencyLabel;
+
+  /// No description provided for @currencyTRY.
+  ///
+  /// In en, this message translates to:
+  /// **'Turkish Lira (₺)'**
+  String get currencyTRY;
+
+  /// No description provided for @currencyUSD.
+  ///
+  /// In en, this message translates to:
+  /// **'US Dollar (\$)'**
+  String get currencyUSD;
+
+  /// No description provided for @currencyEUR.
+  ///
+  /// In en, this message translates to:
+  /// **'Euro (€)'**
+  String get currencyEUR;
+
+  /// No description provided for @currencyGBP.
+  ///
+  /// In en, this message translates to:
+  /// **'Pound (£)'**
+  String get currencyGBP;
+
+  /// No description provided for @reportTitleSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **' - Report'**
+  String get reportTitleSuffix;
+
+  /// No description provided for @noDataFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No data found'**
+  String get noDataFound;
+
+  /// No description provided for @spendingDistribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Spending Distribution'**
+  String get spendingDistribution;
+
+  /// No description provided for @categoryDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Category Details'**
+  String get categoryDetails;
+
+  /// No description provided for @totalExpense.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Expense'**
+  String get totalExpense;
+
+  /// No description provided for @expenseReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense Report'**
+  String get expenseReport;
+
+  /// No description provided for @dateRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Date Range'**
+  String get dateRange;
+
+  /// No description provided for @totalTax.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Tax'**
+  String get totalTax;
+
+  /// No description provided for @transactionCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction Count'**
+  String get transactionCount;
+
+  /// No description provided for @categorySpendingTop5.
+  ///
+  /// In en, this message translates to:
+  /// **'Category Spending (Top 5)'**
+  String get categorySpendingTop5;
+
+  /// No description provided for @amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get amount;
+
+  /// No description provided for @rate.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate'**
+  String get rate;
+
+  /// No description provided for @taxDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Tax Details (VAT)'**
+  String get taxDetails;
+
+  /// No description provided for @expenseDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense Details'**
+  String get expenseDetails;
+
+  /// No description provided for @merchant.
+  ///
+  /// In en, this message translates to:
+  /// **'Merchant'**
+  String get merchant;
+
+  /// No description provided for @baseAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Base Amount'**
+  String get baseAmount;
+
+  /// No description provided for @vat.
+  ///
+  /// In en, this message translates to:
+  /// **'VAT'**
+  String get vat;
+
+  /// No description provided for @matrahProdService.
+  ///
+  /// In en, this message translates to:
+  /// **'Base Amount (Product/Service)'**
+  String get matrahProdService;
+
+  /// No description provided for @descriptionProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Description/Products'**
+  String get descriptionProducts;
+
+  /// No description provided for @fismatikTaxReportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'FISMATIK TAX REPORT'**
+  String get fismatikTaxReportTitle;
+
+  /// No description provided for @fismatikExpenseReportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'FISMATIK EXPENSE REPORT'**
+  String get fismatikExpenseReportTitle;
 
   /// No description provided for @manualEntryLimitTitle.
   ///

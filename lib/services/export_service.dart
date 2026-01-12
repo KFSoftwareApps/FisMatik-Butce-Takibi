@@ -10,6 +10,7 @@ import 'package:universal_html/html.dart' as html; // [NEW] Web download için
 import 'supabase_database_service.dart';
 import 'report_service.dart';
 import '../models/receipt_model.dart';
+import 'package:fismatik/l10n/generated/app_localizations.dart';
 
 class ExportService {
   final SupabaseDatabaseService _databaseService = SupabaseDatabaseService();
@@ -82,7 +83,7 @@ class ExportService {
       final List<Receipt> receipts = await _databaseService.getAllReceiptsOnce();
       if (receipts.isEmpty) return;
       
-      await ReportService().generateAndShareExcelReport(receipts);
+      await ReportService().generateAndShareExcelReport(receipts, AppLocalizations.of(context)!);
     } catch (e) {
       debugPrint("Excel Export Hatası: $e");
     }
@@ -93,7 +94,7 @@ class ExportService {
       final List<Receipt> receipts = await _databaseService.getAllReceiptsOnce();
       if (receipts.isEmpty) return;
 
-      await ReportService().generateAndShareExcelReport(receipts, isTaxReport: true);
+      await ReportService().generateAndShareExcelReport(receipts, AppLocalizations.of(context)!, isTaxReport: true);
     } catch (e) {
       debugPrint("Vergi Raporu Hatası: $e");
     }

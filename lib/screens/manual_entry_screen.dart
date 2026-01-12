@@ -91,6 +91,21 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     super.dispose();
   }
 
+  String _getLocalizedCategoryName(BuildContext context, String rawName) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (rawName) {
+      case 'Market': return l10n.market;
+      case 'Yeme-İçme': return l10n.foodAndDrink;
+      case 'Akaryakıt': return l10n.fuel;
+      case 'Giyim': return l10n.clothing;
+      case 'Teknoloji': return l10n.technology;
+      case 'Sağlık': return l10n.health;
+      case 'Ev Eşyası': return l10n.household;
+      case 'Diğer': return l10n.other;
+      default: return rawName;
+    }
+  }
+
   void _addNewItem() {
     setState(() {
       final entry = _ManualItemEntry();
@@ -453,8 +468,8 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
               TextFormField(
                 controller: _taxController,
                 decoration: InputDecoration(
-                  labelText: "KDV (Opsiyonel)",
-                  hintText: "Vergi tutarı (Boşsa %10 hesaplanır)",
+                  labelText: AppLocalizations.of(context)!.vatOptional,
+                  hintText: AppLocalizations.of(context)!.vatHint,
                   prefixText: CurrencyFormatter.currencySymbol,
                   border: const OutlineInputBorder(),
                 ),
@@ -508,7 +523,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
                         .map(
                           (c) => DropdownMenuItem<String>(
                             value: c.name,
-                            child: Text(c.name),
+                            child: Text(_getLocalizedCategoryName(context, c.name)),
                           ),
                         )
                         .toList(),

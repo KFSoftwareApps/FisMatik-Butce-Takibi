@@ -363,6 +363,8 @@ class SupabaseDatabaseService {
     }
   }
 
+
+
   // --- ÜYELİK İŞLEMLERİ ---
 
   Stream<String> getUserTierStream() {
@@ -390,6 +392,17 @@ class SupabaseDatabaseService {
         .map((event) {
           return event.isEmpty ? {} : event.first;
         });
+  }
+
+  Future<Map<String, dynamic>?> getUserRoleData() async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) return null;
+    
+    return _client
+        .from('user_roles')
+        .select()
+        .eq('user_id', uid)
+        .maybeSingle();
   }
 
   Future<void> checkAndDowngradeIfExpired() async {
@@ -852,6 +865,11 @@ class SupabaseDatabaseService {
         sSub.cancel();
         cSub.cancel();
       };
+    }).catchError((e) {
+      print("getUnifiedReceiptsStream Init Error: $e");
+      if (!controller.isClosed) {
+        controller.addError(e);
+      }
     });
 
     return controller.stream;
@@ -965,29 +983,101 @@ class SupabaseDatabaseService {
 
   Future<List<DateTime>> getAvailableMonths() async {
     final uid = _userId;
-    final familyId = await _getFamilyIdForCurrentUser();
-    
+    // familyId almak yerine direkt scopeUserIds kullanıyoruz, çünkü harcamalar kullanıcı bazlı da olabilir
     final userIds = await _getScopeUserIds();
-    final response = await _client
+    
+    // 1. Fişlerden gelen aylar
+    final receiptResponse = await _client
         .from('receipts')
         .select('date')
         .filter('user_id', 'in', userIds)
         .order('date', ascending: false);
 
     final Set<String> uniqueMonths = {};
-    final List<DateTime> months = [];
-
-    for (final item in response) {
+    
+    for (final item in receiptResponse) {
       final dateStr = item['date'] as String;
       final date = DateTime.parse(dateStr);
-      // YYYY-MM formatında unique key oluştur
       final key = "${date.year}-${date.month}";
-      
       if (!uniqueMonths.contains(key)) {
         uniqueMonths.add(key);
-        months.add(DateTime(date.year, date.month));
       }
     }
+
+    // 2. Kredilerden gelen aylar (Taksit süresince)
+    final creditResponse = await _client
+        .from('user_credits')
+        .select('created_at, total_installments')
+        .filter('user_id', 'in', userIds);
+        
+    final now = DateTime.now();
+
+    for (final item in creditResponse) {
+      final createdAt = DateTime.parse(item['created_at']);
+      final totalInstallments = item['total_installments'] as int;
+      
+      // Kredi kartı borcu (999) ise sadece oluşturulduğu ay (veya güncel ay?)
+      // Normal taksit ise taksit bitene kadar
+      
+      // Başlangıçtan bugüne kadar olan ayları kontrol et
+      // (Gelecek ayları listelemiyoruz, history mantığı)
+      
+      // Döngü: Kredinin başlangıcından, min(bugün, bitiş) tarihine kadar
+      int monthsToAdd = totalInstallments == 999 ? 1 : totalInstallments;
+      
+      for (int i = 0; i < monthsToAdd; i++) {
+        final targetDate = DateTime(createdAt.year, createdAt.month + i);
+        if (targetDate.isAfter(now)) break; // Geleceği gösterme
+        
+        final key = "${targetDate.year}-${targetDate.month}";
+        if (!uniqueMonths.contains(key)) {
+           uniqueMonths.add(key);
+        }
+      }
+    }
+
+    // 3. Aboneliklerden gelen aylar (Oluşturma tarihinden bugüne)
+    try {
+      final subResponse = await _client
+          .from('subscriptions')
+          .select('created_at')
+          .filter('user_id', 'in', userIds);
+          
+      for (final item in subResponse) {
+        // created_at yoksa fallback olarak bugünü al (çok eski göstermemek için)
+        final createdAtStr = item['created_at'] as String?;
+        final createdAt = createdAtStr != null ? DateTime.parse(createdAtStr) : now;
+        
+        // Abonelik başlangıcından bugüne kadarki her ayı ekle
+        // (Sonsuz döngü olmaması için basit bir while)
+        var runner = DateTime(createdAt.year, createdAt.month);
+        
+        // Güvenlik limiti: Son 5 yıl (çok eski dataları getirmeyelim, veri kirliliği varsa)
+        if (runner.year < now.year - 5) {
+           runner = DateTime(now.year - 5, 1);
+        }
+
+        while (runner.isBefore(now) || (runner.year == now.year && runner.month == now.month)) {
+          final key = "${runner.year}-${runner.month}";
+          if (!uniqueMonths.contains(key)) {
+            uniqueMonths.add(key);
+          }
+          // Bir sonraki aya geç
+          runner = DateTime(runner.year, runner.month + 1);
+        }
+      }
+    } catch (e) {
+      print("History: Subscription dates fetch error (probably no created_at): $e");
+      // Fallback: Abonelikler için geçmiş tarih oluşturamıyoruz, sadece işlem devam etsin.
+    }
+    
+    // Listeye çevirip sırala
+    final List<DateTime> months = uniqueMonths.map((e) {
+      final parts = e.split('-');
+      return DateTime(int.parse(parts[0]), int.parse(parts[1]));
+    }).toList();
+    
+    months.sort((a, b) => b.compareTo(a)); // Yeniden eskiye
     
     return months;
   }

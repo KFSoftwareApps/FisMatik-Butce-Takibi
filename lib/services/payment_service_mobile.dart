@@ -293,13 +293,10 @@ class PaymentService {
 
           // hala null ise
           if (transactionDateMs == null || transactionDateMs == 0) {
-            print("⚠️ Geçersiz işlem tarihi (Restored): ${purchase.transactionDate} - Format anlaşılamadı. İzin veriliyor.");
-            // Tarih okunamadı ama status 'restored' veya 'purchased' ise ve buraya kadar geldiyse
-            // Kullanıcıyı engellemek yerine log basıp devam etmek daha güvenli (False negative engellemek için)
-            // onPurchaseCompleted?.call("İşlem tarihi doğrulanamadı.", false);
-            // return; 
-            
-            // FALLBACK: Tarih doğrulanamadı ama işlem geçerli kabul edilsin.
+            print("⚠️ Geçersiz işlem tarihi (Restored): ${purchase.transactionDate} - Format anlaşılamadı. İŞLEM YOKSAYILIYOR.");
+            // GÜVENLİK GÜNCELLEMESİ: Tarih doğrulanamazsa işlemi yoksay.
+            // Aksi takdirde eski/geçersiz bir işlem sürekli "Family" moduna zorlayabiliyor.
+            return; 
           } else {
              // Tarih başarılı şekilde parse edildi, şimdi kontrol et
             final transactionDate = DateTime.fromMillisecondsSinceEpoch(transactionDateMs);
@@ -307,23 +304,65 @@ class PaymentService {
             final difference = now.difference(transactionDate).inDays;
             
             // 30 günden eski işlemse (veya 5 gün tolerans ile 35)
+            // Restore durumunda bu kontrol mutlaktır.
             if (difference > 35) {
                print("⚠️ Süresi dolmuş işlem (Restored) yoksayıldı. Tarih: $transactionDate, Fark: $difference gün");
-               onPurchaseCompleted?.call("Önceki aboneliğinizin süresi dolmuş görünüyor.", false);
+               // onPurchaseCompleted?.call("Önceki aboneliğinizin süresi dolmuş görünüyor.", false);
                return;
             }
           }
 
         } catch (e) {
           print("Tarih kontrolü hatası (Restored): $e. İşlem güvenlik için yoksayıldı.");
-          // Tarih hatası yüzünden engelleme yapmayalım, loglayıp geçelim.
+          return;
         }
       } else {
         // Tarih yoksa restored işlemi, eğer verified ise kabul edelim.
-        print("⚠️ İşlem tarihi NULL. İşleme devam ediliyor.");
+        print("⚠️ İşlem tarihi NULL. İşlem Yoksayıldı.");
+        return;
       }
     }
     
+    // GÜVENLİK KONTROLÜ 2: Restored işlemi, mevcut üyeliğin güncelleme tarihinden ESKİ Mİ?
+    // Eğer kullanıcı geçen hafta manuel olarak Standard'a geçmişse (update_date = geçen hafta)
+    // Ama restore işlemindeki tarih 1 ay önceyse (Limitless)
+    // Bu eski işlemi yoksaymalıyız.
+    if (purchase.status == PurchaseStatus.restored) {
+       try {
+         final roleData = await _databaseService.getUserRoleData();
+         final updateDateStr = roleData?['update_date'] as String?;
+         
+         if (updateDateStr != null && purchase.transactionDate != null) {
+            // Transaction date parse (yukarıda zaten yapıldı ama burada tekrar gerekebilir veya transactionDateMs kullanabiliriz)
+            // transactionDateMs değişkenini kullanabiliriz ama scope dışı olabilir. 
+            // Basitçe tekrar parse edelim güvenli.
+             int? tMs;
+             final tDateRaw = purchase.transactionDate!;
+             if (int.tryParse(tDateRaw) != null) {
+               tMs = int.parse(tDateRaw);
+             } else {
+               // Fallback
+               try { tMs = DateTime.parse(tDateRaw).millisecondsSinceEpoch; } catch (_) {}
+             }
+
+             if (tMs != null) {
+                final transactionDate = DateTime.fromMillisecondsSinceEpoch(tMs);
+                final roleUpdateDate = DateTime.parse(updateDateStr); // UTC?
+                
+                // Eğer işlem tarihi, rol güncelleme tarihinden ÖNCE ise yoksay.
+                // (Küçük bir tolerans: 1 dakika)
+                if (transactionDate.isBefore(roleUpdateDate.subtract(const Duration(minutes: 1)))) {
+                   print("🛑 ESKİ İŞLEM YOKSAYILDI. İşlem Tarihi: $transactionDate, Mevcut Rol Güncellemesi: $roleUpdateDate");
+                   // onPurchaseCompleted?.call("Bu işlem mevcut üyeliğinizden daha eski.", true);
+                   return;
+                }
+             }
+         }
+       } catch (e) {
+         print("Tarih karşılaştırma hatası: $e");
+       }
+    }
+
     // Veritabanında rolü güncelle
     await _databaseService.updateUserTier(tierId);
 

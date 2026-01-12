@@ -1,7 +1,7 @@
 name: fismatik
 description: "FişMatik Gider Takip Uygulaması"
 publish_to: 'none'
-version: 1.1.1+134
+version: 1.1.2+142
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

@@ -12,6 +12,7 @@ import '../services/network_time_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_theme.dart';
+import '../utils/l10n_helper.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
 import '../services/family_service.dart';
@@ -72,6 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   late Stream<Map<String, dynamic>> _userRoleStream;
   late Stream<List<Receipt>> _receiptsStream;
+  late Stream<List<Subscription>> _subscriptionsStream;
 
 
   @override
@@ -87,6 +89,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _initStreams() {
     _userRoleStream = _databaseService.getUserRoleDataStream();
     _receiptsStream = _databaseService.getReceipts();
+    _subscriptionsStream = _databaseService.getSubscriptions();
   }
   
   void _checkExpiration() async {
@@ -135,46 +138,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return StreamBuilder<List<Receipt>>(
           stream: _receiptsStream,
           builder: (context, receiptsSnapshot) {
-            // Show loading or use empty list if waiting but allow building structure
-            final bool isReceiptsLoading = receiptsSnapshot.connectionState == ConnectionState.waiting && !receiptsSnapshot.hasData;
-            final receipts = receiptsSnapshot.data ?? [];
-            final now = DateTime.now();
+            return StreamBuilder<List<Subscription>>(
+              stream: _subscriptionsStream,
+              builder: (context, subsSnapshot) {
+                // Show loading or use empty list if waiting but allow building structure
+                final bool isReceiptsLoading = receiptsSnapshot.connectionState == ConnectionState.waiting && !receiptsSnapshot.hasData;
+                final receipts = receiptsSnapshot.data ?? [];
+                final subscriptions = subsSnapshot.data ?? [];
+                
+                final now = DateTime.now();
 
-            // İstatistikler
-            final monthlyReceipts = receipts.where((r) =>
-              r.date.year == now.year && r.date.month == now.month
-            ).toList();
+                // İstatistikler: Fişler
+                final monthlyReceipts = receipts.where((r) =>
+                  r.date.year == now.year && r.date.month == now.month
+                ).toList();
 
-            final monthlySpent = monthlyReceipts.fold<double>(
-              0, (sum, r) => sum + r.totalAmount
-            );
+                double monthlySpent = monthlyReceipts.fold<double>(
+                  0, (sum, r) => sum + r.totalAmount
+                );
+                
+                // İstatistikler: Sabit Giderler (Abonelikler)
+                // Sabit giderler her ay tekrarlar, o yüzden direkt toplama ekliyoruz.
+                final monthlyFixedExpenses = subscriptions.fold<double>(
+                  0, (sum, s) => sum + s.price
+                );
+                
+                // Toplam "Bu Ay" harcamasına sabit giderleri ekle
+                monthlySpent += monthlyFixedExpenses;
 
-            final avgPerReceipt = receipts.isEmpty
-              ? 0.0
-              : receipts.fold<double>(0, (sum, r) => sum + r.totalAmount) / receipts.length;
+                final avgPerReceipt = receipts.isEmpty
+                  ? 0.0
+                  : receipts.fold<double>(0, (sum, r) => sum + r.totalAmount) / receipts.length;
 
-            if (isReceiptsLoading) {
-               return const Scaffold(body: Center(child: CircularProgressIndicator()));
-            }
+                if (isReceiptsLoading) {
+                   return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                }
 
-            return Scaffold(
-              backgroundColor: AppColors.background,
-              body: SafeArea(
-                child: RefreshIndicator(
-                  onRefresh: () async {
-                    await _databaseService.checkAndDowngradeIfExpired();
-                    setState(() {});
-                  },
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 20),
-                        _buildProfileHeader(displayName, email),
-                        const SizedBox(height: 24),
-                        _buildStatsCards(monthlySpent, receipts.length, avgPerReceipt),
-                        const SizedBox(height: 20),
+                return Scaffold(
+                  backgroundColor: AppColors.background,
+                  body: SafeArea(
+                    child: RefreshIndicator(
+                      onRefresh: () async {
+                        await _databaseService.checkAndDowngradeIfExpired();
+                        setState(() {});
+                      },
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 20),
+                            _buildProfileHeader(displayName, email),
+                            const SizedBox(height: 24),
+                            // İpucu: Ortalama yine sadece fiş ortalaması olarak kaldı.
+                            // Eğer "Ortalama Harcama" (Gider dahil) istenirse burası değişebilir.
+                            _buildStatsCards(monthlySpent, receipts.length, avgPerReceipt),
+                                const SizedBox(height: 20),
                         const SizedBox(height: 20),
                         _buildMembershipCard(currentTier, expiresAt),
                         const SizedBox(height: 20),
@@ -297,6 +316,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 20),
                             _buildSectionTitle(AppLocalizations.of(context)!.settingsSection),
+                            
+                            // Monthly Budget Setting
+                            StreamBuilder<Map<String, dynamic>>(
+                              stream: _databaseService.getUserSettings(),
+                              builder: (context, snapshot) {
+                                final budget = snapshot.data?['monthly_limit'] as double? ?? 5000.0;
+                                return _buildSettingsTile(
+                                  context,
+                                  icon: Icons.account_balance,
+                                  title: AppLocalizations.of(context)!.monthlyLimit,
+                                  subtitle: CurrencyFormatter.format(budget),
+                                  color: Colors.indigo,
+                                  trailing: const Icon(Icons.edit, size: 16, color: Colors.grey),
+                                  onTap: () => _showUpdateBudgetDialog(context, budget),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 10),
 
                             _buildSettingsTile(
                               context,
@@ -346,7 +383,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 final now = DateTime.now();
                                 final receipts = await databaseService.getMonthAnalysisData(now);
                                 if (context.mounted) {
-                                  await ReportService().generateAndShareExcelReport(receipts);
+                                  await ReportService().generateAndShareExcelReport(receipts, AppLocalizations.of(context)!);
                                 }
                               },
                             ),
@@ -376,7 +413,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 final receipts = await databaseService.getMonthAnalysisData(now);
                                 if (context.mounted) {
                                   final start = DateTime(now.year, now.month, 1);
-                                  await ReportService().generateAndSharePdfReport(receipts, start, now, isTaxReport: true);
+                                  await ReportService().generateAndSharePdfReport(receipts, start, now, AppLocalizations.of(context)!, isTaxReport: true);
                                 }
                               },
                             ),
@@ -429,6 +466,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 );
 
+          },
+        );
           },
         );
       },
@@ -780,6 +819,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _showUpdateBudgetDialog(BuildContext context, double currentLimit) {
+    final controller = TextEditingController(text: CurrencyFormatter.formatDecimal(currentLimit));
+    
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(AppLocalizations.of(context)!.setBudgetLimit),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.monthlyLimitAmount,
+                suffixText: CurrencyFormatter.currencySymbol,
+                prefixIcon: const Icon(Icons.account_balance_wallet),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newLimit = double.tryParse(controller.text.replaceAll(',', '.')) ?? currentLimit;
+              await _databaseService.updateMonthlyLimit(newLimit);
+              if (mounted) Navigator.pop(ctx);
+            },
+            child: Text(AppLocalizations.of(context)!.save),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildStatsCards(double monthlySpent, int totalReceipts, double avgPerReceipt) {
     // Using CurrencyFormatter
@@ -916,7 +994,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      AppLocalizations.of(context)!.membershipTierLabel(tier.name),
+                      AppLocalizations.of(context)!.membershipTierLabel(L10nHelper.getTierName(context, tier.id)),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -937,7 +1015,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const Icon(Icons.timer_outlined, color: Colors.white, size: 14),
                             const SizedBox(width: 4),
                             Text(
-                              'Bitiş: ${_timeRemaining(expiresAt)}',
+                              '${AppLocalizations.of(context)!.expiresLabel} ${_timeRemaining(expiresAt)}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -1494,17 +1572,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (date == null) return '';
     final now = DateTime.now();
     final difference = date.difference(now);
+    final l10n = AppLocalizations.of(context)!;
 
-    if (difference.isNegative) return "Süresi doldu";
+    if (difference.isNegative) return l10n.membershipStatusExpired;
 
     if (difference.inDays > 0) {
-      return "${difference.inDays} gün";
+      return l10n.membershipStatusDaysLeft(difference.inDays);
     } else if (difference.inHours > 0) {
-      return "${difference.inHours} saat";
+      return l10n.membershipStatusHoursLeft(difference.inHours);
     } else if (difference.inMinutes > 0) {
-      return "${difference.inMinutes} dk";
+      return l10n.membershipStatusMinutesLeft(difference.inMinutes);
     } else {
-      return "Az kaldı";
+      return l10n.membershipStatusSoon;
     }
   }
 

@@ -27,6 +27,9 @@ import 'package:fismatik/services/profile_service.dart';
 import 'package:provider/provider.dart';
 import '../providers/currency_provider.dart';
 
+import 'package:fismatik/services/data_refresh_service.dart';
+import 'dart:async'; // StreamSubscription için
+
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
 
@@ -48,6 +51,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   late Stream<Map<String, dynamic>> _roleStream;
   final IntelligenceService _intelligenceService = IntelligenceService();
   final AuthService _authService = AuthService();
+  StreamSubscription<void>? _refreshSubscription;
+
   String _currentTierId = 'standart';
   String? _userCity;
 
@@ -55,13 +60,47 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _receiptsStream = _databaseService.getUnifiedReceiptsStream();
+    _initStreams();
+    
+    // Listen for refresh events (e.g. after scanning a receipt)
+    _refreshSubscription = DataRefreshService().onUpdate.listen((_) {
+      if (mounted) {
+        print("AnalysisScreen: Refresh signal received. Reloading stream...");
+        setState(() {
+          _initStreams();
+        });
+      }
+    });
+    
     _settingsStream = _databaseService.getUserSettings();
     _roleStream = _databaseService.getUserRoleDataStream();
     
-    // Check for Salary Day preference on init
+    // Load saved filter preference
+    _loadSavedFilter();
     _checkInitialData();
     _loadUserCity();
+  }
+
+  Future<void> _loadSavedFilter() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedFilter = prefs.getString('analysis_filter_pref');
+      
+      if (savedFilter != null && mounted) {
+        setState(() {
+          _selectedTimeFilter = savedFilter;
+        });
+      } else {
+        // Fallback: If no saved preference, check if user has a salary day set
+        _checkSalaryDayPreference();
+      }
+    } catch (e) {
+      print("Filter load error: $e");
+    }
+  }
+
+  void _initStreams() {
+    _receiptsStream = _databaseService.getUnifiedReceiptsStream();
   }
 
   Future<void> _loadUserCity() async {
@@ -78,7 +117,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   }
 
   Future<void> _checkInitialData() async {
-    _checkSalaryDayPreference();
+    // _checkSalaryDayPreference is now called in _loadSavedFilter as fallback
     final results = await Future.wait<dynamic>([
       _authService.getCurrentTier(),
       _databaseService.loadGlobalProductMappings(),
@@ -119,10 +158,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
     // Only set default if it's NOT already set to a special value like "Maaş Günü"
     // and if the current value is invalid
-    if (!_timeFilters.contains(_selectedTimeFilter)) {
+    if (_selectedTimeFilter.isEmpty || !_timeFilters.contains(_selectedTimeFilter)) {
        // If "Salary Day" was set but not in list yet (race condition), it stays.
        // But if it's completely invalid, revert to This Month.
-       if (_selectedTimeFilter != AppLocalizations.of(context)!.salaryDay) {
+       if (_selectedTimeFilter != "Maaş Günü" && _selectedTimeFilter != AppLocalizations.of(context)!.salaryDay) {
           _selectedTimeFilter = AppLocalizations.of(context)!.thisMonth;
        }
     }
@@ -131,6 +170,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _refreshSubscription?.cancel();
     super.dispose();
   }
 
@@ -289,8 +329,16 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                 color: selected ? AppColors.primary : Colors.black87,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
-              onSelected: (_) {
+              onSelected: (_) async {
                 setState(() => _selectedTimeFilter = label);
+                
+                // Save preference
+                try {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('analysis_filter_pref', label);
+                } catch (e) {
+                  print("Error saving filter pref: $e");
+                }
               },
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(999),

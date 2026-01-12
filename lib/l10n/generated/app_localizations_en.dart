@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'FişMatik';
+  String get appTitle => 'FisMatik: Budget Tracker';
 
   @override
   String cheapestAt(Object merchant) {
@@ -52,6 +52,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get registerButton => 'Register';
+
+  @override
+  String get currentLabel => 'CURRENT';
+
+  @override
+  String get priceFree => 'Free';
+
+  @override
+  String pricePerMonth(Object currency, Object price) {
+    return '$price $currency / Month';
+  }
+
+  @override
+  String get featureDailyScansLabel => 'Daily Receipt Scans';
+
+  @override
+  String featureDailyScansLimit(Object count) {
+    return '$count scans/day';
+  }
+
+  @override
+  String get featureMonthlyManualLabel => 'Monthly Manual Entries';
+
+  @override
+  String featureMonthlyManualLimit(Object count) {
+    return '$count entries/month';
+  }
 
   @override
   String get profileTitle => 'My Profile';
@@ -242,6 +269,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get other => 'Other';
 
   @override
+  String get health => 'Health';
+
+  @override
+  String get household => 'Household';
+
+  @override
+  String get vatOptional => 'VAT (Optional)';
+
+  @override
+  String get vatHint => 'Tax amount (Default 10% if empty)';
+
+  @override
   String get scanReceiptToStart => 'Scan receipt to start!';
 
   @override
@@ -430,6 +469,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteHint => 'A short note about the expense...';
 
   @override
+  String get expiresLabel => 'Expires: ';
+
+  @override
   String get manualQuotaError => 'Could not get quota info';
 
   @override
@@ -566,6 +608,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String fixedExpensesLabel(Object amount) {
     return 'Fixed Expenses: $amount';
   }
+
+  @override
+  String get fixedExpenseDeleteHint =>
+      'Tip: Long press on an item to delete it.';
 
   @override
   String get allNotificationsCleared => 'All notifications cleared.';
@@ -2193,6 +2239,139 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get subscriptionPageLoadError => 'Error loading subscription page.';
+
+  @override
+  String get installmentsTitle => 'Installments';
+
+  @override
+  String get addInstallmentExpense => 'Add Installment Expense';
+
+  @override
+  String get addCredit => 'Add Credit';
+
+  @override
+  String get expenseName => 'Expense Name';
+
+  @override
+  String get creditName => 'Credit/Card Name';
+
+  @override
+  String get totalAmount => 'Total Amount';
+
+  @override
+  String get totalInstallments => 'Total Installments';
+
+  @override
+  String get remainingInstallments => 'Remaining Installments';
+
+  @override
+  String get paymentDay => 'Payment Day';
+
+  @override
+  String get prefixExpense => '[Expense]';
+
+  @override
+  String get installmentsEmptyTitle => 'No installments yet';
+
+  @override
+  String get installmentsEmptyDesc => 'Add a new one to start';
+
+  @override
+  String installmentsLeft(Object count) {
+    return '$count installments left';
+  }
+
+  @override
+  String get deleteCreditConfirm =>
+      'Are you sure you want to delete this installment?';
+
+  @override
+  String get monthlyAmount => 'Monthly Amount';
+
+  @override
+  String get total => 'Total';
+
+  @override
+  String get addInstallmentExpenseSub =>
+      'Add installments for phone, furniture, etc.';
+
+  @override
+  String get currencyLabel => 'Currency';
+
+  @override
+  String get currencyTRY => 'Turkish Lira (₺)';
+
+  @override
+  String get currencyUSD => 'US Dollar (\$)';
+
+  @override
+  String get currencyEUR => 'Euro (€)';
+
+  @override
+  String get currencyGBP => 'Pound (£)';
+
+  @override
+  String get reportTitleSuffix => ' - Report';
+
+  @override
+  String get noDataFound => 'No data found';
+
+  @override
+  String get spendingDistribution => 'Spending Distribution';
+
+  @override
+  String get categoryDetails => 'Category Details';
+
+  @override
+  String get totalExpense => 'Total Expense';
+
+  @override
+  String get expenseReport => 'Expense Report';
+
+  @override
+  String get dateRange => 'Date Range';
+
+  @override
+  String get totalTax => 'Total Tax';
+
+  @override
+  String get transactionCount => 'Transaction Count';
+
+  @override
+  String get categorySpendingTop5 => 'Category Spending (Top 5)';
+
+  @override
+  String get amount => 'Amount';
+
+  @override
+  String get rate => 'Rate';
+
+  @override
+  String get taxDetails => 'Tax Details (VAT)';
+
+  @override
+  String get expenseDetails => 'Expense Details';
+
+  @override
+  String get merchant => 'Merchant';
+
+  @override
+  String get baseAmount => 'Base Amount';
+
+  @override
+  String get vat => 'VAT';
+
+  @override
+  String get matrahProdService => 'Base Amount (Product/Service)';
+
+  @override
+  String get descriptionProducts => 'Description/Products';
+
+  @override
+  String get fismatikTaxReportTitle => 'FISMATIK TAX REPORT';
+
+  @override
+  String get fismatikExpenseReportTitle => 'FISMATIK EXPENSE REPORT';
 
   @override
   String get manualEntryLimitTitle => 'Manual Entry Limit';

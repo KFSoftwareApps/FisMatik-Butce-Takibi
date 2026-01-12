@@ -9,7 +9,7 @@ class AppLocalizationsTr extends AppLocalizations {
   AppLocalizationsTr([String locale = 'tr']) : super(locale);
 
   @override
-  String get appTitle => 'FişMatik';
+  String get appTitle => 'FişMatik: Bütçe Yönetimi';
 
   @override
   String cheapestAt(Object merchant) {
@@ -52,6 +52,33 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get registerButton => 'Kayıt Ol';
+
+  @override
+  String get currentLabel => 'MEVCUT';
+
+  @override
+  String get priceFree => 'Ücretsiz';
+
+  @override
+  String pricePerMonth(Object currency, Object price) {
+    return '$price $currency / Ay';
+  }
+
+  @override
+  String get featureDailyScansLabel => 'Günlük Fiş Tarama';
+
+  @override
+  String featureDailyScansLimit(Object count) {
+    return '$count fiş/gün';
+  }
+
+  @override
+  String get featureMonthlyManualLabel => 'Aylık Manuel Giriş';
+
+  @override
+  String featureMonthlyManualLimit(Object count) {
+    return '$count giriş/ay';
+  }
 
   @override
   String get profileTitle => 'Profilim';
@@ -243,6 +270,18 @@ class AppLocalizationsTr extends AppLocalizations {
   String get other => 'Diğer';
 
   @override
+  String get health => 'Sağlık';
+
+  @override
+  String get household => 'Ev Eşyası';
+
+  @override
+  String get vatOptional => 'KDV (Opsiyonel)';
+
+  @override
+  String get vatHint => 'Vergi tutarı (Boşsa %10 hesaplanır)';
+
+  @override
   String get scanReceiptToStart => 'Başlamak için fiş tara!';
 
   @override
@@ -432,6 +471,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get noteHint => 'Gider hakkında kısa bir not...';
 
   @override
+  String get expiresLabel => 'Bitiş: ';
+
+  @override
   String get manualQuotaError => 'Kota bilgisi alınamadı';
 
   @override
@@ -567,6 +609,10 @@ class AppLocalizationsTr extends AppLocalizations {
   String fixedExpensesLabel(Object amount) {
     return 'Sabit Giderler: $amount';
   }
+
+  @override
+  String get fixedExpenseDeleteHint =>
+      'İpucu: Silmek için öğenin üzerine basılı tutun.';
 
   @override
   String get allNotificationsCleared => 'Tüm bildirimler temizlendi.';
@@ -1126,7 +1172,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get areYouSure => 'Emin misiniz?';
 
   @override
-  String get expenseWillBeDeleted => 'Bu gider kalıcı olarak silinecektir.';
+  String get expenseWillBeDeleted => 'Bu harcama kalıcı olarak silinecektir.';
 
   @override
   String get monthlyFixedExpense => 'Aylık Toplam Gider';
@@ -2188,6 +2234,139 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get subscriptionPageLoadError =>
       'Abonelik sayfası yüklenirken hata oluştu.';
+
+  @override
+  String get installmentsTitle => 'Taksitler';
+
+  @override
+  String get addInstallmentExpense => 'Taksitli Gider Ekle';
+
+  @override
+  String get addCredit => 'Kredi Ekle';
+
+  @override
+  String get expenseName => 'Gider Adı';
+
+  @override
+  String get creditName => 'Kredi/Kart Adı';
+
+  @override
+  String get totalAmount => 'Toplam Tutar';
+
+  @override
+  String get totalInstallments => 'Toplam Taksit';
+
+  @override
+  String get remainingInstallments => 'Kalan Taksit';
+
+  @override
+  String get paymentDay => 'Ödeme Günü';
+
+  @override
+  String get prefixExpense => '[Gider]';
+
+  @override
+  String get installmentsEmptyTitle => 'Henüz taksit eklenmemiş';
+
+  @override
+  String get installmentsEmptyDesc => 'Başlamak için yeni ekleyin';
+
+  @override
+  String installmentsLeft(Object count) {
+    return '$count taksit kaldı';
+  }
+
+  @override
+  String get deleteCreditConfirm =>
+      'Bu taksidi silmek istediğinize emin misiniz?';
+
+  @override
+  String get monthlyAmount => 'Aylık Tutar';
+
+  @override
+  String get total => 'Toplam';
+
+  @override
+  String get addInstallmentExpenseSub =>
+      'Telefon, mobilya vb. taksitlerinizi ekleyin';
+
+  @override
+  String get currencyLabel => 'Para Birimi';
+
+  @override
+  String get currencyTRY => 'Türk Lirası (₺)';
+
+  @override
+  String get currencyUSD => 'Amerikan Doları (\$)';
+
+  @override
+  String get currencyEUR => 'Euro (€)';
+
+  @override
+  String get currencyGBP => 'İngiliz Sterlini (£)';
+
+  @override
+  String get reportTitleSuffix => ' - Rapor';
+
+  @override
+  String get noDataFound => 'Veri bulunamadı';
+
+  @override
+  String get spendingDistribution => 'Harcama Dağılımı';
+
+  @override
+  String get categoryDetails => 'Kategori Detayları';
+
+  @override
+  String get totalExpense => 'Toplam Gider';
+
+  @override
+  String get expenseReport => 'Harcama Raporu';
+
+  @override
+  String get dateRange => 'Tarih Aralığı';
+
+  @override
+  String get totalTax => 'Toplam KDV';
+
+  @override
+  String get transactionCount => 'İşlem Sayısı';
+
+  @override
+  String get categorySpendingTop5 => 'Kategori Bazlı Harcama (Top 5)';
+
+  @override
+  String get amount => 'Tutar';
+
+  @override
+  String get rate => 'Oran';
+
+  @override
+  String get taxDetails => 'Vergi Detayları (KDV)';
+
+  @override
+  String get expenseDetails => 'Harcama Detayları';
+
+  @override
+  String get merchant => 'İşyeri';
+
+  @override
+  String get baseAmount => 'Matrah';
+
+  @override
+  String get vat => 'KDV';
+
+  @override
+  String get matrahProdService => 'Matrah (Ürün/Hizmet)';
+
+  @override
+  String get descriptionProducts => 'Açıklama/Ürünler';
+
+  @override
+  String get fismatikTaxReportTitle => 'FİŞMATİK VERGİ RAPORU';
+
+  @override
+  String get fismatikExpenseReportTitle => 'FİŞMATİK HARCAMA RAPORU';
 
   @override
   String get manualEntryLimitTitle => 'Manuel Giriş Limiti';

@@ -268,11 +268,51 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isEditing ? AppLocalizations.of(context)!.editExpense : AppLocalizations.of(context)!.newFixedExpense),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              isEditing ? AppLocalizations.of(context)!.editExpense : AppLocalizations.of(context)!.newFixedExpense,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            if (isEditing)
+               IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                tooltip: 'Sil',
+                onPressed: () async {
+                   // Onay diyaloğu
+                   final confirm = await showDialog<bool>(
+                     context: context,
+                     builder: (c) => AlertDialog(
+                       title: const Text('Sil?'),
+                       content: const Text('Bu sabit gideri silmek istediğinize emin misiniz?'),
+                       actions: [
+                         TextButton(
+                           onPressed: () => Navigator.pop(c, false),
+                           child: const Text('İptal', style: TextStyle(color: Colors.grey)),
+                         ),
+                         TextButton(
+                           onPressed: () => Navigator.pop(c, true),
+                           child: const Text('Sil', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                         ),
+                       ],
+                     ),
+                   );
+
+                   if (confirm == true) {
+                     Navigator.pop(ctx);
+                     _deleteSubscription(subscription!.id);
+                   }
+                },
+              ),
+          ],
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const SizedBox(height: 16),
               TextField(
                 controller: nameController,
                 decoration: InputDecoration(
@@ -284,7 +324,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: priceController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
                   labelText: AppLocalizations.of(context)!.amountLabel,
                   suffixText: CurrencyFormatter.currencySymbol,
@@ -438,6 +478,31 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                 ),
               ),
 
+              Container(
+                color: AppColors.primary.withOpacity(0.1),
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 20, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          AppLocalizations.of(context)!.fixedExpenseDeleteHint,
+                          style: TextStyle(
+                            color: AppColors.primary.withOpacity(0.7),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
               // Liste
               Expanded(
                 child: subscriptions.isEmpty
@@ -504,14 +569,10 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                       color: AppColors.textDark,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                                    onPressed: () => _deleteSubscription(sub.id),
-                                  ),
                                 ],
                               ),
                               onTap: () => _addOrUpdateSubscription(subscription: sub),
+                              onLongPress: () => _deleteSubscription(sub.id),
                             ),
                           );
                         },

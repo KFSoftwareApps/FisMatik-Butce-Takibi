@@ -62,7 +62,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
         title: Text(
           isEditing 
               ? AppLocalizations.of(context)!.edit 
-              : (isExpense ? "Taksitli Gider Ekle" : "Kredi Ekle"),
+              : (isExpense ? AppLocalizations.of(context)!.addInstallmentExpense : AppLocalizations.of(context)!.addCredit),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         content: SingleChildScrollView(
@@ -72,7 +72,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
               // Title Field
               _buildRoundedField(
                 controller: titleController,
-                label: isExpense ? "Gider Adı" : "Kredi/Kart Adı", // Kredi/Kart Adı
+                label: isExpense ? AppLocalizations.of(context)!.expenseName : AppLocalizations.of(context)!.creditName, // Kredi/Kart Adı
                 icon: Icons.credit_card,
               ),
               const SizedBox(height: 12),
@@ -80,7 +80,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
               // Total Amount
               _buildRoundedField(
                 controller: totalAmountController,
-                label: "Toplam Tutar",
+                label: AppLocalizations.of(context)!.totalAmount,
                 suffix: CurrencyFormatter.currencySymbol,
                 icon: Icons.attach_money,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -91,7 +91,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
               // Monthly Amount
               _buildRoundedField(
                 controller: monthlyAmountController,
-                label: "Aylık Taksit Tutarı",
+                label: AppLocalizations.of(context)!.monthlyInstallmentAmount,
                 suffix: CurrencyFormatter.currencySymbol,
                 icon: Icons.payment,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -104,7 +104,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                   Expanded(
                     child: _buildRoundedField(
                       controller: installmentCountController,
-                      label: "Toplam Taksit",
+                      label: AppLocalizations.of(context)!.totalInstallments,
                       keyboardType: TextInputType.number,
                       onChanged: (_) {
                          calculateMonthly();
@@ -119,7 +119,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                   Expanded(
                     child: _buildRoundedField(
                       controller: remainingController,
-                      label: "Kalan Taksit", // Kalan Taksit
+                      label: AppLocalizations.of(context)!.remainingInstallments, // Kalan Taksit
                       keyboardType: TextInputType.number,
                     ),
                   ),
@@ -130,7 +130,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
               // Payment Day
               _buildRoundedField(
                 controller: dayController,
-                label: "Ödeme Günü",
+                label: AppLocalizations.of(context)!.paymentDay,
                 icon: Icons.calendar_today,
                 keyboardType: TextInputType.number,
               ),
@@ -183,7 +183,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                 id: credit?.id ?? const Uuid().v4(),
                 userId: '',
                 title: isExpense && !titleController.text.startsWith('[') 
-                    ? "[Gider] ${titleController.text}" 
+                    ? "${AppLocalizations.of(context)!.prefixExpense} ${titleController.text}" 
                     : titleController.text,
                 totalAmount: total,
                 monthlyAmount: monthly > 0 ? monthly : (total / count),
@@ -215,7 +215,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text("Taksitler", style: const TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold)),
+        title: Text(AppLocalizations.of(context)!.installmentsTitle, style: const TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textDark),
@@ -239,12 +239,12 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                   Icon(Icons.credit_score, size: 80, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
                    Text(
-                    "Henüz taksit eklenmemiş",
+                    AppLocalizations.of(context)!.installmentsEmptyTitle,
                     style: TextStyle(fontSize: 18, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                    Text(
-                    "Başlamak için yeni ekleyin",
+                    AppLocalizations.of(context)!.installmentsEmptyDesc,
                     style: TextStyle(color: Colors.grey.shade500),
                   ),
                 ],
@@ -314,7 +314,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                     ),
                     if (!isCreditCard)
                       Text(
-                        "${credit.remainingInstallments} taksit kaldı",
+                        AppLocalizations.of(context)!.installmentsLeft(credit.remainingInstallments),
                         style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                       ),
                   ],
@@ -322,7 +322,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.edit, size: 20, color: Colors.grey),
-                onPressed: () => _showAddInstallmentDialog(credit: credit, isExpense: credit.title.startsWith('[Gider]')),
+                onPressed: () => _showAddInstallmentDialog(credit: credit, isExpense: credit.title.startsWith(AppLocalizations.of(context)!.prefixExpense)),
               ),
               IconButton(
                 icon: const Icon(Icons.delete, size: 20, color: Colors.redAccent),
@@ -330,11 +330,11 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
                    final confirm = await showDialog<bool>(
                      context: context, 
                      builder: (ctx) => AlertDialog(
-                       title: const Text("Sil"),
-                       content: const Text("Bu taksidi silmek istediğinize emin misiniz?"),
+                       title: Text(AppLocalizations.of(context)!.delete),
+                       content: Text(AppLocalizations.of(context)!.deleteCreditConfirm),
                        actions: [
-                         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("İptal")),
-                         ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Sil")),
+                         TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppLocalizations.of(context)!.cancel)),
+                         ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: Text(AppLocalizations.of(context)!.delete)),
                        ],
                      ),
                    );
@@ -353,7 +353,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Aylık Tutar", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(AppLocalizations.of(context)!.monthlyAmount, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   Text(
                     CurrencyFormatter.format(credit.monthlyAmount),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -363,7 +363,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text("Toplam", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(AppLocalizations.of(context)!.total, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   Text(
                     CurrencyFormatter.format(credit.totalAmount),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -511,7 +511,7 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
               ListTile(
                 leading: const Icon(Icons.calendar_month, color: Colors.blue, size: 28),
                 title: Text(AppLocalizations.of(context)!.addCreditInstallment, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("Kredi taksitlerini ekleyin"), // Kredi
+                subtitle: Text(AppLocalizations.of(context)!.creditInstallmentDesc), // Kredi
                 onTap: () {
                   Navigator.pop(context);
                   _showAddInstallmentDialog(isExpense: false);
@@ -520,8 +520,8 @@ class _InstallmentExpensesScreenState extends State<InstallmentExpensesScreen> {
               const Divider(indent: 16, endIndent: 16),
               ListTile(
                 leading: const Icon(Icons.shopping_bag, color: Colors.purple, size: 28),
-                title: const Text("Taksitli Gider Ekle", style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("Telefon, mobilya vb. taksitlerinizi ekleyin"),
+                title: Text(AppLocalizations.of(context)!.addInstallmentExpense, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(AppLocalizations.of(context)!.addInstallmentExpenseSub),
                 onTap: () {
                   Navigator.pop(context);
                   _showAddInstallmentDialog(isExpense: true);

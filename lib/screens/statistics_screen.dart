@@ -1068,9 +1068,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       if (isPdf) {
         DateTime start = filteredReceipts.last.date;
         DateTime end = filteredReceipts.first.date;
-        await reportService.generateAndSharePdfReport(filteredReceipts, start, end, title: AppLocalizations.of(context)!.statistics);
+        await reportService.generateAndSharePdfReport(filteredReceipts, start, end, AppLocalizations.of(context)!, title: AppLocalizations.of(context)!.statistics);
       } else {
-        await reportService.generateAndShareExcelReport(filteredReceipts);
+        await reportService.generateAndShareExcelReport(filteredReceipts, AppLocalizations.of(context)!);
       }
     } catch (e) {
       debugPrint("Rapor hatası: $e");

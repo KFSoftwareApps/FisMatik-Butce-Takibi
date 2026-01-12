@@ -267,7 +267,41 @@ class _FixedExpensesScreenState extends State<FixedExpensesScreen> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isEditing ? AppLocalizations.of(context)!.editExpense : AppLocalizations.of(context)!.newFixedExpense),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(isEditing ? AppLocalizations.of(context)!.editExpense : AppLocalizations.of(context)!.newFixedExpense),
+            if (isEditing)
+               IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                tooltip: 'Sil',
+                onPressed: () async {
+                   final confirm = await showDialog<bool>(
+                     context: context,
+                     builder: (c) => AlertDialog(
+                       title: const Text('Sil?'),
+                       content: const Text('Bu sabit gideri silmek istediğinize emin misiniz?'),
+                       actions: [
+                         TextButton(
+                           onPressed: () => Navigator.pop(c, false),
+                           child: const Text('İptal', style: TextStyle(color: Colors.grey)),
+                         ),
+                         TextButton(
+                           onPressed: () => Navigator.pop(c, true),
+                           child: const Text('Sil', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                         ),
+                       ],
+                     ),
+                   );
+
+                   if (confirm == true) {
+                     Navigator.pop(ctx);
+                     _deleteSubscription(subscription!.id);
+                   }
+                },
+              ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

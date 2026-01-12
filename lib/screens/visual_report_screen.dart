@@ -23,7 +23,7 @@ class VisualReportScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text("$formattedDate - Rapor"),
+        title: Text("$formattedDate${AppLocalizations.of(context)!.reportTitleSuffix}"),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textDark,
         elevation: 0,
@@ -35,7 +35,7 @@ class VisualReportScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           final data = snapshot.data ?? [];
-          if (data.isEmpty) return const Center(child: Text("Veri bulunamadı"));
+          if (data.isEmpty) return Center(child: Text(AppLocalizations.of(context)!.noDataFound));
 
           final total = data.fold(0.0, (s, e) => s + e.totalAmount);
           final categories = _calculateCategoryData(data);
@@ -47,11 +47,11 @@ class VisualReportScreen extends StatelessWidget {
               children: [
                 _buildTotalCard(context, total),
                 const SizedBox(height: 24),
-                Text("Harcama Dağılımı", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context)!.spendingDistribution, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 _buildPieChart(context, categories),
                 const SizedBox(height: 32),
-                Text("Kategori Detayları", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context)!.categoryDetails, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 _buildCategoryList(context, categories, total),
               ],
@@ -73,7 +73,7 @@ class VisualReportScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Text("Toplam Gider", style: TextStyle(color: Colors.white70, fontSize: 16)),
+          Text(AppLocalizations.of(context)!.totalExpense, style: const TextStyle(color: Colors.white70, fontSize: 16)),
           const SizedBox(height: 8),
           Text(
             CurrencyFormatter.format(total),

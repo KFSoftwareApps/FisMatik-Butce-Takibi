@@ -21,14 +21,13 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  bool _startWithDemoData = true; // Default to true for Apple review
+  bool _startWithDemoData = false; // Default false per user request
   bool _isInserting = false;
-
-
 
   Future<void> _completeOnboarding() async {
     setState(() => _isInserting = true);
     
+    // Demo data handling
     if (_startWithDemoData) {
       try {
         await DemoDataService().insertDemoData();
@@ -37,11 +36,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
     }
 
-    if (widget.onComplete != null) {
-      widget.onComplete!();
-      return;
-    }
-
+    // PERSISTENCE LOGIC (Moved up to ensure it runs before callback)
     final prefs = await SharedPreferences.getInstance();
     final user = Supabase.instance.client.auth.currentUser;
     
@@ -59,7 +54,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         debugPrint("Error syncing onboarding status: $e");
       }
     }
+
+    // 3. Callback / Navigation
+    if (widget.onComplete != null) {
+      widget.onComplete!();
+      return;
+    }
     
+    // Fallback navigation if no callback
     if (mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -79,6 +81,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _skipOnboarding() {
+    // Skip means no demo data
+    setState(() {
+      _startWithDemoData = false;
+    });
     _completeOnboarding();
   }
 
